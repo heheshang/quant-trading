@@ -165,6 +165,63 @@ pub struct JwtClaims {
     pub token_type: String,  // "access" or "refresh"
 }
 
+// ============ Strategy ============
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct StrategyResponse {
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub name: String,
+    pub description: String,
+    pub template_type: String,
+    pub parameters: serde_json::Value,
+    pub status: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateStrategyRequest {
+    pub name: String,
+    pub description: Option<String>,
+    pub template_type: String,
+    pub parameters: serde_json::Value,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateStrategyRequest {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub parameters: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateStatusRequest {
+    pub status: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TemplateInfo {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub category: String,
+    pub default_parameters: serde_json::Value,
+    pub parameter_schema: Vec<ParameterDef>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ParameterDef {
+    pub name: String,
+    pub param_type: String,
+    pub label: String,
+    pub description: String,
+    pub default: serde_json::Value,
+    pub min: Option<serde_json::Value>,
+    pub max: Option<serde_json::Value>,
+    pub options: Option<Vec<String>>,
+}
+
 // ============ WS ============
 
 #[derive(Debug, Deserialize)]

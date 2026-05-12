@@ -1,6 +1,6 @@
 use axum::{
     middleware,
-    routing::{get, post},
+    routing::{get, post, put},
     Router,
 };
 use quant_trading_backend::db::{init_db, run_migrations, DbPool};
@@ -92,6 +92,19 @@ fn create_router(db: DbPool, cors: CorsLayer) -> Router {
             quant_trading_backend::middleware::auth::auth_middleware,
         ));
 
+    // Strategy routes (authenticated)
+    let strategy_routes = Router::new()
+        .route("/strategies/templates", get(handlers::strategy::list_templates))
+        .route("/strategies", get(handlers::strategy::list_strategies))
+        .route("/strategies", post(handlers::strategy::create_strategy))
+        .route("/strategies/{id}", get(handlers::strategy::get_strategy))
+        .route("/strategies/{id}", put(handlers::strategy::update_strategy))
+        .route("/strategies/{id}", delete_handler(handlers::strategy::delete_strategy))
+        .route("/strategies/{id}/status", post(handlers::strategy::update_status))
+        .layer(middleware::from_fn(
+            quant_trading_backend::middleware::auth::auth_middleware,
+        ));
+
     // Public routes
     let public_routes = Router::new()
         .route("/health", get(handlers::ws::health_check))
@@ -101,6 +114,7 @@ fn create_router(db: DbPool, cors: CorsLayer) -> Router {
         .nest("/api/v1/auth", auth_routes)
         .nest("/api/v1/auth", auth_protected)
         .nest("/api/v1", user_routes)
+        .nest("/api/v1", strategy_routes)
         .nest("/api/v1", public_routes)
         .layer(cors)
         .layer(TraceLayer::new_for_http())

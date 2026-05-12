@@ -15,6 +15,9 @@ export {
   createStrategy,
   updateStrategy,
   deleteStrategy,
+  listTemplates,
+  getTemplate,
+  toggleStrategy,
   runBacktest,
   getBacktestResult,
 } from './strategies'

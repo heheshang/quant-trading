@@ -72,8 +72,8 @@ impl ApiError {
         use axum::http::StatusCode;
         match self.code {
             // 4xx
-            40001 | 40002 | 40003 => StatusCode::BAD_REQUEST,
-            40101 | 40102 | 40103 => StatusCode::UNAUTHORIZED,
+            40001..=40003 => StatusCode::BAD_REQUEST,
+            40101..=40103 => StatusCode::UNAUTHORIZED,
             40301 => StatusCode::FORBIDDEN,
             40401 => StatusCode::NOT_FOUND,
             40901 => StatusCode::CONFLICT,

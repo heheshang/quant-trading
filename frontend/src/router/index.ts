@@ -7,6 +7,8 @@ import AuthLayout from '@/layouts/AuthLayout.vue'
 import DashboardView from '@/views/dashboard/DashboardView.vue'
 import MarketView from '@/views/market/MarketView.vue'
 import StrategiesView from '@/views/strategy/StrategiesView.vue'
+import StrategyCreateView from '@/views/strategy/StrategyCreateView.vue'
+import StrategyEditView from '@/views/strategy/StrategyEditView.vue'
 import BacktestView from '@/views/backtest/BacktestView.vue'
 import TradingView from '@/views/trade/TradingView.vue'
 import PortfolioView from '@/views/portfolio/PortfolioView.vue'
@@ -72,6 +74,18 @@ const routes: RouteRecordRaw[] = [
         name: 'Strategies',
         component: StrategiesView,
         meta: { requiresAuth: true, title: '策略' },
+      },
+      {
+        path: 'strategies/create',
+        name: 'StrategyCreate',
+        component: StrategyCreateView,
+        meta: { requiresAuth: true, title: '新建策略' },
+      },
+      {
+        path: 'strategies/:id/edit',
+        name: 'StrategyEdit',
+        component: StrategyEditView,
+        meta: { requiresAuth: true, title: '编辑策略' },
       },
       {
         path: 'backtest',

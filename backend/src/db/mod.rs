@@ -1,3 +1,4 @@
+pub mod strategy;
 pub mod user;
 pub mod role;
 pub mod permission;
@@ -59,6 +60,21 @@ pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), sea_orm::DbEr
     );
     db.execute(stmt).await?;
 
+    // Create strategies table
+    let stmt = backend.build(
+        schema.create_table_from_entity(strategy::Entity)
+            .if_not_exists(),
+    );
+    db.execute(stmt).await?;
+
+    // Add description column to strategies table (migration for existing DBs)
+    let alter_sql = "ALTER TABLE strategies ADD COLUMN IF NOT EXISTS description VARCHAR(500) NOT NULL DEFAULT ''";
+    db.execute(sea_orm::Statement::from_string(
+        backend,
+        alter_sql.to_string(),
+    ))
+    .await?;
+
     info!("Database migrations completed");
 
     // Seed default roles if none exist
@@ -68,7 +84,6 @@ pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), sea_orm::DbEr
 }
 
 async fn seed_default_roles(db: &DatabaseConnection) -> Result<(), sea_orm::DbErr> {
-    use sea_orm::ColumnTrait;
 
     let count = role::Entity::find().count(db).await?;
 

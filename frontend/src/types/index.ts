@@ -111,14 +111,73 @@ export interface Depth {
 
 // ===== Strategy Types =====
 
-export interface StrategyFull {
+/** Strategy summary for list/dashboard display */
+export interface StrategySummary {
   id: number
   name: string
   description: string
-  parameters: Record<string, any>
+  pnl: number
+  sharpe: number
   status: 'active' | 'paused' | 'stopped'
+  template_type?: string
+  param_summary?: string
   created_at: string
   updated_at: string
+}
+
+/** Full strategy detail from API */
+export interface StrategyFull {
+  id: number
+  name: string
+  template_type: string
+  parameters: Record<string, any>
+  status: 'active' | 'paused' | 'stopped' | 'draft'
+  created_at: string
+  updated_at: string
+}
+
+/** Strategy parameter definition schema */
+export interface StrategyParamDef {
+  name: string
+  label: string
+  type: 'integer' | 'float' | 'select' | 'boolean' | 'string'
+  required: boolean
+  default?: any
+  min?: number
+  max?: number
+  options?: string[]
+  placeholder?: string
+  description?: string
+}
+
+/** Strategy template */
+export interface StrategyTemplate {
+  id: string
+  name: string
+  description: string
+  icon: string
+  category: string
+  params: StrategyParamDef[]
+}
+
+/** Create strategy payload */
+export interface CreateStrategyPayload {
+  name: string
+  template_type: string
+  parameters: Record<string, any>
+}
+
+/** Update strategy payload */
+export interface UpdateStrategyPayload {
+  name?: string
+  parameters?: Record<string, any>
+}
+
+/** Strategy paginated query params */
+export interface StrategyQueryParams {
+  status?: string
+  page?: number
+  size?: number
 }
 
 export interface BacktestParams {

@@ -7,7 +7,6 @@ use axum::{
     response::IntoResponse,
 };
 use futures::{SinkExt, StreamExt};
-use std::sync::Arc;
 use tokio::sync::broadcast;
 use tracing::{info, warn};
 
@@ -26,6 +25,12 @@ impl WsManager {
     }
 }
 
+impl Default for WsManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// GET /api/v1/ws — upgrade to WebSocket connection (JWT auth required)
 pub async fn ws_handler(
     ws: WebSocketUpgrade,
@@ -39,7 +44,7 @@ pub async fn ws_handler(
     Ok(ws.on_upgrade(move |socket| handle_socket(socket, claims.jti)))
 }
 
-async fn handle_socket(mut socket: WebSocket, _session_id: String) {
+async fn handle_socket(socket: WebSocket, _session_id: String) {
     info!("WebSocket connection established");
 
     // Simple echo for now — will expand to market data subscription

@@ -1,7 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
-import { createRouter, createWebHistory } from 'vue-router'
-import { createPinia, setActivePinia } from 'pinia'
 import ElementPlus from 'element-plus'
 import LoginView from '@/views/dashboard/LoginView.vue'
 
@@ -24,10 +22,6 @@ vi.mock('@/stores/auth', () => ({
 }))
 
 describe('LoginView', () => {
-  beforeEach(() => {
-    setActivePinia(createPinia())
-  })
-
   it('renders login form', async () => {
     const wrapper = mount(LoginView, {
       global: {
@@ -40,7 +34,8 @@ describe('LoginView', () => {
     })
 
     expect(wrapper.find('.login-view').exists()).toBe(true)
-    expect(wrapper.find('.form-title').text()).toContain('Sign In')
+    expect(wrapper.find('.brand-name').text()).toContain('Quant Trading')
+    expect(wrapper.find('.form-title').text()).toContain('Welcome back')
   })
 
   it('has username and password fields', async () => {
@@ -55,5 +50,7 @@ describe('LoginView', () => {
     })
 
     expect(wrapper.find('form').exists()).toBe(true)
+    expect(wrapper.find('.brand-section').exists()).toBe(true)
+    expect(wrapper.find('.submit-btn').exists()).toBe(true)
   })
 })
