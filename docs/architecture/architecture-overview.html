@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>量化交易系统 — 系统架构总览</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #020617;
+  color: #e2e8f0;
+  font-family: 'JetBrains Mono', monospace;
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.container { max-width: 1400px; width: 100%; }
+.header {
+  display: flex; align-items: center; gap: 16px; margin-bottom: 32px;
+}
+.header h1 { font-size: 28px; font-weight: 700; color: #f1f5f9; }
+.header .subtitle { font-size: 13px; color: #64748b; margin-top: 4px; }
+.pulse-dot {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: #22d3ee; box-shadow: 0 0 12px #22d3ee;
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.85); }
+}
+.diagram-card {
+  background: #0f172a; border: 1px solid #1e293b;
+  border-radius: 12px; padding: 32px; margin-bottom: 24px;
+}
+svg { width: 100%; height: auto; display: block; }
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+.card {
+  background: #0f172a; border: 1px solid #1e293b; border-radius: 10px; padding: 20px;
+}
+.card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.card-dot { width: 8px; height: 8px; border-radius: 50%; }
+.card-dot.cyan { background: #22d3ee; }
+.card-dot.emerald { background: #34d399; }
+.card-dot.violet { background: #a78bfa; }
+.card h3 { font-size: 14px; font-weight: 600; color: #e2e8f0; }
+.card li { font-size: 12px; color: #94a3b8; line-height: 1.8; list-style: none; }
+.card li::before { content: "▸ "; color: #475569; }
+.footer { text-align: center; font-size: 11px; color: #475569; padding: 16px 0; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="pulse-dot"></div>
+    <div>
+      <h1>量化交易系统 · 系统架构总览</h1>
+      <div class="subtitle">Quant Trading System — Architecture Overview v1.0</div>
+    </div>
+  </div>
+
+  <div class="diagram-card">
+    <svg viewBox="0 0 1200 900" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <!-- Background Grid -->
+        <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+          <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.5"/>
+        </pattern>
+        <!-- Arrowhead markers -->
+        <marker id="arrow-cyan" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M 0 0 L 10 5 L 0 10 Z" fill="#22d3ee"/>
+        </marker>
+        <marker id="arrow-emerald" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M 0 0 L 10 5 L 0 10 Z" fill="#34d399"/>
+        </marker>
+        <marker id="arrow-violet" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M 0 0 L 10 5 L 0 10 Z" fill="#a78bfa"/>
+        </marker>
+        <marker id="arrow-slate" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M 0 0 L 10 5 L 0 10 Z" fill="#94a3b8"/>
+        </marker>
+      </defs>
+
+      <!-- Grid background -->
+      <rect width="1200" height="900" fill="url(#grid)"/>
+
+      <!-- ===== ARROWS (z-order: drawn first, behind all boxes) ===== -->
+
+      <!-- Layer 1 → Layer 2: FE to API Gateway -->
+      <line x1="180" y1="145" x2="180" y2="195" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrow-cyan)"/>
+      <line x1="600" y1="145" x2="600" y2="195" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrow-cyan)" stroke-dasharray="4,3"/>
+
+      <!-- Layer 2 → Layer 3: API Gateway to Backend REST -->
+      <line x1="240" y1="275" x2="240" y2="325" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrow-emerald)"/>
+      <!-- WS endpoint -->
+      <line x1="600" y1="275" x2="600" y2="325" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrow-emerald)"/>
+
+      <!-- Backend → Data layer -->
+      <line x1="180" y1="585" x2="180" y2="645" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrow-violet)"/>
+      <line x1="360" y1="585" x2="360" y2="645" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrow-violet)"/>
+      <line x1="540" y1="585" x2="540" y2="645" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrow-violet)"/>
+
+      <!-- Backend → Exchange -->
+      <line x1="840" y1="455" x2="1000" y2="455" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow-slate)"/>
+
+      <!-- Redis Pub/Sub inner arrows (visual) -->
+      <line x1="680" y1="695" x2="680" y2="585" stroke="#fb923c" stroke-width="1" stroke-dasharray="3,3" marker-end="url(#arrow-violet)"/>
+
+      <!-- ===== LAYER BOUNDARIES ===== -->
+      <!-- Layer 1 - Client -->
+      <rect x="20" y="30" width="1160" height="130" rx="12" fill="none" stroke="#22d3ee" stroke-width="1" stroke-dasharray="8,4" opacity="0.3"/>
+      <text x="35" y="55" font-size="9" fill="#22d3ee" opacity="0.6">CLIENT LAYER</text>
+
+      <!-- Layer 2 - Gateway -->
+      <rect x="20" y="190" width="1160" height="100" rx="12" fill="none" stroke="#fb923c" stroke-width="1" stroke-dasharray="8,4" opacity="0.3"/>
+      <text x="35" y="210" font-size="9" fill="#fb923c" opacity="0.6">GATEWAY LAYER</text>
+
+      <!-- Layer 3 - Application -->
+      <rect x="20" y="320" width="1160" height="280" rx="12" fill="none" stroke="#34d399" stroke-width="1" stroke-dasharray="8,4" opacity="0.3"/>
+      <text x="35" y="340" font-size="9" fill="#34d399" opacity="0.6">APPLICATION LAYER (Rust + Axum)</text>
+
+      <!-- Layer 4 - Data -->
+      <rect x="20" y="640" width="1160" height="110" rx="12" fill="none" stroke="#a78bfa" stroke-width="1" stroke-dasharray="8,4" opacity="0.3"/>
+      <text x="35" y="658" font-size="9" fill="#a78bfa" opacity="0.6">DATA LAYER</text>
+
+      <!-- Layer 5 - External -->
+      <rect x="920" y="410" width="260" height="100" rx="12" fill="none" stroke="#94a3b8" stroke-width="1" stroke-dasharray="8,4" opacity="0.3"/>
+      <text x="935" y="428" font-size="9" fill="#94a3b8" opacity="0.6">EXTERNAL</text>
+
+      <!-- ===== LAYER 1: CLIENT ===== -->
+      <!-- Box background (opaque) -->
+      <rect x="100" y="70" width="180" height="70" rx="6" fill="#0f172a"/>
+      <!-- Box fill -->
+      <rect x="100" y="70" width="180" height="70" rx="6" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="190" y="98" text-anchor="middle" font-size="12" fill="#e2e8f0" font-weight="600">Vue 3 SPA</text>
+      <text x="190" y="114" text-anchor="middle" font-size="9" fill="#94a3b8">Element Plus · Pinia</text>
+      <text x="190" y="128" text-anchor="middle" font-size="9" fill="#94a3b8">Axios · ECharts</text>
+
+      <!-- WebSocket connection label -->
+      <rect x="480" y="75" width="240" height="60" rx="6" fill="#0f172a"/>
+      <rect x="480" y="75" width="240" height="60" rx="6" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1.5" stroke-dasharray="4,3"/>
+      <text x="600" y="100" text-anchor="middle" font-size="11" fill="#22d3ee">WebSocket Client</text>
+      <text x="600" y="118" text-anchor="middle" font-size="9" fill="#94a3b8">Real-time market data</text>
+
+      <!-- ===== LAYER 2: GATEWAY ===== -->
+      <rect x="140" y="215" width="200" height="50" rx="6" fill="#0f172a"/>
+      <rect x="140" y="215" width="200" height="50" rx="6" fill="rgba(251,146,60,0.3)" stroke="#fb923c" stroke-width="1.5"/>
+      <text x="240" y="238" text-anchor="middle" font-size="11" fill="#fb923c">Nginx / Caddy Reverse Proxy</text>
+      <text x="240" y="254" text-anchor="middle" font-size="8" fill="#94a3b8">TLS · Rate Limit · Static Assets</text>
+
+      <rect x="480" y="215" width="200" height="50" rx="6" fill="#0f172a"/>
+      <rect x="480" y="215" width="200" height="50" rx="6" fill="rgba(251,146,60,0.3)" stroke="#fb923c" stroke-width="1.5"/>
+      <text x="580" y="238" text-anchor="middle" font-size="11" fill="#fb923c">WebSocket Upgrade Proxy</text>
+      <text x="580" y="254" text-anchor="middle" font-size="8" fill="#94a3b8">Connection Management</text>
+
+      <!-- ===== LAYER 3: APPLICATION ===== -->
+
+      <!-- REST Handlers -->
+      <rect x="40" y="355" width="160" height="60" rx="6" fill="#0f172a"/>
+      <rect x="40" y="355" width="160" height="60" rx="6" fill="rgba(6,78,59,0.4)" stroke="#34d399" stroke-width="1.5"/>
+      <text x="120" y="380" text-anchor="middle" font-size="11" fill="#34d399">Auth Handler</text>
+      <text x="120" y="397" text-anchor="middle" font-size="8" fill="#94a3b8">register/login/refresh/logout</text>
+
+      <rect x="220" y="355" width="160" height="60" rx="6" fill="#0f172a"/>
+      <rect x="220" y="355" width="160" height="60" rx="6" fill="rgba(6,78,59,0.4)" stroke="#34d399" stroke-width="1.5"/>
+      <text x="300" y="380" text-anchor="middle" font-size="11" fill="#34d399">Market Handler</text>
+      <text x="300" y="397" text-anchor="middle" font-size="8" fill="#94a3b8">kline/ticker/depth</text>
+
+      <rect x="400" y="355" width="160" height="60" rx="6" fill="#0f172a"/>
+      <rect x="400" y="355" width="160" height="60" rx="6" fill="rgba(6,78,59,0.4)" stroke="#34d399" stroke-width="1.5"/>
+      <text x="480" y="380" text-anchor="middle" font-size="11" fill="#34d399">Strategy Handler</text>
+      <text x="480" y="397" text-anchor="middle" font-size="8" fill="#94a3b8">CRUD · start/stop</text>
+
+      <rect x="580" y="355" width="160" height="60" rx="6" fill="#0f172a"/>
+      <rect x="580" y="355" width="160" height="60" rx="6" fill="rgba(6,78,59,0.4)" stroke="#34d399" stroke-width="1.5"/>
+      <text x="660" y="380" text-anchor="middle" font-size="11" fill="#34d399">Backtest Handler</text>
+      <text x="660" y="397" text-anchor="middle" font-size="8" fill="#94a3b8">run · result query</text>
+
+      <rect x="760" y="355" width="160" height="60" rx="6" fill="#0f172a"/>
+      <rect x="760" y="355" width="160" height="60" rx="6" fill="rgba(6,78,59,0.4)" stroke="#34d399" stroke-width="1.5"/>
+      <text x="840" y="380" text-anchor="middle" font-size="11" fill="#34d399">Trade Handler</text>
+      <text x="840" y="397" text-anchor="middle" font-size="8" fill="#94a3b8">orders/portfolio/admin</text>
+
+      <!-- Middleware (spanning across) -->
+      <rect x="40" y="435" width="880" height="35" rx="6" fill="#0f172a"/>
+      <rect x="40" y="435" width="880" height="35" rx="6" fill="rgba(136,19,55,0.4)" stroke="#fb7185" stroke-width="1.5"/>
+      <text x="480" y="456" text-anchor="middle" font-size="10" fill="#fb7185">JWT Auth Middleware · RBAC Check · Rate Limiter · Tracing Middleware</text>
+
+      <!-- Services Layer -->
+      <rect x="40" y="490" width="200" height="50" rx="6" fill="#0f172a"/>
+      <rect x="40" y="490" width="200" height="50" rx="6" fill="rgba(6,78,59,0.4)" stroke="#34d399" stroke-width="1.5"/>
+      <text x="140" y="512" text-anchor="middle" font-size="10" fill="#e2e8f0">Market Data Service</text>
+      <text x="140" y="528" text-anchor="middle" font-size="8" fill="#94a3b8">Multi-exchange connector</text>
+
+      <rect x="260" y="490" width="200" height="50" rx="6" fill="#0f172a"/>
+      <rect x="260" y="490" width="200" height="50" rx="6" fill="rgba(6,78,59,0.4)" stroke="#34d399" stroke-width="1.5"/>
+      <text x="360" y="512" text-anchor="middle" font-size="10" fill="#e2e8f0">Strategy Engine</text>
+      <text x="360" y="528" text-anchor="middle" font-size="8" fill="#94a3b8">Isolated sandbox · 20+ instances</text>
+
+      <rect x="480" y="490" width="200" height="50" rx="6" fill="#0f172a"/>
+      <rect x="480" y="490" width="200" height="50" rx="6" fill="rgba(6,78,59,0.4)" stroke="#34d399" stroke-width="1.5"/>
+      <text x="580" y="512" text-anchor="middle" font-size="10" fill="#e2e8f0">Backtest Engine</text>
+      <text x="580" y="528" text-anchor="middle" font-size="8" fill="#94a3b8">Sim-cost + slippage</text>
+
+      <rect x="700" y="490" width="200" height="50" rx="6" fill="#0f172a"/>
+      <rect x="700" y="490" width="200" height="50" rx="6" fill="rgba(6,78,59,0.4)" stroke="#34d399" stroke-width="1.5"/>
+      <text x="800" y="512" text-anchor="middle" font-size="10" fill="#e2e8f0">Risk Manager</text>
+      <text x="800" y="528" text-anchor="middle" font-size="8" fill="#94a3b8">VaR · Max Drawdown · Leverage</text>
+
+      <!-- Exchange connector box -->
+      <rect x="960" y="440" width="200" height="45" rx="6" fill="#0f172a"/>
+      <rect x="960" y="440" width="200" height="45" rx="6" fill="rgba(30,41,59,0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+      <text x="1060" y="462" text-anchor="middle" font-size="10" fill="#94a3b8">Exchange APIs</text>
+      <text x="1060" y="476" text-anchor="middle" font-size="8" fill="#64748b">Binance · OKX · Bybit</text>
+
+      <!-- ===== LAYER 4: DATA ===== -->
+      <rect x="80" y="665" width="220" height="65" rx="6" fill="#0f172a"/>
+      <rect x="80" y="665" width="220" height="65" rx="6" fill="rgba(76,29,149,0.4)" stroke="#a78bfa" stroke-width="1.5"/>
+      <text x="190" y="693" text-anchor="middle" font-size="11" fill="#a78bfa">PostgreSQL 16</text>
+      <text x="190" y="710" text-anchor="middle" font-size="8" fill="#94a3b8">users · strategies · orders</text>
+      <text x="190" y="722" text-anchor="middle" font-size="8" fill="#94a3b8">kline_data · trades · positions</text>
+
+      <rect x="340" y="665" width="200" height="65" rx="6" fill="#0f172a"/>
+      <rect x="340" y="665" width="200" height="65" rx="6" fill="rgba(76,29,149,0.4)" stroke="#a78bfa" stroke-width="1.5"/>
+      <text x="440" y="693" text-anchor="middle" font-size="11" fill="#a78bfa">Redis 7</text>
+      <text x="440" y="710" text-anchor="middle" font-size="8" fill="#94a3b8">Market cache · Token blacklist</text>
+      <text x="440" y="722" text-anchor="middle" font-size="8" fill="#94a3b8">Pub/Sub · Session store</text>
+
+      <rect x="580" y="665" width="240" height="65" rx="6" fill="#0f172a"/>
+      <rect x="580" y="665" width="240" height="65" rx="6" fill="rgba(251,146,60,0.3)" stroke="#fb923c" stroke-width="1.5"/>
+      <text x="700" y="693" text-anchor="middle" font-size="11" fill="#fb923c">Redis Pub/Sub Bus</text>
+      <text x="700" y="710" text-anchor="middle" font-size="8" fill="#94a3b8">Strategy status · Market data events</text>
+      <text x="700" y="722" text-anchor="middle" font-size="8" fill="#94a3b8">Risk alerts</text>
+
+      <!-- ===== LEGEND ===== -->
+      <g transform="translate(40, 790)">
+        <rect x="0" y="0" width="1120" height="70" rx="8" fill="#0f172a" stroke="#1e293b" stroke-width="1"/>
+        <text x="20" y="22" font-size="10" fill="#64748b" font-weight="600">图例</text>
+
+        <rect x="20" y="30" width="14" height="14" rx="3" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+        <text x="42" y="42" font-size="9" fill="#94a3b8">Frontend</text>
+
+        <rect x="130" y="30" width="14" height="14" rx="3" fill="rgba(6,78,59,0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="152" y="42" font-size="9" fill="#94a3b8">Backend (Rust)</text>
+
+        <rect x="260" y="30" width="14" height="14" rx="3" fill="rgba(76,29,149,0.4)" stroke="#a78bfa" stroke-width="1.5"/>
+        <text x="282" y="42" font-size="9" fill="#94a3b8">Database</text>
+
+        <rect x="370" y="30" width="14" height="14" rx="3" fill="rgba(136,19,55,0.4)" stroke="#fb7185" stroke-width="1.5"/>
+        <text x="392" y="42" font-size="9" fill="#94a3b8">Security/Middleware</text>
+
+        <rect x="530" y="30" width="14" height="14" rx="3" fill="rgba(251,146,60,0.3)" stroke="#fb923c" stroke-width="1.5"/>
+        <text x="552" y="42" font-size="9" fill="#94a3b8">Message Bus</text>
+
+        <rect x="670" y="30" width="14" height="14" rx="3" fill="rgba(30,41,59,0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+        <text x="692" y="42" font-size="9" fill="#94a3b8">External</text>
+
+        <line x1="800" y1="37" x2="860" y2="37" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4,3"/>
+        <text x="870" y="42" font-size="9" fill="#94a3b8">WebSocket</text>
+
+        <line x1="980" y1="37" x2="1040" y2="37" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrow-cyan)"/>
+        <text x="1050" y="42" font-size="9" fill="#94a3b8">Data Flow</text>
+      </g>
+    </svg>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-dot cyan"></div>
+        <h3>核心技术栈</h3>
+      </div>
+      <ul>
+        <li>前端: Vue 3 + Composition API + TypeScript strict</li>
+        <li>UI: Element Plus · 图表: ECharts + Lightweight-charts</li>
+        <li>后端: Rust 2024 + Axum · ORM: SeaORM/SQLx</li>
+        <li>数据库: PostgreSQL 16 (主) + Redis 7 (缓存/PubSub)</li>
+        <li>实时通信: WebSocket (tokio-tungstenite)</li>
+        <li>容器化: Docker + docker-compose</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-dot emerald"></div>
+        <h3>核心数据流</h3>
+      </div>
+      <ul>
+        <li>行情: Exchange → Market Data Collector → Redis Cache → WS Push</li>
+        <li>策略: Strategy Engine ↔ Redis Pub/Sub ↔ Market Data Service</li>
+        <li>交易: Strategy Engine → Risk Manager → Order Service → Exchange</li>
+        <li>回测: Backtest Runner → Historical DB → Results → PostgreSQL</li>
+        <li>用户: Client → REST API → Auth Middleware → Handlers → DB</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-dot violet"></div>
+        <h3>架构特性</h3>
+      </div>
+      <ul>
+        <li>水平扩展: 无状态 REST handlers, 可多实例部署</li>
+        <li>策略隔离: 每个策略独立 tokio task, 带超时/内存沙箱</li>
+        <li>实时性: WebSocket 推送延迟 &lt;500ms</li>
+        <li>高可用: Redis哨兵, PG流复制, 降级策略</li>
+        <li>安全: JWT 15min + refresh 7d + jti 黑名单</li>
+        <li>限流: 100 req/min per user</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="footer">量化交易系统 · Architecture Review v1.0 · 2026-05-12</div>
+</div>
+</body>
+</html>

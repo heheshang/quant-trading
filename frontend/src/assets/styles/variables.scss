@@ -1,0 +1,220 @@
+// Design System Variables - Dark Finance Terminal Theme
+// Based on Design_QuantTrading_UI.md spec
+
+:root {
+  // Base colors
+  --color-bg: #08090a;
+  --color-surface: #191a1b;
+  --color-surface-elevated: #212223;
+  --color-deep-bg: #050607;
+
+  // Text colors
+  --color-text-primary: #f7f8f8;
+  --color-text-secondary: #d0d6e0;
+  --color-text-tertiary: #8a8f98;
+
+  // Accent
+  --color-accent: #7170ff;
+  --color-accent-hover: #8b8aff;
+
+  // Borders
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-hover: rgba(255, 255, 255, 0.16);
+
+  // Semantic colors
+  --color-error: #e5484d;
+  --color-success: #10b981;
+  --color-warning: #f5a623;
+  --color-info: #60a5fa;
+
+  // Trading specific
+  --color-buy: #10b981;
+  --color-sell: #e5484d;
+  --color-buy-bg: rgba(16, 185, 129, 0.1);
+  --color-sell-bg: rgba(229, 72, 77, 0.1);
+  --color-chart-grid: rgba(255, 255, 255, 0.06);
+  --color-chart-crosshair: rgba(255, 255, 255, 0.25);
+  --color-vol-buy: rgba(16, 185, 129, 0.5);
+  --color-vol-sell: rgba(229, 72, 77, 0.5);
+  --color-price-up: #10b981;
+  --color-price-down: #e5484d;
+  --color-price-flat: #8a8f98;
+  --color-ticker-row-hover: rgba(113, 112, 255, 0.05);
+  --color-sidebar-active: rgba(113, 112, 255, 0.12);
+  --color-stat-positive: #10b981;
+  --color-stat-negative: #e5484d;
+  --color-stat-neutral: #d0d6e0;
+
+  // Element Plus overrides
+  --el-color-primary: #7170ff;
+  --el-color-primary-light-3: #8b8aff;
+  --el-color-primary-dark-2: #5050e0;
+  --el-bg-color: #08090a;
+  --el-bg-color-overlay: #191a1b;
+  --el-text-color-primary: #f7f8f8;
+  --el-text-color-regular: #d0d6e0;
+  --el-text-color-secondary: #8a8f98;
+  --el-border-color: rgba(255, 255, 255, 0.08);
+  --el-border-color-hover: rgba(255, 255, 255, 0.16);
+  --el-fill-color: #191a1b;
+  --el-fill-color-blank: #191a1b;
+  --el-mask-color: rgba(0, 0, 0, 0.6);
+  --el-border-radius-base: 8px;
+  --el-font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  // Fonts
+  --font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+
+  // Layout
+  --sidebar-width: 240px;
+  --header-height: 48px;
+  --layout-padding: 24px;
+  --content-max-width: 1344px;
+  --layout-padding-desktop: 24px;
+  --layout-padding-mobile: 16px;
+}
+
+// SCSS variables (for use in SCSS calculations)
+$sidebar-width: 240px;
+$sidebar-collapsed-width: 64px;
+$header-height: 48px;
+$layout-padding-desktop: 24px;
+$layout-padding-mobile: 16px;
+$content-max-width: 1344px;
+$font-family-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+$font-family-mono: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+
+// Global resets
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#app {
+  width: 100%;
+  max-width: 100%;
+  min-height: 100vh;
+  margin: 0;
+  text-align: left;
+  border: none;
+}
+
+// Element Plus dark theme adjustments
+.el-input__wrapper {
+  background: var(--color-surface) !important;
+  box-shadow: 0 0 0 1px var(--color-border) inset !important;
+}
+
+.el-input__wrapper.is-focus {
+  box-shadow: 0 0 0 1px var(--color-accent) inset !important;
+}
+
+.el-button--primary {
+  --el-button-bg-color: var(--color-accent);
+  --el-button-border-color: var(--color-accent);
+  --el-button-hover-bg-color: var(--color-accent-hover);
+  --el-button-hover-border-color: var(--color-accent-hover);
+  --el-button-active-bg-color: var(--color-accent);
+  --el-button-active-border-color: var(--color-accent);
+}
+
+.el-button--primary.is-disabled {
+  --el-button-disabled-bg-color: #62666d;
+  --el-button-disabled-border-color: #62666d;
+}
+
+.el-checkbox__inner {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+}
+
+.el-checkbox__input.is-checked .el-checkbox__inner {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.el-message {
+  --el-message-bg-color: var(--color-surface-elevated);
+  --el-message-border-color: var(--color-border);
+  --el-message-text-color: var(--color-text-primary);
+}
+
+.el-dialog {
+  --el-dialog-bg-color: var(--color-surface);
+  --el-dialog-title-font-size: 16px;
+}
+
+.el-table {
+  --el-table-bg-color: var(--color-surface);
+  --el-table-tr-bg-color: var(--color-surface);
+  --el-table-header-bg-color: transparent;
+  --el-table-row-hover-bg-color: rgba(255, 255, 255, 0.02);
+  --el-table-border-color: var(--color-border);
+  --el-table-text-color: var(--color-text-primary);
+  --el-table-header-text-color: var(--color-text-tertiary);
+}
+
+.el-select-dropdown {
+  --el-select-dropdown-bg: var(--color-surface-elevated);
+  --el-select-dropdown-border: var(--color-border);
+}
+
+.el-switch {
+  --el-switch-on-color: var(--color-accent);
+  --el-switch-off-color: #62666d;
+}
+
+.el-tag--danger {
+  --el-tag-bg-color: var(--color-sell-bg);
+  --el-tag-border-color: transparent;
+  --el-tag-text-color: var(--color-sell);
+}
+
+.el-tag--success {
+  --el-tag-bg-color: var(--color-buy-bg);
+  --el-tag-border-color: transparent;
+  --el-tag-text-color: var(--color-buy);
+}
+
+.el-tag--warning {
+  --el-tag-bg-color: rgba(245, 166, 35, 0.15);
+  --el-tag-border-color: transparent;
+  --el-tag-text-color: var(--color-warning);
+}
+
+.el-empty__description p {
+  color: var(--color-text-tertiary);
+}
+
+// Scrollbar
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}

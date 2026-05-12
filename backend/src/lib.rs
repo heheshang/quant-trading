@@ -1,0 +1,12 @@
+pub mod config;
+pub mod db;
+pub mod handlers;
+pub mod middleware;
+pub mod models;
+pub mod services;
+pub mod utils;
+
+use config::Config;
+use std::sync::LazyLock;
+
+pub static CONFIG: LazyLock<Config> = LazyLock::new(Config::from_env);

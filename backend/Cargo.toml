@@ -1,0 +1,72 @@
+[package]
+name = "quant-trading-backend"
+version = "0.1.0"
+edition = "2021"
+description = "Quantitative Trading System Backend"
+rust-version = "1.85"
+
+[dependencies]
+# Web framework
+axum = { version = "0.8", features = ["ws"] }
+axum-extra = { version = "0.10", features = ["typed-header"] }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Async streams
+futures = "0.3"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Database
+sea-orm = { version = "1", features = [
+    "sqlx-postgres",
+    "macros",
+    "runtime-tokio-rustls",
+    "with-json",
+    "with-chrono",
+    "with-uuid",
+] }
+
+# Auth
+jsonwebtoken = "9"
+bcrypt = "0.16"
+
+# HTTP middleware
+tower-http = { version = "0.6", features = ["cors", "trace"] }
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
+
+# WebSocket
+tokio-tungstenite = { version = "0.26", features = ["rustls"] }
+
+# UUID
+uuid = { version = "1", features = ["v4", "serde"] }
+
+# Date/Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Secrets
+secrecy = "0.10"
+
+# Environment
+dotenvy = "0.15"
+
+# Error handling
+thiserror = "2"
+anyhow = "1"
+
+[dev-dependencies]
+rstest = "0.24"
+tokio-test = "0.4"
+axum-test = "16"
+tracing-test = "0.2"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1

@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>量化交易系统 - 交互原型</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #08090a;
+    --surface: #191a1b;
+    --surface-elevated: #212223;
+    --text-primary: #f7f8f8;
+    --text-secondary: #d0d6e0;
+    --text-tertiary: #8a8f98;
+    --text-muted: #62666d;
+    --accent: #7170ff;
+    --accent-hover: #8b8aff;
+    --accent-bg: rgba(113,112,255,0.12);
+    --border: rgba(255,255,255,0.08);
+    --border-hover: rgba(255,255,255,0.16);
+    --error: #E5484D;
+    --success: #10b981;
+    --warning: #F5A623;
+    --buy: #10b981;
+    --buy-bg: rgba(16,185,129,0.1);
+    --sell: #E5484D;
+    --sell-bg: rgba(229,72,77,0.1);
+    --chart-grid: rgba(255,255,255,0.06);
+    --sidebar-active: rgba(113,112,255,0.12);
+    --sidebar-width: 240px;
+    --header-height: 48px;
+    --radius: 8px;
+    --radius-sm: 6px;
+    --font: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+  }
+  html { font-size: 16px; }
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text-primary);
+    overflow: hidden;
+    height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: 'cv01', 'ss03';
+  }
+
+  /* === App Shell === */
+  .app { display: flex; height: 100vh; }
+  .sidebar {
+    width: var(--sidebar-width);
+    min-width: var(--sidebar-width);
+    background: var(--bg);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .sidebar-logo {
+    height: var(--header-height);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar-logo svg { width: 22px; height: 22px; }
+  .sidebar-logo span { font-size: 15px; font-weight: 600; color: var(--text-primary); letter-spacing: -0.3px; }
+  .sidebar-nav { flex: 1; padding: 8px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+  .nav-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 0 12px; height: 38px; border-radius: var(--radius-sm);
+    font-size: 14px; font-weight: 510; color: var(--text-tertiary);
+    cursor: pointer; transition: all 0.15s ease;
+    text-decoration: none; user-select: none;
+  }
+  .nav-item:hover { background: rgba(255,255,255,0.04); color: var(--text-secondary); }
+  .nav-item.active { background: var(--sidebar-active); color: var(--accent); }
+  .nav-item.active svg { color: var(--accent); }
+  .nav-item svg { width: 18px; height: 18px; flex-shrink: 0; color: var(--text-tertiary); }
+  .nav-item:hover svg { color: var(--text-secondary); }
+  .sidebar-spacer { flex: 1; }
+  .sidebar-footer { padding: 8px; border-top: 1px solid var(--border); }
+
+  /* === Main Area === */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+  .header {
+    height: var(--header-height); min-height: var(--header-height);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px; border-bottom: 1px solid var(--border);
+    background: var(--bg);
+  }
+  .breadcrumb { font-size: 13px; color: var(--text-tertiary); }
+  .breadcrumb span { color: var(--text-primary); font-weight: 510; }
+  .breadcrumb .sep { margin: 0 8px; color: var(--text-tertiary); }
+  .header-actions { display: flex; align-items: center; gap: 12px; }
+  .theme-btn {
+    width: 32px; height: 32px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); background: transparent;
+    color: var(--text-tertiary); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+  .theme-btn:hover { background: rgba(255,255,255,0.04); color: var(--text-secondary); }
+  .avatar {
+    width: 28px; height: 28px; border-radius: var(--radius-sm);
+    background: var(--accent); color: white;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+
+  /* === Page Content === */
+  .content {
+    flex: 1; overflow-y: auto; padding: 24px;
+    max-width: 1344px;
+  }
+
+  /* === Page head === */
+  .page-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  .page-title { font-size: 20px; font-weight: 590; letter-spacing: -0.24px; }
+
+  /* === Stat Cards === */
+  .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 20px; display: flex; flex-direction: column; gap: 4px;
+  }
+  .stat-label { font-size: 13px; color: var(--text-tertiary); display: flex; align-items: center; gap: 8px; }
+  .stat-label svg { width: 18px; height: 18px; }
+  .stat-value { font-size: 28px; font-weight: 600; font-family: var(--font-mono); line-height: 1.2; }
+  .stat-change { font-size: 12px; display: flex; align-items: center; gap: 4px; }
+  .stat-change.up { color: var(--buy); }
+  .stat-change.down { color: var(--sell); }
+  .stat-change.flat { color: var(--text-tertiary); }
+
+  /* === Chart Containers === */
+  .chart-row { display: flex; gap: 16px; margin-bottom: 20px; }
+  .chart-panel {
+    flex: 1; background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px; min-height: 340px;
+    position: relative;
+  }
+  .chart-title { font-size: 14px; font-weight: 510; color: var(--text-secondary); margin-bottom: 12px; }
+  .chart-box { width: 100%; height: 280px; }
+
+  /* === Table === */
+  .table-panel {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    overflow: hidden; margin-bottom: 20px;
+  }
+  .table-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px; border-bottom: 1px solid var(--border);
+  }
+  .table-header h3 { font-size: 14px; font-weight: 510; color: var(--text-secondary); }
+  .table-header a { font-size: 13px; color: var(--accent); text-decoration: none; cursor: pointer; }
+  .table-header a:hover { color: var(--accent-hover); }
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    font-size: 12px; font-weight: 510; color: var(--text-tertiary);
+    text-align: left; padding: 8px 20px; border-bottom: 1px solid var(--border);
+  }
+  thead th:last-child, tbody td:last-child { text-align: right; }
+  thead th:nth-child(2), tbody td:nth-child(2) { text-align: right; }
+  tbody td {
+    font-size: 13px; color: var(--text-secondary); padding: 10px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.03); font-family: var(--font-mono);
+  }
+  tbody tr:hover { background: rgba(255,255,255,0.02); }
+  tbody td:first-child { font-family: var(--font); }
+  .td-up { color: var(--buy); }
+  .td-down { color: var(--sell); }
+  .td-label { font-family: var(--font); }
+  .badge {
+    display: inline-block; padding: 1px 8px; border-radius: 9999px;
+    font-size: 11px; font-weight: 510; font-family: var(--font);
+  }
+  .badge-long { background: var(--buy-bg); color: var(--buy); }
+  .badge-short { background: var(--sell-bg); color: var(--sell); }
+
+  /* === Tabs === */
+  .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+  .tab {
+    padding: 10px 20px; font-size: 14px; font-weight: 510; color: var(--text-tertiary);
+    cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s;
+    user-select: none;
+  }
+  .tab:hover { color: var(--text-secondary); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* === Market Layout === */
+  .market-layout { display: flex; gap: 16px; }
+  .ticker-panel {
+    width: 280px; min-width: 280px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: var(--radius);
+    overflow: hidden; display: flex; flex-direction: column;
+  }
+  .ticker-search { padding: 12px 12px 8px; }
+  .ticker-search input {
+    width: 100%; height: 32px; padding: 0 12px; border-radius: var(--radius-sm);
+    background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+    color: var(--text-primary); font-size: 13px; font-family: var(--font);
+    outline: none; transition: border-color 0.15s;
+  }
+  .ticker-search input:focus { border-color: var(--accent); }
+  .ticker-search input::placeholder { color: var(--text-muted); }
+  .ticker-list { flex: 1; overflow-y: auto; }
+  .ticker-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 16px; cursor: pointer; transition: background 0.15s;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+  }
+  .ticker-item:hover { background: rgba(113,112,255,0.05); }
+  .ticker-item.active { background: rgba(113,112,255,0.08); border-left: 3px solid var(--accent); }
+  .ticker-left { display: flex; flex-direction: column; }
+  .ticker-symbol { font-size: 14px; font-weight: 510; }
+  .ticker-sub { font-size: 11px; color: var(--text-tertiary); margin-top: 1px; }
+  .ticker-right { text-align: right; display: flex; flex-direction: column; gap: 1px; }
+  .ticker-price { font-size: 14px; font-weight: 510; font-family: var(--font-mono); }
+  .ticker-change { font-size: 12px; display: flex; align-items: center; justify-content: flex-end; gap: 3px; }
+  .ticker-change.up { color: var(--buy); }
+  .ticker-change.down { color: var(--sell); }
+
+  /* === Market Info Bar === */
+  .info-bar {
+    display: flex; align-items: center; gap: 32px;
+    height: 52px; padding: 0 24px; margin-top: 16px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  }
+  .info-item { display: flex; flex-direction: column; gap: 2px; }
+  .info-item .lbl { font-size: 11px; color: var(--text-tertiary); }
+  .info-item .val { font-size: 15px; font-weight: 510; font-family: var(--font-mono); }
+
+  /* === Trading Page === */
+  .trade-layout { display: flex; gap: 16px; }
+  .order-panel {
+    width: 360px; min-width: 360px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 20px;
+  }
+  .order-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .order-pair { font-size: 16px; font-weight: 600; }
+  .order-price { font-size: 24px; font-weight: 600; font-family: var(--font-mono); }
+  .order-tabs { display: flex; gap: 0; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
+  .order-tab {
+    padding: 6px 14px; font-size: 13px; font-weight: 510; color: var(--text-tertiary);
+    cursor: pointer; border-bottom: 2px solid transparent; user-select: none;
+    transition: all 0.15s;
+  }
+  .order-tab:hover { color: var(--text-secondary); }
+  .order-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .dir-toggle { display: flex; gap: 0; margin-bottom: 16px; border-radius: var(--radius-sm); overflow: hidden; }
+  .dir-btn {
+    flex: 1; height: 36px; border: none; font-size: 14px; font-weight: 510;
+    cursor: pointer; transition: all 0.15s; font-family: var(--font);
+  }
+  .dir-btn.buy { background: var(--buy-bg); color: var(--buy); border: 1px solid rgba(16,185,129,0.3); }
+  .dir-btn.buy.active { background: var(--buy); color: white; }
+  .dir-btn.sell { background: var(--sell-bg); color: var(--sell); border: 1px solid rgba(229,72,77,0.3); }
+  .dir-btn.sell.active { background: var(--sell); color: white; }
+  .order-field { margin-bottom: 12px; }
+  .order-field label { display: block; font-size: 12px; color: var(--text-tertiary); margin-bottom: 4px; }
+  .order-field input {
+    width: 100%; height: 36px; padding: 0 12px; border-radius: var(--radius-sm);
+    background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+    color: var(--text-primary); font-size: 14px; font-family: var(--font-mono);
+    outline: none; transition: border-color 0.15s;
+  }
+  .order-field input:focus { border-color: var(--accent); }
+  .order-field input:disabled { opacity: 0.4; cursor: not-allowed; }
+  .quick-pct { display: flex; gap: 4px; margin-bottom: 12px; }
+  .pct-btn {
+    flex: 1; height: 28px; border-radius: 4px; border: 1px solid var(--border);
+    background: transparent; color: var(--text-tertiary); font-size: 12px;
+    cursor: pointer; font-family: var(--font); transition: all 0.15s;
+  }
+  .pct-btn:hover { background: rgba(255,255,255,0.04); color: var(--text-secondary); }
+  .pct-btn.active { background: var(--accent-bg); color: var(--accent); border-color: var(--accent); }
+  .order-total {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 0; margin-bottom: 12px;
+    font-size: 13px; color: var(--text-secondary);
+  }
+  .order-total span:last-child { font-family: var(--font-mono); }
+  .order-submit {
+    width: 100%; height: 40px; border: none; border-radius: var(--radius);
+    font-size: 15px; font-weight: 600; font-family: var(--font);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .order-submit.buy { background: var(--buy); color: white; }
+  .order-submit.buy:hover { filter: brightness(1.1); }
+  .order-submit.sell { background: var(--sell); color: white; }
+  .order-submit.sell:hover { filter: brightness(1.1); }
+  .order-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .order-lists { flex: 1; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .order-list-panel {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    flex: 1; overflow: hidden; display: flex; flex-direction: column;
+  }
+  .list-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 20px; border-bottom: 1px solid var(--border);
+  }
+  .list-head h3 { font-size: 14px; font-weight: 510; color: var(--text-secondary); }
+  .list-head a { font-size: 12px; color: var(--accent); text-decoration: none; cursor: pointer; }
+
+  /* === Button Primary === */
+  .btn-primary {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 36px; padding: 0 16px; border-radius: var(--radius-sm);
+    background: var(--accent); color: white; border: none;
+    font-size: 14px; font-weight: 510; font-family: var(--font);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .btn-primary:hover { background: var(--accent-hover); }
+
+  /* === Skeleton === */
+  .skeleton {
+    background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.04) 75%);
+    background-size: 200% 100%; animation: shimmer 1.5s ease-in-out infinite;
+    border-radius: 4px;
+  }
+  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+  /* === Page visibility === */
+  .page { display: none; }
+  .page.visible { display: block; }
+
+  /* === Responsive === */
+  @media (max-width: 1024px) {
+    .sidebar { width: 64px; min-width: 64px; }
+    .sidebar-logo span { display: none; }
+    .nav-item span { display: none; }
+    .nav-item { justify-content: center; padding: 0; }
+    .stat-grid { grid-template-columns: repeat(2, 1fr); }
+    .chart-row { flex-direction: column; }
+    .market-layout { flex-direction: column; }
+    .ticker-panel { width: 100%; min-width: 0; max-height: 200px; }
+    .trade-layout { flex-direction: column; }
+    .order-panel { width: 100%; min-width: 0; }
+  }
+  @media (max-width: 768px) {
+    .sidebar { display: none; }
+    .stat-grid { grid-template-columns: repeat(2, 1fr); }
+    .content { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <svg viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="#7170ff"/><path d="M7 12h10M12 7v10" stroke="white" stroke-width="2" stroke-linecap="round"/></svg>
+      <span>QuantTrade</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a class="nav-item active" data-page="dashboard" onclick="switchPage('dashboard')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+        <span>仪表盘</span>
+      </a>
+      <a class="nav-item" data-page="market" onclick="switchPage('market')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+        <span>行情</span>
+      </a>
+      <a class="nav-item" data-page="strategies" onclick="switchPage('strategies')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        <span>策略</span>
+      </a>
+      <a class="nav-item" data-page="backtest" onclick="switchPage('backtest')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 4 4-6"/></svg>
+        <span>回测</span>
+      </a>
+      <a class="nav-item" data-page="trading" onclick="switchPage('trading')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+        <span>交易</span>
+      </a>
+      <a class="nav-item" data-page="portfolio" onclick="switchPage('portfolio')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><rect width="20" height="14" x="2" y="6" rx="2"/></svg>
+        <span>持仓</span>
+      </a>
+      <div class="sidebar-spacer"></div>
+      <a class="nav-item" data-page="admin" onclick="switchPage('admin')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span>系统</span>
+      </a>
+    </nav>
+  </aside>
+
+  <!-- Main Area -->
+  <div class="main">
+    <!-- Header -->
+    <header class="header">
+      <div class="breadcrumb">主页 <span class="sep">></span> <span id="pageTitle">仪表盘</span></div>
+      <div class="header-actions">
+        <button class="theme-btn" onclick="toggleTheme()" title="切换主题">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        </button>
+        <div class="avatar">A</div>
+      </div>
+    </header>
+
+    <!-- Content -->
+    <div class="content">
+
+      <!-- === Dashboard Page === -->
+      <div class="page visible" id="page-dashboard">
+        <div class="page-head">
+          <h1 class="page-title">仪表盘</h1>
+          <span style="font-size:13px;color:var(--text-tertiary)">最近更新: 刚刚</span>
+        </div>
+
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div class="stat-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>总资产</div>
+            <div class="stat-value">124,567.89</div>
+            <div class="stat-change up">▲ +2.34%</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>今日盈亏</div>
+            <div class="stat-value td-up">+2,890.45</div>
+            <div class="stat-change up">▲ +2.37%</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20v-6M6 20V10M18 20V4"/></svg>累计收益</div>
+            <div class="stat-value td-up">+45,678.23</div>
+            <div class="stat-change up">▲ +58.3%</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>最大回撤</div>
+            <div class="stat-value td-down">-8.23%</div>
+            <div class="stat-change flat">— 风险可控</div>
+          </div>
+        </div>
+
+        <div class="chart-row">
+          <div class="chart-panel">
+            <div class="chart-title">资产净值曲线</div>
+            <div class="chart-box" id="pnlChart"></div>
+          </div>
+          <div class="chart-panel">
+            <div class="chart-title">月度收益分布</div>
+            <div class="chart-box" id="monthlyChart"></div>
+          </div>
+        </div>
+
+        <div class="table-panel">
+          <div class="table-header">
+            <h3>持仓 Top 5</h3>
+            <a onclick="switchPage('portfolio')">查看全部 →</a>
+          </div>
+          <table>
+            <thead>
+              <tr><th>交易对</th><th>数量</th><th>方向</th><th>入场价</th><th>标记价</th><th>未实现盈亏</th><th>收益率</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>BTC/USDT</td><td>0.5234</td><td><span class="badge badge-long">做多</span></td><td>45,123.50</td><td class="td-up">46,200.80</td><td class="td-up">+563.84</td><td class="td-up">+2.39%</td></tr>
+              <tr><td>ETH/USDT</td><td>5.1234</td><td><span class="badge badge-long">做多</span></td><td>3,234.56</td><td class="td-up">3,345.67</td><td class="td-up">+569.03</td><td class="td-up">+3.43%</td></tr>
+              <tr><td>SOL/USDT</td><td>12.5678</td><td><span class="badge badge-short">做空</span></td><td>145.23</td><td class="td-down">142.10</td><td class="td-up">+39.34</td><td class="td-up">+2.15%</td></tr>
+              <tr><td>BNB/USDT</td><td>2.3456</td><td><span class="badge badge-long">做多</span></td><td>567.89</td><td class="td-up">578.23</td><td class="td-up">+24.27</td><td class="td-up">+1.82%</td></tr>
+              <tr><td>ADA/USDT</td><td>500.00</td><td><span class="badge badge-short">做空</span></td><td>0.4567</td><td class="td-down">0.4456</td><td class="td-up">+5.55</td><td class="td-up">+2.43%</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- === Market Page === -->
+      <div class="page" id="page-market">
+        <div class="page-head">
+          <h1 class="page-title">行情</h1>
+          <span style="font-size:13px;color:var(--text-tertiary)">实时数据 · WebSocket 已连接</span>
+        </div>
+
+        <div class="market-layout">
+          <div class="ticker-panel">
+            <div class="ticker-search">
+              <input type="text" placeholder="搜索交易对..." oninput="filterTickers(this.value)">
+            </div>
+            <div class="ticker-list" id="tickerList">
+              <!-- rendered by JS -->
+            </div>
+          </div>
+          <div style="flex:1;min-width:0">
+            <div class="chart-panel" style="min-height:480px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                <div class="chart-title">BTC/USDT · K 线图</div>
+                <div style="display:flex;gap:4px" id="klinePeriods">
+                  <span class="pct-btn active" onclick="selectPeriod(this)">1H</span>
+                  <span class="pct-btn" onclick="selectPeriod(this)">4H</span>
+                  <span class="pct-btn" onclick="selectPeriod(this)">1D</span>
+                  <span class="pct-btn" onclick="selectPeriod(this)">1W</span>
+                </div>
+              </div>
+              <div class="chart-box" id="klineChart" style="height:400px"></div>
+            </div>
+
+            <div class="info-bar" id="tickerInfo">
+              <div class="info-item"><div class="lbl">当前价</div><div class="val" style="color:var(--buy)">46,200.80</div></div>
+              <div class="info-item"><div class="lbl">24h 涨跌</div><div class="val" style="color:var(--buy)">+2.39%</div></div>
+              <div class="info-item"><div class="lbl">24h 最高</div><div class="val">46,500.00</div></div>
+              <div class="info-item"><div class="lbl">24h 最低</div><div class="val">44,820.30</div></div>
+              <div class="info-item"><div class="lbl">24h 成交量</div><div class="val">12,345 BTC</div></div>
+            </div>
+
+            <div class="chart-panel" style="margin-top:16px;min-height:240px">
+              <div class="chart-title">深度图</div>
+              <div class="chart-box" id="depthChart" style="height:200px"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- === Trading Page === -->
+      <div class="page" id="page-trading">
+        <div class="page-head">
+          <h1 class="page-title">交易</h1>
+          <div style="display:flex;align-items:center;gap:16px">
+            <span style="font-size:16px;font-weight:600;">BTC/USDT</span>
+            <span style="font-size:20px;font-weight:600;font-family:var(--font-mono);color:var(--buy)">46,200.80</span>
+            <span style="font-size:13px;color:var(--buy)">▲ +2.39%</span>
+          </div>
+        </div>
+
+        <div class="trade-layout">
+          <div class="order-panel">
+            <div class="order-tabs">
+              <span class="order-tab active">限价单</span>
+              <span class="order-tab">市价单</span>
+              <span class="order-tab">止损限价</span>
+            </div>
+            <div class="dir-toggle">
+              <button class="dir-btn buy active" onclick="setOrderDir('buy')">买入</button>
+              <button class="dir-btn sell" onclick="setOrderDir('sell')">卖出</button>
+            </div>
+            <div class="order-field">
+              <label>价格 (USDT)</label>
+              <input type="text" id="orderPrice" value="46200.80" placeholder="请输入价格">
+            </div>
+            <div class="order-field">
+              <label>数量 (BTC)</label>
+              <input type="text" id="orderQty" placeholder="0.001" oninput="calcTotal()">
+            </div>
+            <div class="quick-pct">
+              <button class="pct-btn" onclick="setQty(0.25)">25%</button>
+              <button class="pct-btn" onclick="setQty(0.50)">50%</button>
+              <button class="pct-btn" onclick="setQty(0.75)">75%</button>
+              <button class="pct-btn" onclick="setQty(1.00)">100%</button>
+            </div>
+            <div class="order-total">
+              <span>总计</span>
+              <span id="orderTotal">0.00 USDT</span>
+            </div>
+            <button class="order-submit buy" id="orderSubmitBtn" onclick="submitOrder()">买入 BTC/USDT</button>
+          </div>
+
+          <div class="order-lists">
+            <div class="order-list-panel" style="flex:1">
+              <div class="list-head"><h3>当前委托</h3><a>查看全部 →</a></div>
+              <table>
+                <thead><tr><th>时间</th><th>方向</th><th>委托价</th><th>数量</th><th>已成交</th><th>状态</th><th>操作</th></tr></thead>
+                <tbody>
+                  <tr><td>14:23:15</td><td><span class="badge badge-long">买入</span></td><td>46,100.00</td><td>0.1000</td><td>0.0500</td><td><span class="badge" style="background:var(--accent-bg);color:var(--accent)">部分成交</span></td><td style="color:var(--accent);cursor:pointer">撤单</td></tr>
+                  <tr><td>14:10:00</td><td><span class="badge badge-short">卖出</span></td><td>46,500.00</td><td>0.2000</td><td>0.0000</td><td><span class="badge" style="background:rgba(245,166,35,0.15);color:var(--warning)">等待中</span></td><td style="color:var(--accent);cursor:pointer">撤单</td></tr>
+                  <tr><td>13:55:30</td><td><span class="badge badge-long">买入</span></td><td>45,800.00</td><td>0.5000</td><td>0.5000</td><td><span class="badge" style="background:var(--buy-bg);color:var(--buy)">已成交</span></td><td style="color:var(--text-muted)">—</td></tr>
+                </tbody>
+              </table>
+              <div style="padding:20px 0;text-align:center;display:none" id="emptyOrders">
+                <div style="font-size:14px;color:var(--text-tertiary);margin-bottom:8px">当前没有委托订单</div>
+                <button class="btn-primary" onclick="switchPage('trading')">开始交易</button>
+              </div>
+            </div>
+            <div class="order-list-panel" style="flex:1">
+              <div class="list-head"><h3>最近成交</h3><a>查看全部 →</a></div>
+              <table>
+                <thead><tr><th>时间</th><th>方向</th><th>成交价</th><th>数量</th><th>手续费</th></tr></thead>
+                <tbody>
+                  <tr><td>14:25:03</td><td><span class="badge badge-long">买入</span></td><td>46,150.00</td><td>0.0500</td><td>2.3075 USDT</td></tr>
+                  <tr><td>14:20:18</td><td><span class="badge badge-short">卖出</span></td><td>46,320.50</td><td>0.1000</td><td>4.6320 USDT</td></tr>
+                  <tr><td>14:15:44</td><td><span class="badge badge-long">买入</span></td><td>46,100.00</td><td>0.0500</td><td>2.3050 USDT</td></tr>
+                  <tr><td>14:05:12</td><td><span class="badge badge-short">卖出</span></td><td>46,500.00</td><td>0.2000</td><td>9.3000 USDT</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- === Strategies Page Placeholder === -->
+      <div class="page" id="page-strategies">
+        <div class="page-head">
+          <h1 class="page-title">策略管理</h1>
+          <button class="btn-primary">+ 新建策略</button>
+        </div>
+        <div class="stat-grid" style="grid-template-columns:repeat(4,auto);gap:8px;margin-bottom:20px">
+          <span class="pct-btn active" onclick="this.classList.toggle('active')">全部</span>
+          <span class="pct-btn" onclick="this.classList.toggle('active')">运行中</span>
+          <span class="pct-btn" onclick="this.classList.toggle('active')">已暂停</span>
+          <span class="pct-btn" onclick="this.classList.toggle('active')">草稿</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
+          <div class="stat-card" style="cursor:default">
+            <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px">
+              <div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--success);margin-right:8px"></span><span style="font-size:15px;font-weight:600">网格策略 Alpha</span></div>
+              <span style="font-size:18px;color:var(--text-tertiary);cursor:pointer;line-height:1">⋮</span>
+            </div>
+            <div style="font-size:13px;color:var(--text-tertiary);margin-bottom:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">BTC/USDT 网格交易策略，每0.5%差价一单</div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
+              <div><div style="font-size:11px;color:var(--text-tertiary)">收益率</div><div style="font-size:14px;font-weight:510;font-family:var(--font-mono);color:var(--buy)">+12.34%</div></div>
+              <div><div style="font-size:11px;color:var(--text-tertiary)">夏普率</div><div style="font-size:14px;font-weight:510;font-family:var(--font-mono)">1.56</div></div>
+              <div><div style="font-size:11px;color:var(--text-tertiary)">回撤</div><div style="font-size:14px;font-weight:510;font-family:var(--font-mono);color:var(--sell)">8.23%</div></div>
+              <div><div style="font-size:11px;color:var(--text-tertiary)">交易次数</div><div style="font-size:14px;font-weight:510;font-family:var(--font-mono)">1,234</div></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div style="display:flex;gap:4px">
+                <span class="badge" style="background:rgba(255,255,255,0.04);color:var(--text-tertiary)">网格</span>
+                <span class="badge" style="background:rgba(255,255,255,0.04);color:var(--text-tertiary)">BTC</span>
+              </div>
+              <span style="font-size:11px;color:var(--text-tertiary)">上次运行: 刚刚</span>
+            </div>
+          </div>
+          <div class="stat-card" style="cursor:default">
+            <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px">
+              <div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--warning);margin-right:8px"></span><span style="font-size:15px;font-weight:600">趋势跟踪 Beta</span></div>
+              <span style="font-size:18px;color:var(--text-tertiary);cursor:pointer;line-height:1">⋮</span>
+            </div>
+            <div style="font-size:13px;color:var(--text-tertiary);margin-bottom:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">EMA12/26 双均线交叉策略</div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
+              <div><div style="font-size:11px;color:var(--text-tertiary)">收益率</div><div style="font-size:14px;font-weight:510;font-family:var(--font-mono);color:var(--buy)">+8.91%</div></div>
+              <div><div style="font-size:11px;color:var(--text-tertiary)">夏普率</div><div style="font-size:14px;font-weight:510;font-family:var(--font-mono)">1.12</div></div>
+              <div><div style="font-size:11px;color:var(--text-tertiary)">回撤</div><div style="font-size:14px;font-weight:510;font-family:var(--font-mono);color:var(--sell)">12.45%</div></div>
+              <div><div style="font-size:11px;color:var(--text-tertiary)">交易次数</div><div style="font-size:14px;font-weight:510;font-family:var(--font-mono)">567</div></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div style="display:flex;gap:4px">
+                <span class="badge" style="background:rgba(255,255,255,0.04);color:var(--text-tertiary)">趋势</span>
+                <span class="badge" style="background:rgba(255,255,255,0.04);color:var(--text-tertiary)">ETH</span>
+              </div>
+              <span style="font-size:11px;color:var(--text-tertiary)">上次运行: 5分钟前</span>
+            </div>
+          </div>
+          <div class="stat-card" style="border:1px dashed var(--border);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;cursor:pointer;min-height:200px">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="32" height="32" style="color:var(--text-tertiary)"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span style="font-size:14px;color:var(--text-tertiary)">创建新策略</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- === Backtest Page Placeholder === -->
+      <div class="page" id="page-backtest">
+        <div class="page-head"><h1 class="page-title">回测</h1></div>
+        <div style="display:flex;gap:16px">
+          <div class="order-panel" style="width:340px;min-width:340px">
+            <div style="font-size:14px;font-weight:510;margin-bottom:16px;color:var(--text-secondary)">回测参数</div>
+            <div class="order-field"><label>策略</label><input placeholder="选择策略..."></div>
+            <div class="order-field"><label>交易对</label><input placeholder="BTC/USDT"></div>
+            <div class="order-field"><label>起始日期</label><input placeholder="2026-02-12"></div>
+            <div class="order-field"><label>结束日期</label><input placeholder="2026-05-12"></div>
+            <div class="order-field"><label>初始资金 (USDT)</label><input value="10000"></div>
+            <div style="display:flex;gap:8px;margin-bottom:16px">
+              <div class="order-field" style="flex:1"><label>手续费率</label><input value="0.1%"></div>
+              <div class="order-field" style="flex:1"><label>滑点</label><input value="0.05%"></div>
+            </div>
+            <button class="order-submit buy" style="margin-bottom:8px">开始回测</button>
+            <button style="width:100%;height:36px;border-radius:var(--radius);border:1px solid var(--border);background:transparent;color:var(--text-tertiary);font-size:13px;cursor:pointer">保存配置</button>
+          </div>
+          <div style="flex:1">
+            <div class="chart-panel" style="min-height:400px">
+              <div class="chart-title" style="margin-bottom:0">绩效报告</div>
+              <div style="display:flex;align-items:center;justify-content:center;height:340px;flex-direction:column;gap:12px">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48" style="color:var(--text-muted)"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 4 4-6"/></svg>
+                <span style="font-size:14px;color:var(--text-tertiary)">运行回测后查看报告</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- === Portfolio Page Placeholder === -->
+      <div class="page" id="page-portfolio">
+        <div class="page-head"><h1 class="page-title">持仓</h1></div>
+        <div class="stat-grid">
+          <div class="stat-card"><div class="stat-label">持仓总价值</div><div class="stat-value">78,923.45</div><div class="stat-change flat">USDT</div></div>
+          <div class="stat-card"><div class="stat-label">总盈亏</div><div class="stat-value td-up">+2,345.67</div><div class="stat-change up">▲ +3.06%</div></div>
+          <div class="stat-card"><div class="stat-label">保证金</div><div class="stat-value">12,345.67</div><div class="stat-change flat">USDT</div></div>
+          <div class="stat-card"><div class="stat-label">可用余额</div><div class="stat-value">45,678.90</div><div class="stat-change flat">USDT</div></div>
+        </div>
+        <div class="table-panel">
+          <div class="table-header"><h3>持仓列表</h3><a>平仓全部</a></div>
+          <table>
+            <thead><tr><th>交易对</th><th>方向</th><th>数量</th><th>入场价</th><th>标记价</th><th>保证金</th><th>未实现盈亏</th><th>收益率</th><th>操作</th></tr></thead>
+            <tbody>
+              <tr><td>BTC/USDT</td><td><span class="badge badge-long">做多</span></td><td>0.5234</td><td>45,123.50</td><td class="td-up">46,200.80</td><td>5,234.56</td><td class="td-up">+563.84</td><td class="td-up">+2.39%</td><td><span style="color:var(--sell);cursor:pointer;font-size:12px">平仓</span></td></tr>
+              <tr><td>ETH/USDT</td><td><span class="badge badge-long">做多</span></td><td>5.1234</td><td>3,234.56</td><td class="td-up">3,345.67</td><td>3,234.56</td><td class="td-up">+569.03</td><td class="td-up">+3.43%</td><td><span style="color:var(--sell);cursor:pointer;font-size:12px">平仓</span></td></tr>
+              <tr><td>SOL/USDT</td><td><span class="badge badge-short">做空</span></td><td>12.5678</td><td>145.23</td><td class="td-down">142.10</td><td>1,234.56</td><td class="td-up">+39.34</td><td class="td-up">+2.15%</td><td><span style="color:var(--sell);cursor:pointer;font-size:12px">平仓</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- === Admin Page Placeholder === -->
+      <div class="page" id="page-admin">
+        <div class="page-head"><h1 class="page-title">系统管理</h1></div>
+        <div class="tabs">
+          <span class="tab active">用户管理</span>
+          <span class="tab">角色权限</span>
+          <span class="tab">系统日志</span>
+        </div>
+        <div style="display:flex;gap:16px;margin-bottom:20px">
+          <input type="text" placeholder="搜索用户名/邮箱..." style="width:240px;height:36px;padding:0 12px;border-radius:var(--radius-sm);background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--text-primary);font-size:13px;outline:none">
+          <button class="btn-primary">+ 创建用户</button>
+        </div>
+        <div class="table-panel">
+          <table>
+            <thead><tr><th>用户名</th><th>邮箱</th><th>角色</th><th>状态</th><th>最近登录</th><th>操作</th></tr></thead>
+            <tbody>
+              <tr><td>admin</td><td>admin@quanttrade.com</td><td><span class="badge" style="background:rgba(113,112,255,0.15);color:var(--accent)">管理员</span></td><td><span class="badge" style="background:var(--buy-bg);color:var(--buy)">活跃</span></td><td>2026-05-12 14:30</td><td><span style="color:var(--accent);cursor:pointer;font-size:12px">编辑</span></td></tr>
+              <tr><td>trader1</td><td>trader1@quanttrade.com</td><td><span class="badge" style="background:var(--buy-bg);color:var(--buy)">交易员</span></td><td><span class="badge" style="background:var(--buy-bg);color:var(--buy)">活跃</span></td><td>2026-05-12 14:25</td><td><span style="color:var(--accent);cursor:pointer;font-size:12px">编辑</span></td></tr>
+              <tr><td>observer</td><td>observer@quanttrade.com</td><td><span class="badge" style="background:rgba(245,166,35,0.15);color:var(--warning)">观察者</span></td><td><span class="badge" style="background:rgba(255,255,255,0.04);color:var(--text-muted)">已禁用</span></td><td>2026-05-10 09:15</td><td><span style="color:var(--accent);cursor:pointer;font-size:12px">编辑</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<script>
+// ============ Page Switching ============
+function switchPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('visible'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page)?.classList.add('visible');
+  document.querySelector(`.nav-item[data-page="${page}"]`)?.classList.add('active');
+  const titles = { dashboard:'仪表盘', market:'行情', strategies:'策略', backtest:'回测', trading:'交易', portfolio:'持仓', admin:'系统管理' };
+  document.getElementById('pageTitle').textContent = titles[page] || page;
+  // init charts when pages become visible
+  if (page === 'dashboard') setTimeout(initDashboardCharts, 100);
+  if (page === 'market') setTimeout(initMarketCharts, 100);
+}
+// Default on load
+setTimeout(initDashboardCharts, 200);
+renderTickers();
+
+// ============ Theme Toggle ============
+function toggleTheme() {
+  document.documentElement.classList.toggle('light');
+  // simple light mode via class override
+  if (document.documentElement.classList.contains('light')) {
+    document.documentElement.style.setProperty('--bg', '#f7f8f8');
+    document.documentElement.style.setProperty('--surface', '#ffffff');
+    document.documentElement.style.setProperty('--text-primary', '#08090a');
+    document.documentElement.style.setProperty('--text-secondary', '#5b6170');
+    document.documentElement.style.setProperty('--border', 'rgba(0,0,0,0.08)');
+  } else {
+    document.documentElement.style.setProperty('--bg', '#08090a');
+    document.documentElement.style.setProperty('--surface', '#191a1b');
+    document.documentElement.style.setProperty('--text-primary', '#f7f8f8');
+    document.documentElement.style.setProperty('--text-secondary', '#d0d6e0');
+    document.documentElement.style.setProperty('--border', 'rgba(255,255,255,0.08)');
+  }
+}
+
+// ============ Ticker List ============
+const tickers = [
+  { sym:'BTC/USDT', sub:'Bitcoin', price:'46,200.80', chg:'+2.39%', dir:'up' },
+  { sym:'ETH/USDT', sub:'Ethereum', price:'3,345.67', chg:'+3.43%', dir:'up' },
+  { sym:'SOL/USDT', sub:'Solana', price:'142.10', chg:'-2.15%', dir:'down' },
+  { sym:'BNB/USDT', sub:'BNB', price:'578.23', chg:'+1.82%', dir:'up' },
+  { sym:'ADA/USDT', sub:'Cardano', price:'0.4456', chg:'-0.45%', dir:'down' },
+  { sym:'DOGE/USDT', sub:'Dogecoin', price:'0.1523', chg:'+5.67%', dir:'up' },
+  { sym:'XRP/USDT', sub:'Ripple', price:'0.5678', chg:'+0.89%', dir:'up' },
+  { sym:'DOT/USDT', sub:'Polkadot', price:'7.8923', chg:'-1.23%', dir:'down' },
+];
+function renderTickers(filter) {
+  const list = document.getElementById('tickerList');
+  const filtered = filter ? tickers.filter(t => t.sym.toLowerCase().includes(filter) || t.sub.toLowerCase().includes(filter)) : tickers;
+  list.innerHTML = filtered.map((t,i) => `
+    <div class="ticker-item ${i===0?'active':''}" onclick="selectTicker(this, '${t.sym}')">
+      <div class="ticker-left"><div class="ticker-symbol">${t.sym}</div><div class="ticker-sub">${t.sub}</div></div>
+      <div class="ticker-right">
+        <div class="ticker-price ${t.dir==='up'?'td-up':'td-down'}">${t.price}</div>
+        <div class="ticker-change ${t.dir}">${t.dir==='up'?'▲':'▼'} ${t.chg}</div>
+      </div>
+    </div>
+  `).join('');
+}
+function filterTickers(val) { renderTickers(val.toLowerCase()); }
+function selectTicker(el, sym) {
+  document.querySelectorAll('.ticker-item').forEach(i => i.classList.remove('active'));
+  el.classList.add('active');
+  // update info bar
+  const t = tickers.find(x => x.sym === sym);
+  if (t) {
+    document.querySelector('#tickerInfo .val:first-child').textContent = t.price;
+    document.querySelector('#tickerInfo .val:first-child').style.color = t.dir==='up' ? 'var(--buy)' : 'var(--sell)';
+    document.querySelector('#tickerInfo .val:nth-child(2)').textContent = t.chg;
+    document.querySelector('#tickerInfo .val:nth-child(2)').style.color = t.dir==='up' ? 'var(--buy)' : 'var(--sell)';
+  }
+}
+
+// ============ K-line Period ============
+function selectPeriod(el) {
+  document.querySelectorAll('#klinePeriods .pct-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+}
+
+// ============ Order Form ============
+let orderDir = 'buy';
+function setOrderDir(dir) {
+  orderDir = dir;
+  document.querySelectorAll('.dir-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`.dir-btn.${dir}`).classList.add('active');
+  const btn = document.getElementById('orderSubmitBtn');
+  btn.className = `order-submit ${dir}`;
+  btn.textContent = `${dir==='buy'?'买入':'卖出'} BTC/USDT`;
+}
+function calcTotal() {
+  const price = parseFloat(document.getElementById('orderPrice').value.replace(/,/g,'')) || 0;
+  const qty = parseFloat(document.getElementById('orderQty').value) || 0;
+  document.getElementById('orderTotal').textContent = (price * qty).toFixed(2) + ' USDT';
+}
+function setQty(pct) {
+  const maxQty = 0.5234; // from portfolio
+  document.getElementById('orderQty').value = (maxQty * pct).toFixed(4);
+  calcTotal();
+}
+function submitOrder() {
+  const btn = document.getElementById('orderSubmitBtn');
+  btn.disabled = true;
+  btn.textContent = '委托中...';
+  setTimeout(() => {
+    btn.disabled = false;
+    btn.textContent = `${orderDir==='buy'?'买入':'卖出'} BTC/USDT`;
+    alert('委托已提交');
+  }, 1500);
+}
+
+// ============ ECharts ============
+function initDashboardCharts() {
+  if (document.getElementById('pnlChart').childNodes.length > 1) return; // already inited
+
+  // PnL Curve
+  const pnlChart = echarts.init(document.getElementById('pnlChart'));
+  const dates = [];
+  const vals = [];
+  for (let i = 60; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    dates.push(d.toLocaleDateString('zh-CN', {month:'short',day:'numeric'}));
+    vals.push(100000 + Math.sin(i/8)*15000 + i*500 + Math.random()*3000);
+  }
+  pnlChart.setOption({
+    tooltip: { trigger:'axis', backgroundColor:'rgba(25,26,27,0.9)', borderColor:'rgba(255,255,255,0.08)', textStyle:{color:'#f7f8f8',fontSize:12} },
+    grid: { left:'3%', right:'3%', top:'8%', bottom:'8%' },
+    xAxis: { type:'category', data:dates, axisLine:{lineStyle:{color:'rgba(255,255,255,0.06)'}}, axisLabel:{color:'#8a8f98',fontSize:10}, splitLine:{show:false} },
+    yAxis: { type:'value', axisLabel:{color:'#8a8f98',fontSize:10}, splitLine:{lineStyle:{color:'rgba(255,255,255,0.04)'}} },
+    series: [{
+      type:'line', data:vals, smooth:true, symbol:'none',
+      lineStyle:{color:'#7170ff',width:2},
+      areaStyle:{color:{type:'linear',x:0,y:0,x:0,y:1,colorStops:[{offset:0,color:'rgba(113,112,255,0.2)'},{offset:1,color:'rgba(113,112,255,0.02)'}]}}
+    }]
+  });
+
+  // Monthly Returns
+  const monthChart = echarts.init(document.getElementById('monthlyChart'));
+  const months = ['1月','2月','3月','4月','5月'];
+  const returns = [3.2, -1.5, 4.8, 2.1, 5.6];
+  monthChart.setOption({
+    tooltip: { trigger:'axis', backgroundColor:'rgba(25,26,27,0.9)', borderColor:'rgba(255,255,255,0.08)', textStyle:{color:'#f7f8f8'} },
+    grid: { left:'8%', right:'3%', top:'8%', bottom:'8%' },
+    xAxis: { type:'category', data:months, axisLine:{lineStyle:{color:'rgba(255,255,255,0.06)'}}, axisLabel:{color:'#8a8f98',fontSize:10} },
+    yAxis: { type:'value', axisLabel:{color:'#8a8f98',fontSize:10,formatter:'{value}%'}, splitLine:{lineStyle:{color:'rgba(255,255,255,0.04)'}} },
+    series: [{
+      type:'bar', data:returns, barWidth:'50%',
+      itemStyle:{borderRadius:[4,4,0,0],color:{type:'linear',x:0,y:0,x:0,y:1,colorStops:[{offset:0,color:'#10b981'},{offset:1,color:'rgba(16,185,129,0.3)'}]}}}
+    ]
+  });
+}
+
+function initMarketCharts() {
+  // K-line - using candlestick chart
+  const klineChart = echarts.init(document.getElementById('klineChart'));
+  const data = [];
+  let base = 46000;
+  for (let i = 100; i >= 0; i--) {
+    const t = new Date();
+    t.setHours(t.getHours() - i);
+    const o = base + (Math.random() - 0.5) * 400;
+    const c = o + (Math.random() - 0.5) * 300;
+    const h = Math.max(o, c) + Math.random() * 200;
+    const l = Math.min(o, c) - Math.random() * 200;
+    data.push([t.getTime(), o, h, l, c, Math.floor(Math.random() * 1000 + 100)]);
+    base = c;
+  }
+  klineChart.setOption({
+    tooltip: {
+      trigger:'axis', backgroundColor:'rgba(25,26,27,0.95)', borderColor:'rgba(255,255,255,0.08)',
+      textStyle:{color:'#f7f8f8',fontSize:11},
+      formatter: function(p) {
+        const d = p[0].data;
+        return `O: ${d[1].toFixed(2)}<br>H: ${d[2].toFixed(2)}<br>L: ${d[3].toFixed(2)}<br>C: ${d[4].toFixed(2)}<br>V: ${d[5]}`;
+      }
+    },
+    grid: [{left:'3%',right:'3%',top:'5%',height:'65%'},{left:'3%',right:'3%',top:'78%',height:'15%'}],
+    xAxis: [{
+      type:'time', axisLine:{lineStyle:{color:'rgba(255,255,255,0.06)'}},
+      axisLabel:{color:'#8a8f98',fontSize:10}, splitLine:{show:false}
+    },{
+      type:'time', gridIndex:1, axisLine:{lineStyle:{color:'rgba(255,255,255,0.06)'}},
+      axisLabel:{color:'#8a8f98',fontSize:10}, splitLine:{show:false}
+    }],
+    yAxis: [{
+      scale:true, splitLine:{lineStyle:{color:'rgba(255,255,255,0.04)'}},
+      axisLabel:{color:'#8a8f98',fontSize:10}
+    },{
+      scale:true, gridIndex:1, splitNumber:2,
+      splitLine:{show:false}, axisLabel:{show:false}, position:'right'
+    }],
+    series: [{
+      type:'candlestick', data:data.map(d => [d[0], d[1], d[2], d[3], d[4]]),
+      itemStyle:{color:'#10b981',color0:'#E5484D',borderColor:'#10b981',borderColor0:'#E5484D'}
+    },{
+      type:'bar', xAxisIndex:1, yAxisIndex:1, data:data.map(d => [d[0], d[5]]),
+      itemStyle:{color: (p) => p.data[0] > 0 ? 'rgba(16,185,129,0.4)' : 'rgba(229,72,77,0.4)'}
+    }]
+  });
+
+  // Depth Chart
+  const depthChart = echarts.init(document.getElementById('depthChart'));
+  const mid = 46200;
+  const bids = [], asks = [];
+  for (let i = 1; i <= 50; i++) {
+    const p = mid - i * 5;
+    const vol = Math.exp(-i/20) * 1000 + Math.random() * 100;
+    bids.push([p, (bids.length ? bids[bids.length-1][1] : 0) + vol]);
+  }
+  for (let i = 1; i <= 50; i++) {
+    const p = mid + i * 5;
+    const vol = Math.exp(-i/20) * 1000 + Math.random() * 100;
+    asks.push([p, (asks.length ? asks[asks.length-1][1] : 0) + vol]);
+  }
+  depthChart.setOption({
+    tooltip: { trigger:'axis', backgroundColor:'rgba(25,26,27,0.9)', borderColor:'rgba(255,255,255,0.08)', textStyle:{color:'#f7f8f8'} },
+    grid: { left:'3%', right:'3%', top:'5%', bottom:'5%' },
+    xAxis: { type:'value', axisLine:{lineStyle:{color:'rgba(255,255,255,0.06)'}}, axisLabel:{color:'#8a8f98',fontSize:10} },
+    yAxis: { type:'value', axisLabel:{color:'#8a8f98',fontSize:10}, splitLine:{lineStyle:{color:'rgba(255,255,255,0.04)'}} },
+    series: [
+      { name:'买盘', type:'line', data:bids, smooth:true, symbol:'none', step:'end',
+        lineStyle:{color:'#10b981',width:1.5},
+        areaStyle:{color:{type:'linear',x:0,y:0,x:0,y:1,colorStops:[{offset:0,color:'rgba(16,185,129,0.5)'},{offset:1,color:'rgba(16,185,129,0.02)'}]}} },
+      { name:'卖盘', type:'line', data:asks, smooth:true, symbol:'none', step:'end',
+        lineStyle:{color:'#E5484D',width:1.5},
+        areaStyle:{color:{type:'linear',x:0,y:0,x:0,y:1,colorStops:[{offset:0,color:'rgba(229,72,77,0.5)'},{offset:1,color:'rgba(229,72,77,0.02)'}]}} }
+    ]
+  });
+}
+
+// Handle resize
+window.addEventListener('resize', () => {
+  const charts = document.querySelectorAll('.chart-box');
+  charts.forEach(el => {
+    try { echarts.getInstanceByDom(el)?.resize(); } catch(e) {}
+  });
+});
+</script>
+</body>
+</html>

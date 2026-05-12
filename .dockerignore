@@ -1,0 +1,15 @@
+# ─── Docker build ignore rules ────
+.git
+.gitignore
+.github
+docs
+node_modules
+backend/target
+*.md
+.env
+.env.local
+docker-init
+__pycache__
+*.pyc
+.idea
+.vscode
