@@ -213,6 +213,7 @@ pub struct TemplateInfo {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ParameterDef {
     pub name: String,
+    #[serde(rename = "type")]
     pub param_type: String,
     pub label: String,
     pub description: String,

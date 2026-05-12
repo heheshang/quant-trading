@@ -69,7 +69,7 @@
             @click="selectTemplate(tpl)"
           >
             <div class="template-icon">
-              <el-icon :size="28"><component :is="getTemplateIcon(tpl.icon)" /></el-icon>
+              <el-icon :size="28"><component :is="getTemplateIcon(tpl.id)" /></el-icon>
             </div>
             <div class="template-name">{{ tpl.name }}</div>
             <div class="template-desc">{{ tpl.description }}</div>
@@ -95,10 +95,9 @@
           class="param-form"
         >
           <el-form-item
-            v-for="param in selectedTemplate.params"
+            v-for="param in selectedTemplate.parameter_schema"
             :key="param.name"
             :label="param.label"
-            :required="param.required"
             :prop="param.name"
             :rules="getParamRule(param)"
           >
@@ -130,7 +129,7 @@
             <template v-else-if="param.type === 'select'">
               <el-select
                 v-model="paramValues[param.name]"
-                :placeholder="param.placeholder || '请选择'"
+                :placeholder="'请选择'"
                 class="param-select"
               >
                 <el-option
@@ -153,7 +152,7 @@
             <template v-else>
               <el-input
                 v-model="paramValues[param.name]"
-                :placeholder="param.placeholder || '请输入'"
+                :placeholder="'请输入'"
               />
               <div v-if="param.description" class="param-desc">{{ param.description }}</div>
             </template>
@@ -174,7 +173,7 @@
               <span class="preview-label">模板类型</span>
               <span class="preview-value">{{ selectedTemplate.name }}</span>
             </div>
-            <div class="preview-item" v-for="param in selectedTemplate.params" :key="param.name">
+            <div class="preview-item" v-for="param in selectedTemplate.parameter_schema" :key="param.name">
               <span class="preview-label">{{ param.label }}</span>
               <span class="preview-value">{{ formatParamValue(param, paramValues[param.name]) }}</span>
             </div>
@@ -208,7 +207,7 @@ import type { StrategyTemplate, StrategyParamDef, StrategyFull } from '@/types'
 import type { FormInstance, FormRules } from 'element-plus'
 
 const props = defineProps<{
-  strategyId?: number
+  strategyId?: string
 }>()
 
 const router = useRouter()
@@ -242,9 +241,7 @@ const basicRules: FormRules = {
 
 function getParamRule(param: StrategyParamDef) {
   const rules: any[] = []
-  if (param.required) {
-    rules.push({ required: true, message: `请配置${param.label}`, trigger: 'change' })
-  }
+  rules.push({ required: true, message: `请配置${param.label}`, trigger: 'change' })
   if ((param.type === 'integer' || param.type === 'float') && param.min !== undefined) {
     rules.push({ type: 'number', min: param.min, message: `最小值为${param.min}`, trigger: 'blur' })
   }
@@ -269,7 +266,7 @@ function selectTemplate(tpl: StrategyTemplate) {
   selectedTemplate.value = tpl
   // Reset param values with defaults
   Object.keys(paramValues).forEach((k) => delete paramValues[k])
-  tpl.params.forEach((p) => {
+  tpl.parameter_schema.forEach((p) => {
     paramValues[p.name] = p.default ?? ((p.type === 'integer' || p.type === 'float') ? p.min ?? 0 : p.type === 'boolean' ? false : '')
   })
 }

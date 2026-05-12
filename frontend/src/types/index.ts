@@ -113,7 +113,7 @@ export interface Depth {
 
 /** Strategy summary for list/dashboard display */
 export interface StrategySummary {
-  id: number
+  id: string
   name: string
   description: string
   pnl: number
@@ -127,8 +127,10 @@ export interface StrategySummary {
 
 /** Full strategy detail from API */
 export interface StrategyFull {
-  id: number
+  id: string
+  user_id: string
   name: string
+  description: string
   template_type: string
   parameters: Record<string, any>
   status: 'active' | 'paused' | 'stopped' | 'draft'
@@ -136,28 +138,26 @@ export interface StrategyFull {
   updated_at: string
 }
 
-/** Strategy parameter definition schema */
+/** Strategy parameter definition schema (aligned with backend) */
 export interface StrategyParamDef {
   name: string
   label: string
   type: 'integer' | 'float' | 'select' | 'boolean' | 'string'
-  required: boolean
   default?: any
   min?: number
   max?: number
   options?: string[]
-  placeholder?: string
   description?: string
 }
 
-/** Strategy template */
+/** Strategy template (aligned with backend TemplateInfo) */
 export interface StrategyTemplate {
   id: string
   name: string
   description: string
-  icon: string
   category: string
-  params: StrategyParamDef[]
+  default_parameters: Record<string, any>
+  parameter_schema: StrategyParamDef[]
 }
 
 /** Create strategy payload */
@@ -181,7 +181,7 @@ export interface StrategyQueryParams {
 }
 
 export interface BacktestParams {
-  strategy_id: number
+  strategy_id: string
   symbol: string
   start_date: string
   end_date: string
@@ -190,7 +190,7 @@ export interface BacktestParams {
 
 export interface BacktestResult {
   id: number
-  strategy_id: number
+  strategy_id: string
   total_return: number
   sharpe_ratio: number
   max_drawdown: number

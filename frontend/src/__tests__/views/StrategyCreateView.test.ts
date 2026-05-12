@@ -23,29 +23,25 @@ const mockTemplates = [
     id: 'trend_following',
     name: '趋势跟踪',
     description: '基于移动平均线交叉的趋势跟踪策略',
-    icon: 'TrendCharts',
     category: '趋势',
-    params: [
-      { key: 'fast_period', label: '快线周期', type: 'number' as const, required: true, default: 5, min: 2, max: 50, step: 1, description: '快线MA周期' },
-      { key: 'slow_period', label: '慢线周期', type: 'number' as const, required: true, default: 20, min: 5, max: 200, step: 1, description: '慢线MA周期' },
-      { key: 'use_ema', label: '使用EMA', type: 'boolean' as const, default: true, description: '启用指数移动平均' },
-      { key: 'signal', label: '信号确认', type: 'select' as const, required: true, default: 'cross', options: [
-        { label: '金叉死叉', value: 'cross' },
-        { label: '持续交叉', value: 'continuous' },
-        { label: '斜率确认', value: 'slope' },
-      ]},
+    default_parameters: { fast_period: 5, slow_period: 20, use_ema: true, signal: 'cross' },
+    parameter_schema: [
+      { name: 'fast_period', label: '快线周期', type: 'integer' as const, default: 5, min: 2, max: 50, description: '快线MA周期' },
+      { name: 'slow_period', label: '慢线周期', type: 'integer' as const, default: 20, min: 5, max: 200, description: '慢线MA周期' },
+      { name: 'use_ema', label: '使用EMA', type: 'boolean' as const, default: true, description: '启用指数移动平均' },
+      { name: 'signal', label: '信号确认', type: 'select' as const, default: 'cross', options: ['cross', 'continuous', 'slope'] },
     ],
   },
   {
     id: 'grid_trading',
     name: '网格交易',
     description: '震荡行情网格交易策略',
-    icon: 'Grid',
     category: '震荡',
-    params: [
-      { key: 'grid_levels', label: '网格层数', type: 'number' as const, required: true, default: 10, min: 3, max: 50, step: 1 },
-      { key: 'grid_range', label: '网格范围', type: 'number' as const, required: true, default: 0.05, min: 0.01, max: 0.5, step: 0.01 },
-      { key: 'take_profit', label: '启用止盈', type: 'boolean' as const, default: false },
+    default_parameters: { grid_levels: 10, grid_range: 0.05, take_profit: false },
+    parameter_schema: [
+      { name: 'grid_levels', label: '网格层数', type: 'integer' as const, default: 10, min: 3, max: 50 },
+      { name: 'grid_range', label: '网格范围', type: 'float' as const, default: 0.05, min: 0.01, max: 0.5 },
+      { name: 'take_profit', label: '启用止盈', type: 'boolean' as const, default: false },
     ],
   },
 ]
@@ -179,7 +175,7 @@ describe('StrategyCreateView', () => {
 
   it('saves strategy with correct payload', async () => {
     vi.mocked(strategiesApi.listTemplates).mockResolvedValue(mockTemplates)
-    vi.mocked(strategiesApi.createStrategy).mockResolvedValue({ id: 1 } as any)
+    vi.mocked(strategiesApi.createStrategy).mockResolvedValue({ id: '1' } as any)
 
     const wrapper = await mountView()
 

@@ -38,8 +38,9 @@ const router = createRouter({
 })
 
 const mockStrategy = {
-  id: 1,
+  id: '1',
   name: '均线趋势跟踪',
+  user_id: 'user-1',
   description: '基于MA均线交叉的趋势跟踪策略',
   template_type: 'trend_following',
   parameters: { fast_period: 5, slow_period: 20, use_ema: true, signal: 'cross' },
@@ -53,15 +54,13 @@ const mockTemplates = [
     id: 'trend_following',
     name: '趋势跟踪',
     description: '基于移动平均线交叉的趋势跟踪策略',
-    icon: 'TrendCharts',
     category: '趋势',
-    params: [
-      { key: 'fast_period', label: '快线周期', type: 'number' as const, required: true, default: 5, min: 2, max: 50, step: 1 },
-      { key: 'slow_period', label: '慢线周期', type: 'number' as const, required: true, default: 20, min: 5, max: 200, step: 1 },
-      { key: 'use_ema', label: '使用EMA', type: 'boolean' as const, default: true },
-      { key: 'signal', label: '信号确认', type: 'select' as const, required: true, default: 'cross', options: [
-        { label: '金叉死叉', value: 'cross' },
-      ]},
+    default_parameters: { fast_period: 5, slow_period: 20, use_ema: true, signal: 'cross' },
+    parameter_schema: [
+      { name: 'fast_period', label: '快线周期', type: 'integer' as const, default: 5, min: 2, max: 50 },
+      { name: 'slow_period', label: '慢线周期', type: 'integer' as const, default: 20, min: 5, max: 200 },
+      { name: 'use_ema', label: '使用EMA', type: 'boolean' as const, default: true },
+      { name: 'signal', label: '信号确认', type: 'select' as const, default: 'cross', options: ['cross'] },
     ],
   },
 ]
@@ -104,7 +103,7 @@ describe('StrategyEditView', () => {
 
     await mountView()
 
-    expect(strategiesApi.getStrategy).toHaveBeenCalledWith(1)
+    expect(strategiesApi.getStrategy).toHaveBeenCalledWith('1')
   })
 
   it('prefills form fields with existing strategy data', async () => {
@@ -144,7 +143,7 @@ describe('StrategyEditView', () => {
     await flushPromises()
 
     expect(strategiesApi.updateStrategy).toHaveBeenCalledWith(
-      1,
+      '1',
       expect.objectContaining({
         name: '均线趋势跟踪',
       })

@@ -16,10 +16,7 @@ export {
   updateStrategy,
   deleteStrategy,
   listTemplates,
-  getTemplate,
   toggleStrategy,
-  runBacktest,
-  getBacktestResult,
 } from './strategies'
 export {
   listOrders,

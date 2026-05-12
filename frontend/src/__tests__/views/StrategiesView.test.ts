@@ -24,7 +24,7 @@ const router = createRouter({
 
 const mockStrategies = [
   {
-    id: 1,
+    id: '1',
     name: '均线趋势跟踪',
     template_type: 'ma_crossover',
     parameters: { fast_period: 5, slow_period: 20 },
@@ -33,7 +33,7 @@ const mockStrategies = [
     updated_at: '2026-05-12T10:00:00Z',
   },
   {
-    id: 2,
+    id: '2',
     name: '网格交易',
     template_type: 'bollinger',
     parameters: { grid_levels: 10, grid_range: 0.05 },
@@ -42,7 +42,7 @@ const mockStrategies = [
     updated_at: '2026-05-10T10:00:00Z',
   },
   {
-    id: 3,
+    id: '3',
     name: 'MACD信号策略',
     template_type: 'macd',
     parameters: { fast_length: 12, slow_length: 26 },
@@ -183,7 +183,7 @@ describe('StrategiesView', () => {
     await toggleBtns[0].trigger('click')
     await flushPromises()
 
-    expect(strategiesApi.toggleStrategy).toHaveBeenCalledWith(1, 'paused')
+    expect(strategiesApi.toggleStrategy).toHaveBeenCalledWith('1', 'paused')
   })
 
   it('calls toggleStrategy with active when pausing a paused strategy', async () => {
@@ -193,12 +193,12 @@ describe('StrategiesView', () => {
     const wrapper = await mountView()
     await flushPromises()
 
-    // The second strategy (网格交易) is paused, so toggle button should say "启用"
+    // The second strategy is paused, so toggle should say "启用"
     const toggleBtns = wrapper.findAll('.toggle-btn')
     await toggleBtns[1].trigger('click')
     await flushPromises()
 
-    expect(strategiesApi.toggleStrategy).toHaveBeenCalledWith(2, 'active')
+    expect(strategiesApi.toggleStrategy).toHaveBeenCalledWith('2', 'active')
   })
 
   it('calls deleteStrategy when delete is confirmed', async () => {

@@ -8,5 +8,5 @@ import { useRoute } from 'vue-router'
 import StrategyCreateView from '@/views/strategy/StrategyCreateView.vue'
 
 const route = useRoute()
-const strategyId = computed(() => Number(route.params.id))
+const strategyId = computed(() => route.params.id as string)
 </script>
