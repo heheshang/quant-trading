@@ -1,5 +1,6 @@
 pub mod backtest;
 pub mod backtest_results;
+pub mod kline;
 pub mod permission;
 pub mod role;
 pub mod role_permission;
@@ -89,6 +90,14 @@ pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), sea_orm::DbEr
     let stmt = backend.build(
         schema
             .create_table_from_entity(backtest_results::Entity)
+            .if_not_exists(),
+    );
+    db.execute(stmt).await?;
+
+    // Create klines table
+    let stmt = backend.build(
+        schema
+            .create_table_from_entity(kline::Entity)
             .if_not_exists(),
     );
     db.execute(stmt).await?;

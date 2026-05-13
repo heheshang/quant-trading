@@ -693,6 +693,13 @@ async function doSave(targetStatus: 'active' | 'paused' | 'draft') {
   saving.value = true
 
   try {
+    // T4.5: Build risk_config first (avoid temporal dead zone)
+    const riskConfigPayload = {
+      max_position: riskConfig.max_position,
+      stop_loss: riskConfig.stop_loss,
+      stop_profit: riskConfig.stop_profit,
+    }
+
     const payload: Record<string, any> = {
       name: formData.name,
       symbol: formData.symbol,
@@ -708,22 +715,9 @@ async function doSave(targetStatus: 'active' | 'paused' | 'draft') {
       payload.template_type = selectedTemplate.value.id
     }
 
-    // T4.5: Include strategy code path if file was uploaded
-    if (strategyCodePath.value) {
-      payload.strategy_code = strategyCodePath.value
-    }
-
-    // T4.5: Include risk_config in both create and update payloads
-    const riskConfigPayload = {
-      max_position: riskConfig.max_position,
-      stop_loss: riskConfig.stop_loss,
-      stop_profit: riskConfig.stop_profit,
-    }
-
     if (isEdit.value && props.strategyId) {
       await updateStrategy(props.strategyId, {
         name: formData.name,
-        description: formData.description || undefined,
         parameters: { ...paramValues },
         risk_config: riskConfigPayload,
         ...(strategyCodePath.value ? { strategy_code: strategyCodePath.value } : {}),

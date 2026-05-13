@@ -203,10 +203,15 @@ export interface CreateStrategyPayload {
   strategy_code?: string   // T4.5: 可选 .py/.js 策略代码文件路径
 }
 
-/** Update strategy payload (ADR D3: symbol/timeframe immutable after create) */
+/** Update strategy payload (ADR D3: symbol/timeframe immutable after create, D6: risk_config) */
 export interface UpdateStrategyPayload {
   name?: string
   parameters?: Record<string, any>
+  risk_config?: {
+    max_position: number
+    stop_loss: number
+    stop_profit: number
+  }
   strategy_code?: string   // T4.5: 可选 .py/.js 策略代码文件路径
 }
 

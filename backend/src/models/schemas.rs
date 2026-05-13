@@ -236,6 +236,143 @@ pub struct ParameterDef {
     pub options: Option<Vec<String>>,
 }
 
+// ============ K-line ============
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KlineResponse {
+    pub id: i64,
+    pub user_id: Uuid,
+    pub symbol: String,
+    pub interval: String,
+    pub open_time: i64,
+    pub open: String,
+    pub high: String,
+    pub low: String,
+    pub close: String,
+    pub volume: String,
+    pub close_time: Option<i64>,
+    pub quote_volume: Option<String>,
+    pub trades: Option<i64>,
+    pub source: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct KlineListMeta {
+    pub total: u64,
+    pub page: u64,
+    pub size: u64,
+    pub gap_detected: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct KlineListResponse {
+    pub items: Vec<KlineResponse>,
+    pub meta: KlineListMeta,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct KlineQueryParams {
+    pub symbol: Option<String>,
+    pub interval: Option<String>,
+    pub start_time: Option<i64>,
+    pub end_time: Option<i64>,
+    pub page: Option<u64>,
+    pub size: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct KlineImportRequest {
+    pub symbol: String,
+    pub interval: String,
+    pub source: String,
+    pub data: Vec<KlineImportItem>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct KlineImportItem {
+    pub open_time: i64,
+    pub open: String,
+    pub high: String,
+    pub low: String,
+    pub close: String,
+    pub volume: String,
+    #[serde(default)]
+    pub close_time: Option<i64>,
+    #[serde(default)]
+    pub quote_volume: Option<String>,
+    #[serde(default)]
+    pub trades: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct KlineImportResult {
+    pub imported_rows: i64,
+    pub duplicate_rows: i64,
+    pub failed_rows: i64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct KlineImportLogResponse {
+    pub id: i64,
+    pub user_id: Uuid,
+    pub symbol: String,
+    pub interval: String,
+    pub source: String,
+    pub total_rows: i64,
+    pub imported_rows: i64,
+    pub duplicate_rows: i64,
+    pub failed_rows: i64,
+    pub status: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct KlineQualityAnomaly {
+    pub open_time: i64,
+    pub anomaly_type: String,
+    pub open: Option<String>,
+    pub high: Option<String>,
+    pub low: Option<String>,
+    pub close: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct KlineQualityReport {
+    pub symbol: String,
+    pub interval: String,
+    pub total_rows: i64,
+    pub valid_rows: i64,
+    pub coverage_pct: f64,
+    pub gap_count: i64,
+    pub anomaly_count: i64,
+    pub duplicate_count: i64,
+    pub anomalies: Vec<KlineQualityAnomaly>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct KlineCleanRequest {
+    pub symbol: String,
+    pub interval: String,
+    pub clean_types: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct KlineCleanResult {
+    pub removed_count: i64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct KlineExportParams {
+    pub symbol: String,
+    pub interval: String,
+    pub format: Option<String>,
+    #[allow(dead_code)]
+    pub start_time: Option<i64>,
+    #[allow(dead_code)]
+    pub end_time: Option<i64>,
+}
+
 // ============ WS ============
 
 #[derive(Debug, Deserialize)]
