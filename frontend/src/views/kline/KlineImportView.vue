@@ -34,7 +34,7 @@
             :key="method.value"
             class="method-card"
             :class="{ 'is-selected': selectedMethod === method.value }"
-            @click="selectedMethod = method.value"
+            @click="selectedMethod = method.value as 'csv' | 'api' | 'exchange'"
           >
             <div class="method-icon">
               <el-icon :size="32"><component :is="method.icon" /></el-icon>
@@ -205,7 +205,7 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Upload, ArrowLeft, ArrowRight, Check, Document, Api, Shopping } from '@element-plus/icons-vue'
+import { Upload, ArrowLeft, ArrowRight, Check, Document, Connection, ShoppingCart } from '@element-plus/icons-vue'
 import { uploadKlinesCSV, importKlines, fetchKlinesFromExchange } from '@/api/kline'
 import { KLINE_INTERVALS } from '@/types/kline'
 import type { KlineImportResult } from '@/types/kline'
@@ -229,8 +229,8 @@ const exchangeForm = reactive({ exchange: 'binance', symbol: '', interval: '', s
 
 const importMethods = [
   { label: 'CSV 上传', value: 'csv', icon: Document, desc: '上传本地 CSV 文件' },
-  { label: 'API 导入', value: 'api', icon: Api, desc: '通过 API 接口批量写入' },
-  { label: '交易所直采', value: 'exchange', icon: Shopping, desc: '从 Binance 直接获取数据' },
+  { label: 'API 导入', value: 'api', icon: Connection, desc: '通过 API 接口批量写入' },
+  { label: '交易所直采', value: 'exchange', icon: ShoppingCart, desc: '从 Binance 直接获取数据' },
 ]
 
 function handleFileChange(file: UploadFile) {
