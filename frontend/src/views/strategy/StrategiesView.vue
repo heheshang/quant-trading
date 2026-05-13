@@ -375,8 +375,8 @@ async function fetchStrategies() {
       sort_by: sortField,
       sort_order: sortOrder,
     })
-    strategies.value = result.data
-    totalCount.value = result.meta.total
+    strategies.value = result?.data ?? []
+    totalCount.value = result?.meta?.total ?? 0
   } catch {
     error.value = true
   } finally {
