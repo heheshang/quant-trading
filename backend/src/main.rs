@@ -129,6 +129,18 @@ fn create_router(db: DbPool, cors: CorsLayer) -> Router {
             quant_trading_backend::middleware::auth::auth_middleware,
         ));
 
+    // Kline routes (authenticated)
+    let kline_routes = Router::new()
+        .route("/kline/query", get(handlers::kline::query_klines))
+        .route("/kline/import", post(handlers::kline::import_klines))
+        .route("/kline/import-history", get(handlers::kline::import_history))
+        .route("/kline/quality", get(handlers::kline::quality_report))
+        .route("/kline/clean", post(handlers::kline::clean_klines))
+        .route("/kline/export", get(handlers::kline::export_klines))
+        .layer(middleware::from_fn(
+            quant_trading_backend::middleware::auth::auth_middleware,
+        ));
+
     // Backtest routes (authenticated)
     let backtest_routes = Router::new()
         .route("/backtest", post(handlers::backtest::run_backtest))
@@ -173,6 +185,7 @@ fn create_router(db: DbPool, cors: CorsLayer) -> Router {
         .nest("/api/v1/auth", auth_protected)
         .nest("/api/v1", user_routes)
         .nest("/api/v1", strategy_routes)
+        .nest("/api/v1", kline_routes)
         .nest("/api/v1", backtest_routes)
         .nest("/api/v1", cancel_routes)
         .nest("/api/v1", public_routes)

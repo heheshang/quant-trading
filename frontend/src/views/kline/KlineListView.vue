@@ -140,7 +140,7 @@ const router = useRouter()
 const filterForm = reactive({
   symbol: '',
   interval: '',
-  dateRange: [] as [number, number] | null,
+  dateRange: null as [number, number] | null,
 })
 
 // Table state
