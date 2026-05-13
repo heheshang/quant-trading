@@ -25,6 +25,7 @@ use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use crate::db::backtest as backtest_db;
+use crate::middleware::auth::AuthenticatedUser;
 use crate::models::backtest::{
     BacktestConfig, BacktestResultResponse, BacktestRunRequest, BacktestRunResponse, EquityPoint,
     TradeRecord,
@@ -47,6 +48,7 @@ static CANCEL_TOKENS: LazyLock<Mutex<HashMap<Uuid, CancellationToken>>> =
 
 pub async fn run_backtest(
     State(db): State<Arc<DatabaseConnection>>,
+    user: AuthenticatedUser,
     Json(req): Json<BacktestRunRequest>,
 ) -> Result<Json<ApiResponse<BacktestRunResponse>>, AppError> {
     // 1. Validate config
@@ -57,7 +59,19 @@ pub async fn run_backtest(
         .await?
         .ok_or_else(|| AppError::NotFound("strategy not found".into()))?;
 
-    // 3. Load template
+    // 3. Verify strategy ownership: strategy must belong to the authenticated user
+    let strategy_user_id = strategy_model
+        .get("user_id")
+        .and_then(|v| v.as_str())
+        .and_then(|s| Uuid::parse_str(s).ok())
+        .unwrap_or_else(Uuid::nil);
+    if strategy_user_id != user.user_id {
+        return Err(AppError::Forbidden(
+            "you do not have permission to run this strategy's backtest".into(),
+        ));
+    }
+
+    // 4. Load template
     let template_type = strategy_model
         .get("template_type")
         .and_then(|v| v.as_str())
@@ -82,12 +96,8 @@ pub async fn run_backtest(
         .try_acquire()
         .map_err(|_| AppError::TooManyRequests("backtest concurrency limit reached (5)".into()))?;
 
-    // 6. Get user_id from strategy model
-    let user_id = strategy_model
-        .get("user_id")
-        .and_then(|v| v.as_str())
-        .and_then(|s| Uuid::parse_str(s).ok())
-        .unwrap_or_else(Uuid::nil);
+    // 6. Use auth_user.user_id for the backtest run (ownership already verified above)
+    let user_id = user.user_id;
 
     // 7. Get strategy params
     let strategy_params = strategy_model

@@ -300,6 +300,7 @@ fn model_to_result_response(
 
     Ok(BacktestResultResponse {
         id: m.id,
+        user_id: m.user_id,
         strategy_id: m.strategy_id,
         status: m.status,
         progress: m.progress,

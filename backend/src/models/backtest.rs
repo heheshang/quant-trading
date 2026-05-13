@@ -46,6 +46,7 @@ pub struct BacktestRunResponse {
 #[derive(Debug, Serialize)]
 pub struct BacktestResultResponse {
     pub id: Uuid,
+    pub user_id: Uuid,
     pub strategy_id: Uuid,
     pub status: String,
     pub progress: i32,
