@@ -1,10 +1,8 @@
-use crate::models::schemas::{
-    LoginRequest, RefreshTokenRequest, RegisterRequest,
-};
+use crate::middleware::auth::AuthenticatedUser;
+use crate::models::schemas::{LoginRequest, RefreshTokenRequest, RegisterRequest};
 use crate::services::auth;
 use crate::utils::error::AppError;
 use crate::utils::response::ApiResponse;
-use crate::middleware::auth::AuthenticatedUser;
 use axum::{extract::State, Json};
 use sea_orm::DatabaseConnection;
 use std::sync::Arc;

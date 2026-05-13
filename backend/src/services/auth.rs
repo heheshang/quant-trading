@@ -4,24 +4,20 @@ use crate::models::schemas::{
 };
 use crate::utils::error::AppError;
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
-use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set,
-};
+use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set};
 use tracing::info;
 use uuid::Uuid;
 
 /// Hash a password using bcrypt
 pub fn hash_password(password: &str) -> Result<String, AppError> {
-    bcrypt::hash(password, bcrypt::DEFAULT_COST).map_err(|e| {
-        AppError::Internal(format!("Failed to hash password: {}", e))
-    })
+    bcrypt::hash(password, bcrypt::DEFAULT_COST)
+        .map_err(|e| AppError::Internal(format!("Failed to hash password: {}", e)))
 }
 
 /// Verify a password against a hash
 pub fn verify_password(password: &str, hash: &str) -> Result<bool, AppError> {
-    bcrypt::verify(password, hash).map_err(|e| {
-        AppError::Internal(format!("Failed to verify password: {}", e))
-    })
+    bcrypt::verify(password, hash)
+        .map_err(|e| AppError::Internal(format!("Failed to verify password: {}", e)))
 }
 
 /// Generate JWT token pair (access + refresh)
@@ -169,13 +165,14 @@ pub async fn register(
     let session = user_session::ActiveModel {
         id: Set(Uuid::new_v4()),
         user_id: Set(saved_user.id),
-        refresh_token_hash: Set(bcrypt::hash(&refresh_token, bcrypt::DEFAULT_COST).map_err(|e| {
-            AppError::Internal(format!("Failed to hash refresh token: {}", e))
-        })?),
+        refresh_token_hash: Set(bcrypt::hash(&refresh_token, bcrypt::DEFAULT_COST)
+            .map_err(|e| AppError::Internal(format!("Failed to hash refresh token: {}", e)))?),
         user_agent: Set(None),
         ip_address: Set(None),
         is_revoked: Set(false),
-        expires_at: Set(now + chrono::Duration::seconds(crate::CONFIG.jwt_refresh_exp.as_secs() as i64)),
+        expires_at: Set(
+            now + chrono::Duration::seconds(crate::CONFIG.jwt_refresh_exp.as_secs() as i64)
+        ),
         created_at: Set(now),
     };
     session.insert(db).await?;
@@ -201,10 +198,7 @@ pub async fn register(
 }
 
 /// Login with username/email and password
-pub async fn login(
-    db: &DatabaseConnection,
-    req: LoginRequest,
-) -> Result<AuthResponse, AppError> {
+pub async fn login(db: &DatabaseConnection, req: LoginRequest) -> Result<AuthResponse, AppError> {
     // Find user by username or email
     let user = if let Some(username) = &req.username {
         user::Entity::find()
@@ -217,9 +211,7 @@ pub async fn login(
             .one(db)
             .await?
     } else {
-        return Err(AppError::BadRequest(
-            "Username or email is required".into(),
-        ));
+        return Err(AppError::BadRequest("Username or email is required".into()));
     };
 
     let user = user.ok_or(AppError::InvalidCredentials)?;
@@ -261,13 +253,14 @@ pub async fn login(
     let session = user_session::ActiveModel {
         id: Set(Uuid::new_v4()),
         user_id: Set(user.id),
-        refresh_token_hash: Set(bcrypt::hash(&refresh_token, bcrypt::DEFAULT_COST).map_err(|e| {
-            AppError::Internal(format!("Failed to hash refresh token: {}", e))
-        })?),
+        refresh_token_hash: Set(bcrypt::hash(&refresh_token, bcrypt::DEFAULT_COST)
+            .map_err(|e| AppError::Internal(format!("Failed to hash refresh token: {}", e)))?),
         user_agent: Set(None),
         ip_address: Set(None),
         is_revoked: Set(false),
-        expires_at: Set(now + chrono::Duration::seconds(crate::CONFIG.jwt_refresh_exp.as_secs() as i64)),
+        expires_at: Set(
+            now + chrono::Duration::seconds(crate::CONFIG.jwt_refresh_exp.as_secs() as i64)
+        ),
         created_at: Set(now),
     };
     session.insert(db).await?;
@@ -338,9 +331,13 @@ pub async fn refresh_token(
 
     // Revoke old session and create new one
     user_session::Entity::delete_many()
-        .filter(user_session::Column::RefreshTokenHash.eq(&bcrypt::hash(refresh_token_str, bcrypt::DEFAULT_COST).map_err(|e| {
-            AppError::Internal(format!("Failed to hash refresh token: {}", e))
-        })?))
+        .filter(
+            user_session::Column::RefreshTokenHash.eq(&bcrypt::hash(
+                refresh_token_str,
+                bcrypt::DEFAULT_COST,
+            )
+            .map_err(|e| AppError::Internal(format!("Failed to hash refresh token: {}", e)))?),
+        )
         .exec(db)
         .await?;
 
@@ -348,14 +345,14 @@ pub async fn refresh_token(
     let session = user_session::ActiveModel {
         id: Set(Uuid::new_v4()),
         user_id: Set(user.id),
-        refresh_token_hash: Set(
-            bcrypt::hash(&new_refresh_token, bcrypt::DEFAULT_COST)
-                .map_err(|e| AppError::Internal(format!("Failed to hash refresh token: {}", e)))?,
-        ),
+        refresh_token_hash: Set(bcrypt::hash(&new_refresh_token, bcrypt::DEFAULT_COST)
+            .map_err(|e| AppError::Internal(format!("Failed to hash refresh token: {}", e)))?),
         user_agent: Set(None),
         ip_address: Set(None),
         is_revoked: Set(false),
-        expires_at: Set(now + chrono::Duration::seconds(crate::CONFIG.jwt_refresh_exp.as_secs() as i64)),
+        expires_at: Set(
+            now + chrono::Duration::seconds(crate::CONFIG.jwt_refresh_exp.as_secs() as i64)
+        ),
         created_at: Set(now),
     };
     session.insert(db).await?;
@@ -370,10 +367,7 @@ pub async fn refresh_token(
 }
 
 /// Logout - revoke all sessions for the user
-pub async fn logout(
-    db: &DatabaseConnection,
-    user_id: Uuid,
-) -> Result<(), AppError> {
+pub async fn logout(db: &DatabaseConnection, user_id: Uuid) -> Result<(), AppError> {
     user_session::Entity::delete_many()
         .filter(user_session::Column::UserId.eq(user_id))
         .filter(user_session::Column::IsRevoked.eq(false))
@@ -396,10 +390,7 @@ pub fn to_role_response(role: &role::Model) -> crate::models::schemas::RoleRespo
     }
 }
 
-pub fn to_user_response(
-    user: &user::Model,
-    role: &role::Model,
-) -> UserResponse {
+pub fn to_user_response(user: &user::Model, role: &role::Model) -> UserResponse {
     UserResponse {
         id: user.id,
         username: user.username.clone(),
@@ -470,10 +461,8 @@ mod tests {
     fn test_generate_tokens_produces_valid_jwt() {
         let user = make_test_user();
         let role_name = "admin";
-        let (access_token, refresh_token, expires_in) = generate_tokens(
-            &user, role_name, TEST_JWT_SECRET, 900, 604800,
-        )
-        .unwrap();
+        let (access_token, refresh_token, expires_in) =
+            generate_tokens(&user, role_name, TEST_JWT_SECRET, 900, 604800).unwrap();
 
         assert_eq!(expires_in, 900);
 

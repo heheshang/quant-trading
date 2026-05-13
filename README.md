@@ -37,9 +37,11 @@ quant-trading/
 │       ├── services/         # 业务逻辑层
 │       │   ├── mod.rs
 │       │   ├── auth.rs       # 认证服务
-│       │   └── strategy.rs   # 策略服务（模板引擎 + CRUD）
+│       │   ├── strategy.rs   # 策略服务（模板引擎 + CRUD）
+│       │   └── backtest_engine.rs # 回测引擎核心
 │       ├── models/           # 数据模型
 │       │   ├── mod.rs
+│       │   ├── backtest.rs   # 回测请求/响应/指标模型
 │       │   └── schemas.rs    # 请求/响应 Schema
 │       ├── middleware/       # 中间件
 │       │   ├── mod.rs
@@ -54,7 +56,10 @@ quant-trading/
 │   ├── design/               # 设计文档
 │   ├── prd/                  # 产品需求文档
 │   ├── auth-api.md           # 认证 API 文档
-│   └── strategy-api.md       # 策略管理 API 文档
+│   ├── strategy-api.md       # 策略管理 API 文档
+│   ├── backtest-api.md       # 回测引擎 API 文档
+│   ├── backtest-user-guide.md # 回测引擎使用说明
+│   └── backtest-metrics.md   # 回测绩效指标定义
 └── docker-compose.yml        # Docker 编排
 ```
 
@@ -149,6 +154,37 @@ draft → active → paused → stopped
 
 > 详细文档见 [策略 API 文档](./docs/strategy-api.md) 和 [用户指南](./docs/strategy-user-guide.md)。
 
+## 模块: 回测引擎
+
+回测引擎提供策略在历史数据上的模拟运行，输出绩效指标、交易明细和权益曲线。
+
+### API 端点
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | `/api/v1/backtest` | 运行回测（异步） |
+| GET | `/api/v1/backtest/{id}` | 获取回测完整结果 |
+| GET | `/api/v1/backtest/{id}/trades` | 获取交易明细 |
+| GET | `/api/v1/backtest/{id}/equity` | 获取权益曲线（采样至 2000 点） |
+| GET | `/api/v1/backtest/history` | 回测历史列表（分页） |
+| DELETE | `/api/v1/backtest/{id}` | 删除回测记录 |
+| POST | `/api/v1/backtest/{id}/cancel` | 取消运行中回测 |
+
+### 核心特性
+
+- **异步执行**：Semaphore 信号量控制并发（上限 5）
+- **双向交易**：支持做多 (long) 和做空 (short)
+- **成本模拟**：手续费 + 滑点真实计算
+- **实时进度**：AtomicU32 进度追踪 + CancellationToken 取消支持
+- **14 项绩效指标**：Sharpe / Sortino / Calmar / 最大回撤 / 盈亏比等
+
+### 状态流转
+
+```
+running → completed  (成功完成)
+       → failed      (执行失败/被取消)
+```
+
 ## 文档索引
 
 | 文档 | 说明 |
@@ -156,6 +192,9 @@ draft → active → paused → stopped
 | [认证 API](./docs/auth-api.md) | 注册/登录/登出/刷新 Token |
 | [策略 API](./docs/strategy-api.md) | 策略管理 7 个端点完整说明 |
 | [策略用户指南](./docs/strategy-user-guide.md) | 模板详解 + 参数配置最佳实践 |
+| [回测引擎 API](./docs/backtest-api.md) | 回测 7 个端点完整说明 + curl 示例 + 错误码 |
+| [回测使用说明](./docs/backtest-user-guide.md) | 回测流程 + 交易模拟 + 最佳实践 + FAQ |
+| [绩效指标定义](./docs/backtest-metrics.md) | 14 项指标公式详解 + 参考标准 |
 | [数据模型](./docs/architecture/data-model.md) | 数据库表结构 + ER 图 |
 | [PRD](./docs/prd/PRD.md) | 产品需求文档 |
 | [架构概览](./docs/architecture/architecture-overview.html) | 系统架构图 |
@@ -172,11 +211,12 @@ cargo clippy     # 代码检查
 
 ## 版本
 
-当前版本: v0.2.0 — [CHANGELOG](./CHANGELOG.md)
+当前版本: v0.3.0 — [CHANGELOG](./CHANGELOG.md)
 
 ### 版本历史
 
 | 版本 | 日期 | 主要变更 |
 |------|------|---------|
+| v0.3.0 | 2026-05-13 | 新增回测引擎模块（异步回测 + 14 项绩效指标 + 双向交易） |
 | v0.2.0 | 2026-05-13 | 新增策略管理模块（模板引擎 + CRUD + 状态流转） |
 | v0.1.0 | 2026-05-11 | 初始版本：认证系统 + RBAC 权限 + 用户管理 |

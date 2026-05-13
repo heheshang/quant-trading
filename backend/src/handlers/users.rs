@@ -11,7 +11,10 @@ use axum::{
     extract::{Path, Query, State},
     Json,
 };
-use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait, PaginatorTrait,
+    QueryFilter, QueryOrder, QuerySelect,
+};
 use uuid::Uuid;
 
 /// Require the authenticated user to have admin role

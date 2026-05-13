@@ -166,6 +166,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "31b698c5f9a010f6573133b09e0de5408834d0c82f8d7475a89fc1867a71cd90"
 dependencies = [
  "axum-core 0.5.6",
+ "axum-macros",
  "base64",
  "bytes",
  "form_urlencoded",
@@ -256,6 +257,17 @@ dependencies = [
  "tower-layer",
  "tower-service",
  "tracing",
+]
+
+[[package]]
+name = "axum-macros"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7aa268c23bfbbd2c4363b9cd302a4f504fb2a9dfe7e3451d66f35dd392e20aca"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
 ]
 
 [[package]]
@@ -1805,6 +1817,7 @@ dependencies = [
  "dotenvy",
  "futures",
  "jsonwebtoken",
+ "rand 0.8.6",
  "rstest",
  "sea-orm",
  "secrecy",
@@ -1814,6 +1827,7 @@ dependencies = [
  "tokio",
  "tokio-test",
  "tokio-tungstenite 0.26.2",
+ "tokio-util",
  "tower-http",
  "tracing",
  "tracing-subscriber",
@@ -2928,6 +2942,20 @@ dependencies = [
  "log",
  "tokio",
  "tungstenite 0.29.0",
+]
+
+[[package]]
+name = "tokio-util"
+version = "0.7.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ae9cec805b01e8fc3fd2fe289f89149a9b66dd16786abd8b19cfa7b48cb0098"
+dependencies = [
+ "bytes",
+ "futures-core",
+ "futures-sink",
+ "futures-util",
+ "pin-project-lite",
+ "tokio",
 ]
 
 [[package]]

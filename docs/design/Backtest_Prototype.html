@@ -1,0 +1,1315 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>回测配置与结果面板 · 交互原型</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+:root {
+  --bg: #08090a;
+  --surface: #191a1b;
+  --surface-elevated: #212223;
+  --surface-hover: rgba(255,255,255,0.03);
+  --text-primary: #f7f8f8;
+  --text-secondary: #d0d6e0;
+  --text-tertiary: #8a8f98;
+  --text-quaternary: #62666d;
+  --accent: #7170ff;
+  --accent-hover: #828fff;
+  --accent-bg: rgba(113,112,255,0.12);
+  --accent-subtle: rgba(113,112,255,0.15);
+  --border: rgba(255,255,255,0.08);
+  --border-hover: rgba(255,255,255,0.16);
+  --success: #10b981;
+  --error: #E5484D;
+  --warning: #F5A623;
+  --info: #60a5fa;
+  --success-bg: rgba(16,185,129,0.1);
+  --error-bg: rgba(229,72,77,0.1);
+  --chart-grid: rgba(255,255,255,0.06);
+  --deep-bg: #050607;
+  --progress-bg: rgba(113,112,255,0.15);
+  --progress-fill: #7170ff;
+  --kpi-positive: #10b981;
+  --kpi-negative: #E5484D;
+  --kpi-neutral: #d0d6e0;
+  --table-row-hover: rgba(255,255,255,0.03);
+  --table-row-buy: rgba(16,185,129,0.06);
+  --table-row-sell: rgba(229,72,77,0.06);
+  --empty-state: #8a8f98;
+  --sidebar-width: 240px;
+  --header-height: 48px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { font-size: 16px; }
+body {
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  font-feature-settings: 'cv01', 'ss03';
+}
+.mono { font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace; }
+
+/* ===== App Layout ===== */
+.app-layout { display: flex; min-height: 100vh; }
+
+/* Sidebar */
+.sidebar {
+  width: var(--sidebar-width);
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+  padding: 0 8px;
+  display: flex; flex-direction: column; flex-shrink: 0;
+}
+.sidebar-logo {
+  height: var(--header-height);
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 12px; border-bottom: 1px solid var(--border);
+  font-size: 14px; font-weight: 510; color: var(--text-primary);
+}
+.sidebar-logo .logo-dot {
+  width: 20px; height: 20px;
+  background: linear-gradient(135deg, #7170ff, #5e6ad2);
+  border-radius: 5px; display: flex; align-items: center; justify-content: center;
+  font-size: 10px; color: white; font-weight: 700;
+}
+.sidebar-nav { flex: 1; padding-top: 12px; }
+.nav-item {
+  display: flex; align-items: center; gap: 12px;
+  height: 36px; padding: 0 12px; margin: 1px 0;
+  border-radius: 6px; cursor: pointer;
+  font-size: 14px; font-weight: 500; color: var(--text-tertiary);
+  transition: all 0.15s;
+}
+.nav-item:hover { background: var(--surface-hover); color: var(--text-secondary); }
+.nav-item.active { background: var(--accent-bg); color: var(--accent); }
+.nav-item .icon { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+
+/* Main Content */
+.main-content { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.header {
+  height: var(--header-height);
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 24px; flex-shrink: 0;
+}
+.breadcrumb { font-size: 13px; }
+.breadcrumb a { color: var(--text-tertiary); text-decoration: none; }
+.breadcrumb a:hover { color: var(--text-secondary); }
+.breadcrumb .current { color: var(--text-primary); font-weight: 510; }
+.breadcrumb .sep { color: var(--text-tertiary); margin: 0 6px; font-size: 12px; }
+
+.header-actions { display: flex; align-items: center; gap: 8px; }
+.header-btn {
+  width: 32px; height: 32px; border-radius: 6px;
+  background: transparent; border: none; color: var(--text-tertiary);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-size: 16px; transition: all 0.15s;
+}
+.header-btn:hover { background: var(--surface-hover); color: var(--text-secondary); }
+.avatar {
+  width: 28px; height: 28px; border-radius: 6px;
+  background: var(--accent); display: flex;
+  align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 510; color: white; cursor: pointer;
+}
+
+/* ===== Page Container ===== */
+.page-container { padding: 24px; flex: 1; max-width: 1344px; }
+.page-title { font-size: 20px; font-weight: 590; margin-bottom: 20px; letter-spacing: -0.24px; }
+
+/* ===== Config Page ===== */
+.config-layout { display: flex; gap: 24px; align-items: flex-start; }
+.config-panel { flex: 1; max-width: 640px; }
+
+.section-label {
+  font-size: 13px; font-weight: 510; color: var(--text-secondary);
+  margin-bottom: 8px; letter-spacing: -0.13px;
+}
+
+/* Select */
+.select-wrapper {
+  position: relative; width: 100%;
+}
+.select-trigger {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 36px; padding: 0 12px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 6px; cursor: pointer;
+  font-size: 14px; color: var(--text-primary);
+  transition: border-color 0.15s;
+}
+.select-trigger:hover { border-color: var(--border-hover); }
+.select-trigger:focus, .select-trigger.active { border-color: var(--accent); outline: 2px solid rgba(113,112,255,0.25); }
+.select-trigger .arrow { color: var(--text-tertiary); font-size: 12px; transition: transform 0.2s; }
+.select-trigger.active .arrow { transform: rotate(180deg); }
+.select-placeholder { color: var(--text-tertiary); }
+
+/* Card */
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 16px; margin-bottom: 16px;
+  transition: border-color 0.15s;
+}
+.card:hover { border-color: var(--border-hover); }
+.card-title {
+  font-size: 14px; font-weight: 510; color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+/* Form grid */
+.form-row { display: flex; gap: 12px; margin-bottom: 12px; }
+.form-field { flex: 1; }
+.form-label {
+  display: block; font-size: 12px; font-weight: 500;
+  color: var(--text-tertiary); margin-bottom: 4px;
+}
+
+.input {
+  display: flex; align-items: center;
+  height: 36px; padding: 0 12px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 6px; font-size: 14px; color: var(--text-primary);
+  font-family: 'JetBrains Mono', monospace;
+  transition: all 0.15s; width: 100%;
+}
+.input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(113,112,255,0.25); }
+.input.error { border-color: var(--error); box-shadow: 0 0 0 2px rgba(229,72,77,0.25); }
+.input::placeholder { color: var(--text-tertiary); font-family: 'Inter', sans-serif; }
+.input-disabled { opacity: 0.5; pointer-events: none; }
+
+.input-suffix {
+  position: relative;
+}
+.input-suffix .input { padding-right: 32px; }
+.input-suffix .suffix {
+  position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+  font-size: 13px; color: var(--text-tertiary); pointer-events: none;
+}
+
+.error-text {
+  font-size: 12px; color: var(--error); margin-top: 4px; display: none;
+}
+.error-text.show { display: block; }
+
+/* Action buttons */
+.action-row { display: flex; gap: 12px; margin-top: 8px; }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 40px; padding: 0 20px; border-radius: 8px;
+  font-size: 14px; font-weight: 510; cursor: pointer;
+  border: none; transition: all 0.15s;
+  font-family: 'Inter', system-ui, sans-serif;
+  white-space: nowrap;
+}
+.btn:active { transform: scale(0.98); }
+.btn-primary {
+  flex: 1; background: var(--accent); color: white;
+}
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-primary:disabled { background: #3a3a4a; color: var(--text-quaternary); cursor: not-allowed; transform: none; }
+.btn-secondary {
+  background: transparent; color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+.btn-secondary:hover { background: var(--surface-hover); border-color: var(--border-hover); }
+.btn-ghost {
+  background: transparent; color: var(--text-secondary); border: none;
+  height: 36px; padding: 0 12px;
+}
+.btn-ghost:hover { background: var(--surface-hover); color: var(--text-primary); }
+.btn-sm { height: 32px; padding: 0 12px; font-size: 13px; border-radius: 6px; }
+
+/* ===== Progress Panel ===== */
+.progress-panel {
+  max-width: 480px; margin: 40px auto; text-align: center;
+}
+.progress-title {
+  font-size: 18px; font-weight: 590; color: var(--text-primary);
+  margin-bottom: 8px; letter-spacing: -0.24px;
+}
+.progress-subtitle {
+  font-size: 13px; color: var(--text-tertiary); margin-bottom: 28px;
+}
+.progress-bar-wrap {
+  width: 100%; height: 8px; background: var(--progress-bg);
+  border-radius: 4px; overflow: hidden; margin-bottom: 8px;
+  position: relative;
+}
+.progress-bar-fill {
+  height: 100%; background: var(--progress-fill); border-radius: 4px;
+  transition: width 0.3s ease-out; width: 0%;
+}
+.progress-bar-fill.indeterminate {
+  width: 40%; animation: pulse-bar 1.5s ease-in-out infinite;
+}
+@keyframes pulse-bar {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+}
+.progress-pct {
+  font-size: 14px; font-weight: 510; color: var(--accent);
+  font-family: 'JetBrains Mono', monospace;
+}
+.progress-details {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 16px; text-align: left; margin-top: 20px;
+}
+.progress-detail-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 0; font-size: 13px;
+}
+.progress-detail-row .label { color: var(--text-tertiary); }
+.progress-detail-row .value { color: var(--text-primary); font-family: 'JetBrains Mono', monospace; }
+
+/* ===== Result Page ===== */
+.result-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 20px; flex-wrap: wrap; gap: 12px;
+}
+.result-title-group { }
+.result-title { font-size: 18px; font-weight: 600; }
+.result-subtitle { font-size: 13px; color: var(--text-tertiary); margin-top: 2px; }
+.result-actions { display: flex; gap: 8px; }
+
+/* KPI Cards */
+.kpi-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 16px; margin-bottom: 24px;
+}
+.kpi-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 16px;
+  transition: all 0.15s; cursor: default;
+}
+.kpi-card:hover { border-color: var(--border-hover); box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+.kpi-label {
+  font-size: 12px; font-weight: 500; color: var(--text-tertiary);
+  margin-bottom: 4px; letter-spacing: 0;
+}
+.kpi-value {
+  font-size: 24px; font-weight: 700; font-family: 'JetBrains Mono', monospace;
+  margin-bottom: 2px;
+}
+.kpi-value.positive { color: var(--kpi-positive); }
+.kpi-value.negative { color: var(--kpi-negative); }
+.kpi-value.neutral { color: var(--kpi-neutral); }
+.kpi-sub {
+  font-size: 11px; color: var(--text-tertiary);
+}
+
+/* Tabs */
+.tabs { margin-bottom: 16px; }
+.tab-bar {
+  display: flex; gap: 0; height: 36px; border-bottom: 1px solid var(--border);
+}
+.tab-item {
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 16px; cursor: pointer;
+  font-size: 13px; font-weight: 500; color: var(--text-tertiary);
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s; position: relative; top: 1px;
+}
+.tab-item:hover { color: var(--text-secondary); }
+.tab-item.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* Chart Container */
+.chart-container {
+  background: var(--deep-bg); border-radius: 8px; padding: 16px; height: 360px;
+}
+
+/* Table */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th {
+  text-align: left; height: 40px; padding: 0 12px;
+  font-weight: 510; color: var(--text-tertiary);
+  border-bottom: 1px solid var(--border); white-space: nowrap;
+}
+td {
+  height: 40px; padding: 0 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+tr:hover { background: var(--table-row-hover); }
+tr.buy-row:hover { background: var(--table-row-buy); }
+tr.sell-row:hover { background: var(--table-row-sell); }
+td.right, th.right { text-align: right; }
+td.mono { font-family: 'JetBrains Mono', monospace; }
+td.positive { color: var(--kpi-positive); }
+td.negative { color: var(--kpi-negative); }
+
+.badge {
+  display: inline-flex; align-items: center; padding: 2px 8px;
+  border-radius: 4px; font-size: 12px; font-weight: 510;
+}
+.badge-buy { background: rgba(16,185,129,0.15); color: var(--success); }
+.badge-sell { background: rgba(229,72,77,0.15); color: var(--error); }
+.badge-signal { color: var(--text-secondary); }
+.badge-stop { color: var(--error); }
+.badge-profit { color: var(--success); }
+
+/* Pagination */
+.pagination {
+  display: flex; justify-content: space-between; align-items: center;
+  height: 40px; margin-top: 8px; font-size: 13px;
+}
+.pagination .info { color: var(--text-tertiary); }
+.pagination .pages { display: flex; gap: 4px; align-items: center; }
+.page-btn {
+  height: 28px; min-width: 28px; padding: 0 6px;
+  background: transparent; border: 1px solid var(--border);
+  border-radius: 4px; color: var(--text-tertiary); cursor: pointer;
+  font-size: 12px; display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+}
+.page-btn:hover { border-color: var(--border-hover); color: var(--text-secondary); }
+.page-btn.active { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
+.page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.page-size-select {
+  background: transparent; border: 1px solid var(--border);
+  border-radius: 4px; color: var(--text-tertiary); padding: 2px 4px;
+  font-size: 12px; cursor: pointer;
+}
+
+/* ===== History Sidebar ===== */
+.history-sidebar { width: 280px; flex-shrink: 0; }
+.history-title {
+  font-size: 13px; font-weight: 510; color: var(--text-secondary);
+  margin-bottom: 12px; letter-spacing: -0.13px;
+}
+.history-item {
+  display: flex; flex-direction: column; padding: 12px;
+  border-radius: 8px; cursor: pointer; transition: background 0.15s;
+  margin-bottom: 4px; border: 1px solid transparent;
+}
+.history-item:hover { background: var(--table-row-hover); border-color: var(--border); }
+.history-item .top-row {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 4px;
+}
+.history-item .name { font-size: 13px; font-weight: 500; }
+.history-item .return { font-size: 13px; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+.history-item .return.positive { color: var(--kpi-positive); }
+.history-item .return.negative { color: var(--kpi-negative); }
+.history-item .meta { font-size: 12px; color: var(--text-tertiary); }
+.status-dot {
+  width: 6px; height: 6px; border-radius: 50%; display: inline-block; margin-right: 4px;
+}
+.status-dot.completed { background: var(--success); }
+.status-dot.failed { background: var(--error); }
+.status-dot.running { background: var(--warning); animation: pulse 1.5s infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+/* ===== Empty / Error States ===== */
+.empty-state {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 60px 20px; text-align: center;
+}
+.empty-state .icon { font-size: 40px; margin-bottom: 16px; opacity: 0.5; }
+.empty-state .title { font-size: 16px; font-weight: 510; color: var(--text-secondary); margin-bottom: 8px; }
+.empty-state .desc { font-size: 13px; color: var(--text-tertiary); max-width: 320px; }
+.empty-state .action { margin-top: 16px; }
+
+.error-state {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 40px 20px; text-align: center;
+}
+.error-state .icon { font-size: 36px; margin-bottom: 12px; }
+.error-state .title { font-size: 15px; font-weight: 510; color: var(--error); margin-bottom: 4px; }
+.error-state .desc { font-size: 13px; color: var(--text-tertiary); margin-bottom: 12px; }
+
+/* ===== Toast ===== */
+.toast-container { position: fixed; top: 16px; right: 16px; z-index: 1000; display: flex; flex-direction: column; gap: 8px; }
+.toast {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 16px; border-radius: 8px;
+  font-size: 13px; font-weight: 500;
+  background: var(--surface-elevated); border: 1px solid var(--border);
+  color: var(--text-primary); box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  animation: slideIn 0.2s ease-out; max-width: 380px;
+}
+.toast.error { border-color: var(--error); }
+.toast.success { border-color: var(--success); }
+@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+/* ===== Modal ===== */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+  display: none; align-items: center; justify-content: center; z-index: 100;
+}
+.modal-overlay.show { display: flex; }
+.modal {
+  background: var(--surface-elevated); border: 1px solid var(--border);
+  border-radius: 12px; padding: 24px; max-width: 400px; width: 90%;
+}
+.modal-title { font-size: 16px; font-weight: 590; margin-bottom: 8px; }
+.modal-body { font-size: 14px; color: var(--text-secondary); margin-bottom: 20px; line-height: 1.5; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+/* ===== Responsive ===== */
+@media (max-width: 1024px) {
+  .history-sidebar { display: none; }
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 768px) {
+  .sidebar { display: none; }
+  .page-container { padding: 16px; }
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .kpi-value { font-size: 20px; }
+  .kpi-card { padding: 12px; }
+  .chart-container { height: 280px; }
+  .config-layout { flex-direction: column; }
+  .config-panel { max-width: 100%; }
+  .form-row { flex-direction: column; }
+  .result-header { flex-direction: column; align-items: flex-start; }
+  .tabs-mobile-table td:nth-child(5), .tabs-mobile-table td:nth-child(6), .tabs-mobile-table td:nth-child(9),
+  .tabs-mobile-table th:nth-child(5), .tabs-mobile-table th:nth-child(6), .tabs-mobile-table th:nth-child(9) { display: none; }
+}
+@media (max-width: 480px) {
+  .kpi-grid { grid-template-columns: 1fr; }
+}
+
+/* View toggle */
+.view { display: none; }
+.view.active { display: block; }
+
+/* Skeleton */
+@keyframes shimmer { 0% { background-position: -200px 0; } 100% { background-position: calc(200px + 100%) 0; } }
+.skeleton {
+  background: linear-gradient(90deg, var(--surface) 25%, var(--surface-elevated) 37%, var(--surface) 63%);
+  background-size: 200px 100%; animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 4px;
+}
+.skeleton-row { height: 16px; margin-bottom: 8px; width: 100%; }
+.skeleton-card { height: 100px; border-radius: 10px; }
+</style>
+</head>
+<body>
+
+<div class="app-layout">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-dot">Q</div>
+      <span>Quant Trading</span>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-item"><span class="icon">▦</span>仪表盘</div>
+      <div class="nav-item"><span class="icon">↗</span>行情</div>
+      <div class="nav-item"><span class="icon">🧠</span>策略</div>
+      <div class="nav-item active"><span class="icon">⚗</span>回测</div>
+      <div class="nav-item"><span class="icon">⇄</span>交易</div>
+      <div class="nav-item"><span class="icon">💼</span>持仓</div>
+      <div class="nav-item" style="margin-top: auto;"><span class="icon">⚙</span>系统管理</div>
+    </nav>
+  </aside>
+
+  <!-- Main -->
+  <div class="main-content">
+    <!-- Header -->
+    <header class="header">
+      <div class="breadcrumb">
+        <a href="#">主页</a><span class="sep">›</span><span class="current">回测</span>
+      </div>
+      <div class="header-actions">
+        <button class="header-btn" title="暗色模式">🌙</button>
+        <div class="avatar">T</div>
+      </div>
+    </header>
+
+    <div class="page-container">
+      <div class="page-title">回测</div>
+
+      <!-- ========== VIEW: Config (idle) ========== -->
+      <div id="view-config" class="view active">
+        <div class="config-layout">
+
+          <!-- Left: Config Panel -->
+          <div class="config-panel">
+
+            <!-- Section: 策略选择 -->
+            <div class="card" style="margin-bottom:16px;">
+              <div class="section-label" style="margin-bottom:8px;">策略选择</div>
+              <div class="select-wrapper">
+                <div class="select-trigger" id="strategy-trigger" onclick="toggleDropdown('strategy-dropdown')">
+                  <span class="select-placeholder" id="strategy-text">选择策略...</span>
+                  <span class="arrow">▼</span>
+                </div>
+                <div class="select-dropdown" id="strategy-dropdown" style="display:none;position:absolute;top:calc(100%+4px);left:0;right:0;background:var(--surface-elevated);border:1px solid var(--border);border-radius:8px;max-height:240px;overflow-y:auto;z-index:50;">
+                  <div class="dropdown-item" onclick="selectStrategy('双均线策略', 'BTC/USDT · 1h')">双均线策略 <span style="font-size:12px;color:var(--text-tertiary);margin-left:8px;">BTC/USDT · 1h</span></div>
+                  <div class="dropdown-item" onclick="selectStrategy('MACD动量策略', 'ETH/USDT · 4h')">MACD动量策略 <span style="font-size:12px;color:var(--text-tertiary);margin-left:8px;">ETH/USDT · 4h</span></div>
+                  <div class="dropdown-item" onclick="selectStrategy('布林带突破', 'BTC/USDT · 1h')">布林带突破 <span style="font-size:12px;color:var(--text-tertiary);margin-left:8px;">BTC/USDT · 1h</span></div>
+                  <div class="dropdown-item" onclick="selectStrategy('趋势跟踪策略', 'SOL/USDT · 4h')">趋势跟踪策略 <span style="font-size:12px;color:var(--text-tertiary);margin-left:8px;">SOL/USDT · 4h</span></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Section: 参数配置 -->
+            <div class="card">
+              <div class="section-label" style="margin-bottom:12px;">参数配置</div>
+
+              <!-- Row 1: 交易对 + K线周期 -->
+              <div class="form-row">
+                <div class="form-field">
+                  <label class="form-label">交易对</label>
+                  <div class="select-wrapper">
+                    <div class="select-trigger" style="height:32px;font-size:13px;" onclick="toggleDropdown('symbol-dropdown')">
+                      <span style="color:var(--text-primary);">BTC/USDT</span>
+                      <span class="arrow">▼</span>
+                    </div>
+                    <div class="select-dropdown" id="symbol-dropdown" style="display:none;position:absolute;top:calc(100%+4px);left:0;right:0;background:var(--surface-elevated);border:1px solid var(--border);border-radius:8px;z-index:50;">
+                      <div class="dropdown-item" onclick="selectSimple('symbol-dropdown', 'BTC/USDT', this)">BTC/USDT</div>
+                      <div class="dropdown-item" onclick="selectSimple('symbol-dropdown', 'ETH/USDT', this)">ETH/USDT</div>
+                      <div class="dropdown-item" onclick="selectSimple('symbol-dropdown', 'SOL/USDT', this)">SOL/USDT</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-field">
+                  <label class="form-label">K线周期</label>
+                  <div class="select-wrapper">
+                    <div class="select-trigger" style="height:32px;font-size:13px;" onclick="toggleDropdown('interval-dropdown')">
+                      <span style="color:var(--text-primary);">1h</span>
+                      <span class="arrow">▼</span>
+                    </div>
+                    <div class="select-dropdown" id="interval-dropdown" style="display:none;position:absolute;top:calc(100%+4px);left:0;right:0;background:var(--surface-elevated);border:1px solid var(--border);border-radius:8px;z-index:50;">
+                      <div class="dropdown-item" onclick="selectSimple('interval-dropdown', '1m', this)">1m</div>
+                      <div class="dropdown-item" onclick="selectSimple('interval-dropdown', '5m', this)">5m</div>
+                      <div class="dropdown-item" onclick="selectSimple('interval-dropdown', '15m', this)">15m</div>
+                      <div class="dropdown-item" onclick="selectSimple('interval-dropdown', '1h', this)">1h</div>
+                      <div class="dropdown-item" onclick="selectSimple('interval-dropdown', '4h', this)">4h</div>
+                      <div class="dropdown-item" onclick="selectSimple('interval-dropdown', '1d', this)">1d</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Row 2: 日期范围 -->
+              <div class="form-row">
+                <div class="form-field">
+                  <label class="form-label">起始日期</label>
+                  <div class="input" style="position:relative;">
+                    <span style="margin-right:8px;opacity:0.5;">📅</span>
+                    <span>2024-01-01</span>
+                  </div>
+                </div>
+                <div class="form-field">
+                  <label class="form-label">结束日期</label>
+                  <div class="input" style="position:relative;">
+                    <span style="margin-right:8px;opacity:0.5;">📅</span>
+                    <span>2024-12-31</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Row 3: 初始资金 -->
+              <div class="form-row">
+                <div class="form-field">
+                  <label class="form-label">初始资金</label>
+                  <div class="input" style="position:relative;">
+                    <span style="margin-right:6px;color:var(--text-tertiary);">$</span>
+                    <span>100,000</span>
+                    <span style="margin-left:auto;color:var(--text-tertiary);font-size:12px;">USDT</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Row 4: 手续费 + 滑点 -->
+              <div class="form-row">
+                <div class="form-field">
+                  <label class="form-label">手续费率</label>
+                  <div class="input-suffix">
+                    <div class="input" style="position:relative;">
+                      <span>0.10</span>
+                      <span class="suffix">%</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-field">
+                  <label class="form-label">滑点</label>
+                  <div class="input-suffix">
+                    <div class="input" style="position:relative;">
+                      <span>0.05</span>
+                      <span class="suffix">%</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="action-row">
+              <button class="btn btn-primary" id="run-btn" onclick="startBacktest()">▶ 运行回测</button>
+              <button class="btn btn-secondary" onclick="resetConfig()">↻ 重置</button>
+            </div>
+            <div style="margin-top:8px;">
+              <span style="font-size:12px;color:var(--text-tertiary);">并发限制: 0/5 运行中</span>
+            </div>
+          </div>
+
+          <!-- Right: History Sidebar -->
+          <div class="history-sidebar">
+            <div class="history-title">最近回测</div>
+            <div class="history-item" onclick="loadResult()">
+              <div class="top-row">
+                <span class="name">双均线策略</span>
+                <span class="return positive">+25.30%</span>
+              </div>
+              <div class="meta"><span class="status-dot completed"></span>2024-01-01 ~ 2024-12-31 · BTC/USDT 1h</div>
+            </div>
+            <div class="history-item" onclick="loadResult()">
+              <div class="top-row">
+                <span class="name">MACD动量策略</span>
+                <span class="return positive">+12.10%</span>
+              </div>
+              <div class="meta"><span class="status-dot completed"></span>2024-06-01 ~ 2024-12-31 · ETH/USDT 4h</div>
+            </div>
+            <div class="history-item">
+              <div class="top-row">
+                <span class="name">布林带突破</span>
+                <span class="return negative">-5.80%</span>
+              </div>
+              <div class="meta"><span class="status-dot completed"></span>2024-01-01 ~ 2024-06-30 · BTC/USDT 1h</div>
+            </div>
+            <div class="history-item" style="border:1px dashed var(--border);opacity:0.6;cursor:default;">
+              <div class="top-row">
+                <span class="name">趋势跟踪策略</span>
+                <span class="return" style="color:var(--text-tertiary);">--</span>
+              </div>
+              <div class="meta"><span class="status-dot running"></span>运行中...</div>
+            </div>
+            <div style="margin-top:12px;text-align:center;">
+              <button class="btn btn-ghost btn-sm" style="width:100%;">查看全部历史 →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== VIEW: Progress (running) ========== -->
+      <div id="view-progress" class="view">
+        <div class="progress-panel">
+          <div class="progress-title">回测运行中...</div>
+          <div class="progress-subtitle">
+            <span>双均线策略</span> · <span>BTC/USDT</span> · <span>1h</span> · <span>2024-01-01 ~ 2024-12-31</span>
+          </div>
+
+          <!-- Progress Bar -->
+          <div class="progress-bar-wrap">
+            <div class="progress-bar-fill" id="progress-fill"></div>
+          </div>
+          <div class="progress-pct" id="progress-pct">0%</div>
+
+          <div class="progress-details">
+            <div class="progress-detail-row">
+              <span class="label">当前 K 线</span>
+              <span class="value" id="progress-bar">第 0 / 8,760 根</span>
+            </div>
+            <div class="progress-detail-row">
+              <span class="label">已用时间</span>
+              <span class="value" id="progress-time">0.0s</span>
+            </div>
+            <div class="progress-detail-row">
+              <span class="label">处理效率</span>
+              <span class="value" id="progress-speed">-- bars/s</span>
+            </div>
+          </div>
+
+          <div style="margin-top:24px;">
+            <button class="btn btn-secondary" onclick="cancelBacktest()" id="cancel-btn" style="width:100%;">取消回测</button>
+          </div>
+          <div style="margin-top:12px;">
+            <span style="font-size:12px;color:var(--text-tertiary);">回测平均耗时约 5-15 秒</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== VIEW: Result (completed) ========== -->
+      <div id="view-result" class="view">
+        <!-- Result Header -->
+        <div class="result-header">
+          <div class="result-title-group">
+            <div class="result-title">回测结果</div>
+            <div class="result-subtitle">双均线策略 · BTC/USDT · 1h · 2024-01-01 ~ 2024-12-31</div>
+          </div>
+          <div class="result-actions">
+            <button class="btn btn-ghost btn-sm" onclick="goToConfig()">✕ 返回</button>
+            <button class="btn btn-secondary btn-sm" onclick="startBacktest()">↻ 重新回测</button>
+            <button class="btn btn-ghost btn-sm" onclick="showDeleteModal()" style="color:var(--error);">🗑 删除</button>
+          </div>
+        </div>
+
+        <!-- KPI Cards -->
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-label">总收益率</div>
+            <div class="kpi-value positive" id="kpi-return">+25.30%</div>
+            <div class="kpi-sub">年化: +22.10%</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">夏普比率</div>
+            <div class="kpi-value neutral" id="kpi-sharpe">1.85</div>
+            <div class="kpi-sub">卡玛比率: 2.15</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">最大回撤</div>
+            <div class="kpi-value negative" id="kpi-drawdown">-12.50%</div>
+            <div class="kpi-sub">2024-03-15 ~ 2024-04-10</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">胜率</div>
+            <div class="kpi-value neutral" id="kpi-winrate">62.0%</div>
+            <div class="kpi-sub">总交易: 85 笔</div>
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+          <div class="tab-bar">
+            <div class="tab-item active" onclick="switchTab('curve')" id="tab-curve">
+              <span>📈</span> 权益曲线
+            </div>
+            <div class="tab-item" onclick="switchTab('trades')" id="tab-trades">
+              <span>📋</span> 交易明细
+            </div>
+            <div class="tab-item" onclick="switchTab('report')" id="tab-report">
+              <span>📊</span> 绩效报告
+            </div>
+          </div>
+
+          <!-- Tab: 权益曲线 -->
+          <div class="tab-content active" id="tab-content-curve">
+            <div class="chart-container" id="equity-chart"></div>
+          </div>
+
+          <!-- Tab: 交易明细 -->
+          <div class="tab-content" id="tab-content-trades">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>开仓时间</th>
+                    <th>平仓时间</th>
+                    <th>方向</th>
+                    <th class="right">开仓价</th>
+                    <th class="right">平仓价</th>
+                    <th class="right">数量</th>
+                    <th class="right">盈亏 (USDT)</th>
+                    <th class="right">收益率</th>
+                    <th>出场原因</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="buy-row">
+                    <td class="mono">1</td>
+                    <td>2024-01-15 10:00</td>
+                    <td>2024-01-20 14:00</td>
+                    <td><span class="badge badge-buy">做多</span></td>
+                    <td class="right mono">42,000.00</td>
+                    <td class="right mono">46,000.00</td>
+                    <td class="right mono">0.5234</td>
+                    <td class="right mono positive">+2,093.60</td>
+                    <td class="right mono positive">+9.52%</td>
+                    <td><span class="badge-signal">信号平仓</span></td>
+                  </tr>
+                  <tr class="sell-row">
+                    <td class="mono">2</td>
+                    <td>2024-01-22 08:00</td>
+                    <td>2024-01-25 16:00</td>
+                    <td><span class="badge badge-sell">做空</span></td>
+                    <td class="right mono">45,800.00</td>
+                    <td class="right mono">44,200.00</td>
+                    <td class="right mono">0.5012</td>
+                    <td class="right mono positive">+801.92</td>
+                    <td class="right mono positive">+3.49%</td>
+                    <td><span class="badge-signal">信号平仓</span></td>
+                  </tr>
+                  <tr class="buy-row">
+                    <td class="mono">3</td>
+                    <td>2024-02-10 14:00</td>
+                    <td>2024-02-18 06:00</td>
+                    <td><span class="badge badge-buy">做多</span></td>
+                    <td class="right mono">44,500.00</td>
+                    <td class="right mono">42,100.00</td>
+                    <td class="right mono">0.5340</td>
+                    <td class="right mono negative">-1,281.60</td>
+                    <td class="right mono negative">-5.39%</td>
+                    <td><span class="badge-stop">止损</span></td>
+                  </tr>
+                  <tr class="buy-row">
+                    <td class="mono">4</td>
+                    <td>2024-03-05 06:00</td>
+                    <td>2024-03-20 22:00</td>
+                    <td><span class="badge badge-buy">做多</span></td>
+                    <td class="right mono">43,200.00</td>
+                    <td class="right mono">47,800.00</td>
+                    <td class="right mono">0.5100</td>
+                    <td class="right mono positive">+2,346.00</td>
+                    <td class="right mono positive">+10.65%</td>
+                    <td><span class="badge-profit">止盈</span></td>
+                  </tr>
+                  <tr class="sell-row">
+                    <td class="mono">5</td>
+                    <td>2024-04-01 02:00</td>
+                    <td>2024-04-05 10:00</td>
+                    <td><span class="badge badge-sell">做空</span></td>
+                    <td class="right mono">46,500.00</td>
+                    <td class="right mono">45,300.00</td>
+                    <td class="right mono">0.4890</td>
+                    <td class="right mono positive">+586.80</td>
+                    <td class="right mono positive">+2.58%</td>
+                    <td><span class="badge-signal">信号平仓</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Pagination -->
+            <div class="pagination">
+              <span class="info">共 85 条，第 1-5 条</span>
+              <div class="pages">
+                <select class="page-size-select" style="margin-right:8px;">
+                  <option>20条/页</option>
+                  <option selected>5条/页</option>
+                </select>
+                <button class="page-btn" disabled>‹</button>
+                <button class="page-btn active">1</button>
+                <button class="page-btn">2</button>
+                <button class="page-btn">3</button>
+                <span style="color:var(--text-tertiary);font-size:12px;margin:0 4px;">...</span>
+                <button class="page-btn">17</button>
+                <button class="page-btn">›</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tab: 绩效报告 -->
+          <div class="tab-content" id="tab-content-report" style="padding-top:8px;">
+            <div class="kpi-grid" style="grid-template-columns:repeat(2,1fr);">
+              <div class="kpi-card" style="height:auto;">
+                <div class="kpi-label">总收益率</div>
+                <div class="kpi-value positive" style="font-size:18px;">+25.30%</div>
+              </div>
+              <div class="kpi-card" style="height:auto;">
+                <div class="kpi-label">年化收益率</div>
+                <div class="kpi-value positive" style="font-size:18px;">+22.10%</div>
+              </div>
+              <div class="kpi-card" style="height:auto;">
+                <div class="kpi-label">夏普比率</div>
+                <div class="kpi-value neutral" style="font-size:18px;">1.85</div>
+              </div>
+              <div class="kpi-card" style="height:auto;">
+                <div class="kpi-label">卡玛比率</div>
+                <div class="kpi-value neutral" style="font-size:18px;">2.15</div>
+              </div>
+              <div class="kpi-card" style="height:auto;">
+                <div class="kpi-label">最大回撤</div>
+                <div class="kpi-value negative" style="font-size:18px;">-12.50%</div>
+                <div class="kpi-sub">2024-03-15 ~ 2024-04-10</div>
+              </div>
+              <div class="kpi-card" style="height:auto;">
+                <div class="kpi-label">胜率</div>
+                <div class="kpi-value neutral" style="font-size:18px;">62.0%</div>
+              </div>
+              <div class="kpi-card" style="height:auto;">
+                <div class="kpi-label">总交易次数</div>
+                <div class="kpi-value neutral" style="font-size:18px;">85</div>
+                <div class="kpi-sub">盈利 53 / 亏损 32</div>
+              </div>
+              <div class="kpi-card" style="height:auto;">
+                <div class="kpi-label">盈亏比 (Profit Factor)</div>
+                <div class="kpi-value positive" style="font-size:18px;">2.30</div>
+              </div>
+              <div class="kpi-card" style="height:auto;">
+                <div class="kpi-label">平均盈亏</div>
+                <div class="kpi-value positive" style="font-size:18px;">+156.78 USDT</div>
+              </div>
+              <div class="kpi-card" style="height:auto;">
+                <div class="kpi-label">平均持仓时长</div>
+                <div class="kpi-value neutral" style="font-size:18px;">3d 4h 12m</div>
+              </div>
+              <div class="kpi-card" style="height:auto;">
+                <div class="kpi-label">最大连续盈利</div>
+                <div class="kpi-value positive" style="font-size:18px;">8</div>
+              </div>
+              <div class="kpi-card" style="height:auto;">
+                <div class="kpi-label">最大连续亏损</div>
+                <div class="kpi-value negative" style="font-size:18px;">3</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== VIEW: Empty (no strategy) ========== -->
+      <div id="view-empty" class="view">
+        <div class="empty-state">
+          <div class="icon">📭</div>
+          <div class="title">尚无可用策略</div>
+          <div class="desc">请先创建策略，然后在此运行回测以评估策略表现。</div>
+          <button class="btn btn-primary" style="margin-top:16px;" onclick="alert('跳转到策略创建页')">创建策略</button>
+        </div>
+      </div>
+
+      <!-- ========== VIEW: Error ========== -->
+      <div id="view-error" class="view">
+        <div class="error-state">
+          <div class="icon">⚠️</div>
+          <div class="title">回测执行失败</div>
+          <div class="desc">所选时间范围内无 K 线数据 (ERR_BACKTEST_NO_DATA)</div>
+          <button class="btn btn-primary" onclick="goToConfig()" style="margin-top:8px;">返回修改参数</button>
+        </div>
+      </div>
+
+      <!-- ========== VIEW: Empty Result (no trades) ========== -->
+      <div id="view-empty-result" class="view">
+        <div class="result-header">
+          <div class="result-title-group">
+            <div class="result-title">回测结果</div>
+            <div class="result-subtitle">布林带突破 · BTC/USDT · 1h · 2024-01-01 ~ 2024-06-30</div>
+          </div>
+          <div class="result-actions">
+            <button class="btn btn-ghost btn-sm" onclick="goToConfig()">✕ 返回</button>
+            <button class="btn btn-secondary btn-sm">↻ 重新回测</button>
+          </div>
+        </div>
+        <div class="kpi-grid">
+          <div class="kpi-card"><div class="kpi-label">总收益率</div><div class="kpi-value neutral" style="font-size:18px;">0.00%</div></div>
+          <div class="kpi-card"><div class="kpi-label">夏普比率</div><div class="kpi-value neutral" style="font-size:18px;">0.00</div></div>
+          <div class="kpi-card"><div class="kpi-label">最大回撤</div><div class="kpi-value neutral" style="font-size:18px;">0.00%</div></div>
+          <div class="kpi-card"><div class="kpi-label">胜率</div><div class="kpi-value neutral" style="font-size:18px;">0.0%</div></div>
+        </div>
+        <div class="empty-state" style="padding:40px 20px;">
+          <div class="icon" style="font-size:32px;">📭</div>
+          <div class="title">回测期间未产生交易信号</div>
+          <div class="desc">尝试调整策略参数或扩大时间范围。</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- Delete Modal -->
+<div class="modal-overlay" id="delete-modal">
+  <div class="modal">
+    <div class="modal-title">确认删除</div>
+    <div class="modal-body">确定要删除 "双均线策略 · BTC/USDT 1h" 的回测记录吗？<br>此操作不可撤销。</div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary btn-sm" onclick="hideDeleteModal()">取消</button>
+      <button class="btn btn-primary btn-sm" style="background:var(--error);" onclick="confirmDelete()">确认删除</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== State Management =====
+let config = {
+  strategy: null,
+  strategyDetail: '',
+  symbol: 'BTC/USDT',
+  interval: '1h',
+  startDate: '2024-01-01',
+  endDate: '2024-12-31',
+  capital: 100000,
+  feeRate: 0.10,
+  slippage: 0.05
+};
+
+// ===== View Switching =====
+function showView(viewId) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(viewId).classList.add('active');
+}
+
+// ===== Strategy Select =====
+function toggleDropdown(id) {
+  const dd = document.getElementById(id);
+  const all = document.querySelectorAll('.select-dropdown');
+  all.forEach(d => { if (d.id !== id) d.style.display = 'none'; });
+  dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+  // Adjust trigger active state
+  const trigger = dd.closest('.select-wrapper')?.querySelector('.select-trigger');
+  if (trigger) trigger.classList.toggle('active');
+}
+
+function selectStrategy(name, detail) {
+  config.strategy = name;
+  config.strategyDetail = detail;
+  document.getElementById('strategy-text').textContent = name;
+  document.getElementById('strategy-text').style.color = 'var(--text-primary)';
+  document.getElementById('strategy-dropdown').style.display = 'none';
+  document.getElementById('strategy-trigger').classList.remove('active');
+  document.getElementById('run-btn').disabled = false;
+}
+
+function selectSimple(id, value, el) {
+  const dd = document.getElementById(id);
+  const wrapper = dd.closest('.select-wrapper');
+  const trigger = wrapper.querySelector('.select-trigger');
+  trigger.querySelector('span:first-child').textContent = value;
+  dd.style.display = 'none';
+  trigger.classList.remove('active');
+  // highlight selected
+  dd.querySelectorAll('.dropdown-item').forEach(i => i.style.background = 'transparent');
+  if (el) el.style.background = 'var(--accent-bg)';
+}
+
+// ===== Config Actions =====
+function resetConfig() {
+  config = { ...config, strategy: null, strategyDetail: '' };
+  document.getElementById('strategy-text').textContent = '选择策略...';
+  document.getElementById('strategy-text').style.color = 'var(--text-tertiary)';
+  document.getElementById('run-btn').disabled = true;
+  showToast('已重置参数');
+}
+
+function startBacktest() {
+  if (!config.strategy) {
+    showToast('请先选择策略', 'error');
+    return;
+  }
+  // Validate
+  document.getElementById('run-btn').disabled = true;
+  document.getElementById('run-btn').innerHTML = '⏳ 校验中...';
+
+  setTimeout(() => {
+    // Show progress view
+    showView('view-progress');
+    document.getElementById('run-btn').disabled = false;
+    document.getElementById('run-btn').innerHTML = '▶ 运行回测';
+    simulateProgress();
+  }, 800);
+}
+
+// ===== Progress Simulation =====
+let progressInterval = null;
+function simulateProgress() {
+  let pct = 0;
+  const fill = document.getElementById('progress-fill');
+  const pctEl = document.getElementById('progress-pct');
+  const barEl = document.getElementById('progress-bar');
+  const timeEl = document.getElementById('progress-time');
+  const speedEl = document.getElementById('progress-speed');
+  const startTime = Date.now();
+
+  fill.className = 'progress-bar-fill';
+
+  progressInterval = setInterval(() => {
+    pct += Math.random() * 5 + 1;
+    if (pct > 100) pct = 100;
+    const current = Math.round(pct * 87.6); // 8760 bars
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    const speed = elapsed > 0 ? Math.round(current / parseFloat(elapsed)) : 0;
+
+    fill.style.width = pct + '%';
+    pctEl.textContent = Math.round(pct) + '%';
+    barEl.textContent = `第 ${current.toLocaleString()} / 8,760 根`;
+    timeEl.textContent = elapsed + 's';
+    speedEl.textContent = speed.toLocaleString() + ' bars/s';
+
+    if (pct >= 100) {
+      clearInterval(progressInterval);
+      setTimeout(() => {
+        fill.style.width = '100%';
+        pctEl.textContent = '100%';
+        setTimeout(loadResult, 500);
+      }, 300);
+    }
+  }, 200);
+}
+
+function cancelBacktest() {
+  document.getElementById('cancel-btn').disabled = true;
+  document.getElementById('cancel-btn').innerHTML = '⏳ 取消中...';
+  setTimeout(() => {
+    clearInterval(progressInterval);
+    showToast('回测已取消', 'success');
+    goToConfig();
+  }, 500);
+}
+
+// ===== Result =====
+function loadResult() {
+  showView('view-result');
+  initEquityChart();
+}
+
+function goToConfig() {
+  showView('view-config');
+}
+
+// ===== Tab Switching =====
+function switchTab(tab) {
+  document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.getElementById('tab-content-' + tab).classList.add('active');
+  if (tab === 'curve') setTimeout(initEquityChart, 50);
+}
+
+// ===== ECharts: Equity Curve =====
+let chartInstance = null;
+function initEquityChart() {
+  const container = document.getElementById('equity-chart');
+  if (!container || container.offsetHeight === 0) return;
+
+  if (chartInstance) { chartInstance.resize(); return; }
+
+  chartInstance = echarts.init(container, null, { renderer: 'canvas' });
+
+  // Generate mock data (daily points for 365 days)
+  const points = 365;
+  const dates = [];
+  const equities = [];
+  const drawdowns = [];
+  let equity = 100000;
+  let peak = 100000;
+
+  for (let i = 0; i < points; i++) {
+    const d = new Date('2024-01-01');
+    d.setDate(d.getDate() + i);
+    dates.push(d.toISOString().slice(0, 10));
+
+    // Simulate equity curve with realistic movement
+    const change = (Math.random() - 0.48) * 0.02; // slight upward bias
+    equity = equity * (1 + change);
+    if (i === 0) equity = 100000;
+    peak = Math.max(peak, equity);
+    const dd = ((equity - peak) / peak) * 100;
+    equities.push(Math.round(equity * 100) / 100);
+    drawdowns.push(Math.round(dd * 100) / 100);
+  }
+
+  const option = {
+    backgroundColor: 'transparent',
+    grid: { left: 60, right: 20, top: 20, bottom: 30 },
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: 'rgba(33,34,35,0.95)',
+      borderColor: 'rgba(255,255,255,0.08)',
+      borderWidth: 1,
+      textStyle: { color: '#f7f8f8', fontSize: 12, fontFamily: 'JetBrains Mono, monospace' },
+      formatter: function(params) {
+        const p = params[0];
+        const val = p.value.toLocaleString('en-US', { minimumFractionDigits: 2 });
+        return `<div>${p.axisValue}</div><div style="font-weight:600;margin-top:4px;">$${val}</div>`;
+      }
+    },
+    xAxis: {
+      type: 'category',
+      data: dates,
+      axisLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } },
+      axisLabel: { color: '#8a8f98', fontSize: 11, showMinLabel: true, showMaxLabel: true },
+      splitLine: { show: false },
+      axisTick: { show: false }
+    },
+    yAxis: {
+      type: 'value',
+      min: 90000,
+      axisLabel: {
+        color: '#8a8f98', fontSize: 11,
+        fontFamily: 'JetBrains Mono, monospace',
+        formatter: function(v) { return '$' + (v / 1000).toFixed(0) + 'k'; }
+      },
+      splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)', type: 'dashed' } },
+      axisLine: { show: false },
+      axisTick: { show: false }
+    },
+    series: [{
+      type: 'line',
+      data: equities,
+      smooth: true,
+      symbol: 'none',
+      lineStyle: { color: '#7170ff', width: 2 },
+      areaStyle: {
+        color: {
+          type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+          colorStops: [
+            { offset: 0, color: 'rgba(113,112,255,0.25)' },
+            { offset: 1, color: 'rgba(113,112,255,0.02)' }
+          ]
+        }
+      },
+      markLine: {
+        silent: true,
+        data: [{ yAxis: 100000, label: { show: false } }],
+        lineStyle: { color: 'rgba(255,255,255,0.3)', type: 'dashed', width: 1 }
+      },
+      markPoint: {
+        data: [
+          { coord: [dates[Math.round(points * 0.7)], Math.max(...equities)], symbol: 'pin', symbolSize: 40, itemStyle: { color: '#10b981' }, label: { show: false } },
+          { coord: [dates[Math.round(points * 0.35)], Math.min(...equities)], symbol: 'pin', symbolSize: 40, itemStyle: { color: '#E5484D' }, label: { show: false } }
+        ]
+      }
+    }],
+    animationDuration: 2000,
+    animationEasing: 'cubicOut'
+  };
+
+  chartInstance.setOption(option);
+
+  window.addEventListener('resize', () => { chartInstance && chartInstance.resize(); });
+}
+
+// ===== Modal =====
+function showDeleteModal() { document.getElementById('delete-modal').classList.add('show'); }
+function hideDeleteModal() { document.getElementById('delete-modal').classList.remove('show'); }
+function confirmDelete() {
+  hideDeleteModal();
+  showToast('回测记录已删除', 'success');
+  goToConfig();
+}
+
+// ===== Toast =====
+function showToast(msg, type) {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = 'toast' + (type === 'error' ? ' error' : type === 'success' ? ' success' : '');
+  toast.textContent = msg;
+  container.appendChild(toast);
+  setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; setTimeout(() => toast.remove(), 300); }, 2500);
+}
+
+// ===== Dropdown close on outside click =====
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.select-wrapper')) {
+    document.querySelectorAll('.select-dropdown').forEach(d => {
+      d.style.display = 'none';
+      const trigger = d.closest('.select-wrapper')?.querySelector('.select-trigger');
+      if (trigger) trigger.classList.remove('active');
+    });
+  }
+});
+
+// Dropdown item style
+document.head.insertAdjacentHTML('beforeend', `
+  <style>
+  .select-dropdown { padding: 4px; }
+  .dropdown-item {
+    padding: 8px 12px; font-size: 14px; color: var(--text-primary);
+    cursor: pointer; border-radius: 4px; transition: background 0.1s;
+  }
+  .dropdown-item:hover { background: rgba(255,255,255,0.04); }
+  </style>
+`);
+
+// ===== Init =====
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('run-btn').disabled = true;
+});
+</script>
+
+</body>
+</html>

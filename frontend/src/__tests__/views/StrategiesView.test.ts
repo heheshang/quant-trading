@@ -25,7 +25,9 @@ const router = createRouter({
 const mockStrategies = [
   {
     id: '1',
+    user_id: 'user-1',
     name: '均线趋势跟踪',
+    description: 'MA crossover strategy',
     template_type: 'ma_crossover',
     parameters: { fast_period: 5, slow_period: 20 },
     status: 'active' as const,
@@ -34,7 +36,9 @@ const mockStrategies = [
   },
   {
     id: '2',
+    user_id: 'user-1',
     name: '网格交易',
+    description: 'Bollinger grid strategy',
     template_type: 'bollinger',
     parameters: { grid_levels: 10, grid_range: 0.05 },
     status: 'paused' as const,
@@ -43,7 +47,9 @@ const mockStrategies = [
   },
   {
     id: '3',
+    user_id: 'user-1',
     name: 'MACD信号策略',
+    description: 'MACD signal strategy',
     template_type: 'macd',
     parameters: { fast_length: 12, slow_length: 26 },
     status: 'stopped' as const,

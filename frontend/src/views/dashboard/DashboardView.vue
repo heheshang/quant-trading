@@ -248,6 +248,18 @@ onMounted(() => {
   margin-bottom: 24px;
 }
 
+@media (max-width: 768px) {
+  .stats-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 .stat-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);

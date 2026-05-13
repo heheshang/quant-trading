@@ -1,6 +1,6 @@
 use axum::{
     middleware,
-    routing::{get, post, put},
+    routing::{get, post},
     Router,
 };
 use quant_trading_backend::db::{init_db, run_migrations, DbPool};
@@ -18,8 +18,7 @@ async fn main() {
     // Initialize tracing
     tracing_subscriber::fmt()
         .with_env_filter(
-            EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| EnvFilter::new(&CONFIG.log_level)),
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&CONFIG.log_level)),
         )
         .json()
         .init();
@@ -38,11 +37,17 @@ async fn main() {
 
     // Build CORS layer
     let cors = CorsLayer::new()
-        .allow_origin(CONFIG.cors_allowed_origins.iter().map(|s| {
-            s.parse::<axum::http::HeaderValue>().unwrap_or_else(|_| {
-                axum::http::HeaderValue::from_static("http://localhost:5173")
-            })
-        }).collect::<Vec<_>>())
+        .allow_origin(
+            CONFIG
+                .cors_allowed_origins
+                .iter()
+                .map(|s| {
+                    s.parse::<axum::http::HeaderValue>().unwrap_or_else(|_| {
+                        axum::http::HeaderValue::from_static("http://localhost:5173")
+                    })
+                })
+                .collect::<Vec<_>>(),
+        )
         .allow_methods(Any)
         .allow_headers(Any);
 
@@ -57,14 +62,10 @@ async fn main() {
         .await
         .expect("Failed to bind address");
 
-    axum::serve(listener, app)
-        .await
-        .expect("Server failed");
+    axum::serve(listener, app).await.expect("Server failed");
 }
 
 fn create_router(db: DbPool, cors: CorsLayer) -> Router {
-    let state = db.clone();
-
     // Auth routes (no auth required)
     let auth_routes = Router::new()
         .route("/register", post(handlers::auth::register))
@@ -86,7 +87,10 @@ fn create_router(db: DbPool, cors: CorsLayer) -> Router {
         .route("/users/me/password", post(handlers::users::change_password))
         .route("/users", get(handlers::users::list_users))
         .route("/users/{id}", post(handlers::users::admin_update_user))
-        .route("/users/{id}", delete_handler(handlers::users::admin_delete_user))
+        .route(
+            "/users/{id}",
+            delete_handler(handlers::users::admin_delete_user),
+        )
         .route("/roles", get(handlers::users::list_roles))
         .layer(middleware::from_fn(
             quant_trading_backend::middleware::auth::auth_middleware,
@@ -94,13 +98,59 @@ fn create_router(db: DbPool, cors: CorsLayer) -> Router {
 
     // Strategy routes (authenticated)
     let strategy_routes = Router::new()
-        .route("/strategies/templates", get(handlers::strategy::list_templates))
+        .route(
+            "/strategies/templates",
+            get(handlers::strategy::list_templates),
+        )
         .route("/strategies", get(handlers::strategy::list_strategies))
         .route("/strategies", post(handlers::strategy::create_strategy))
         .route("/strategies/{id}", get(handlers::strategy::get_strategy))
-        .route("/strategies/{id}", put(handlers::strategy::update_strategy))
-        .route("/strategies/{id}", delete_handler(handlers::strategy::delete_strategy))
-        .route("/strategies/{id}/status", post(handlers::strategy::update_status))
+        .route(
+            "/strategies/{id}",
+            post(handlers::strategy::update_strategy),
+        )
+        .route(
+            "/strategies/{id}",
+            delete_handler(handlers::strategy::delete_strategy),
+        )
+        .route(
+            "/strategies/{id}/status",
+            post(handlers::strategy::update_status),
+        )
+        .layer(middleware::from_fn(
+            quant_trading_backend::middleware::auth::auth_middleware,
+        ));
+
+    // Backtest routes (authenticated)
+    let backtest_routes = Router::new()
+        .route("/backtest", post(handlers::backtest::run_backtest))
+        .route("/backtest/{id}", get(handlers::backtest::get_backtest))
+        .route(
+            "/backtest/{id}",
+            delete_handler(handlers::backtest::delete_backtest),
+        )
+        .route(
+            "/backtest/{id}/trades",
+            get(handlers::backtest::get_backtest_trades),
+        )
+        .route(
+            "/backtest/{id}/equity",
+            get(handlers::backtest::get_backtest_equity),
+        )
+        .route(
+            "/backtest/history",
+            get(handlers::backtest::list_backtest_history),
+        )
+        .layer(middleware::from_fn(
+            quant_trading_backend::middleware::auth::auth_middleware,
+        ));
+
+    // Cancel backtest endpoint (separate router to avoid matchit/axum handler type conflict)
+    let cancel_routes = Router::new()
+        .route(
+            "/backtest/{id}/cancel",
+            post(handlers::backtest::cancel_backtest),
+        )
         .layer(middleware::from_fn(
             quant_trading_backend::middleware::auth::auth_middleware,
         ));
@@ -115,10 +165,12 @@ fn create_router(db: DbPool, cors: CorsLayer) -> Router {
         .nest("/api/v1/auth", auth_protected)
         .nest("/api/v1", user_routes)
         .nest("/api/v1", strategy_routes)
+        .nest("/api/v1", backtest_routes)
+        .nest("/api/v1", cancel_routes)
         .nest("/api/v1", public_routes)
         .layer(cors)
         .layer(TraceLayer::new_for_http())
-        .with_state(state)
+        .with_state(db)
 }
 
 // Helper: Since axum 0.8 uses method routing differently for DELETE

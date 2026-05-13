@@ -183,9 +183,13 @@ export interface StrategyQueryParams {
 export interface BacktestParams {
   strategy_id: string
   symbol: string
+  timeframe?: string
   start_date: string
   end_date: string
   initial_capital: number
+  fee_rate?: number
+  slippage?: number
+  strategy_params?: Record<string, any>
 }
 
 export interface BacktestResult {

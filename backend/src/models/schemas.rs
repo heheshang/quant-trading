@@ -156,13 +156,13 @@ impl PaginationParams {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct JwtClaims {
-    pub sub: String,         // user id
+    pub sub: String, // user id
     pub username: String,
     pub role: String,
-    pub exp: usize,          // expiry timestamp
-    pub iat: usize,          // issued at
-    pub jti: String,         // token id (for revocation)
-    pub token_type: String,  // "access" or "refresh"
+    pub exp: usize,         // expiry timestamp
+    pub iat: usize,         // issued at
+    pub jti: String,        // token id (for revocation)
+    pub token_type: String, // "access" or "refresh"
 }
 
 // ============ Strategy ============
@@ -236,7 +236,10 @@ mod tests {
 
     #[test]
     fn test_pagination_defaults() {
-        let params = PaginationParams { page: None, size: None };
+        let params = PaginationParams {
+            page: None,
+            size: None,
+        };
         assert_eq!(params.page(), 1);
         assert_eq!(params.size(), 20);
         assert_eq!(params.offset(), 0);
@@ -244,7 +247,10 @@ mod tests {
 
     #[test]
     fn test_pagination_custom_values() {
-        let params = PaginationParams { page: Some(3), size: Some(10) };
+        let params = PaginationParams {
+            page: Some(3),
+            size: Some(10),
+        };
         assert_eq!(params.page(), 3);
         assert_eq!(params.size(), 10);
         assert_eq!(params.offset(), 20);
@@ -252,16 +258,25 @@ mod tests {
 
     #[test]
     fn test_pagination_clamps_min_page() {
-        let params = PaginationParams { page: Some(0), size: None };
+        let params = PaginationParams {
+            page: Some(0),
+            size: None,
+        };
         assert_eq!(params.page(), 1);
     }
 
     #[test]
     fn test_pagination_clamps_size_range() {
-        let too_small = PaginationParams { page: None, size: Some(0) };
+        let too_small = PaginationParams {
+            page: None,
+            size: Some(0),
+        };
         assert_eq!(too_small.size(), 1);
 
-        let too_large = PaginationParams { page: None, size: Some(200) };
+        let too_large = PaginationParams {
+            page: None,
+            size: Some(200),
+        };
         assert_eq!(too_large.size(), 100);
     }
 

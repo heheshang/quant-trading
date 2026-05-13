@@ -1,28 +1,480 @@
 <template>
-  <div class="placeholder-view">
+  <div class="backtest-view">
     <div class="page-header">
-      <h1>Backtest</h1>
+      <h1 class="page-title">回测</h1>
     </div>
-    <el-card class="placeholder-card" shadow="never">
-      <el-empty description="Backtest engine coming soon" :image-size="80">
-        <template #image>
-          <el-icon :size="48" color="var(--color-text-tertiary)"><Odometer /></el-icon>
-        </template>
-      </el-empty>
-    </el-card>
+
+    <div class="backtest-layout">
+      <!-- Left panel: Config form (fixed 340px) -->
+      <div class="config-panel">
+        <BacktestConfigForm
+          :loading="isRunning"
+          @run="handleRun"
+        />
+      </div>
+
+      <!-- Right panel: Results area (flex:1) -->
+      <div class="results-panel">
+    <!-- Progress Panel - shown when running -->
+    <div v-if="backtestState === 'running'" class="progress-panel">
+      <el-card shadow="never" class="progress-card">
+        <div class="progress-content">
+          <!-- Strategy summary -->
+          <div v-if="lastParams" class="strategy-summary">
+            {{ lastParams.strategy_id }} · {{ lastParams.symbol }} · {{ lastParams.start_date }} ~ {{ lastParams.end_date }}
+          </div>
+          <!-- Progress bar -->
+          <div class="progress-bar-wrapper">
+            <el-progress
+              :percentage="pollProgress"
+              :indeterminate="true"
+              :stroke-width="8"
+              :show-text="false"
+              class="progress-bar"
+            />
+          </div>
+          <div class="running-status-text">运行中...</div>
+          <!-- Cancel button -->
+          <el-button
+            class="cancel-btn"
+            size="small"
+            @click="handleCancel"
+          >
+            取消
+          </el-button>
+        </div>
+      </el-card>
+    </div>
+
+    <!-- Error Section - shown when failed -->
+    <div v-if="backtestState === 'failed'" class="error-section">
+      <el-alert
+        :title="error || '回测执行失败'"
+        type="error"
+        show-icon
+        closable
+        @close="handleReturnToIdle"
+      />
+      <el-button
+        class="return-params-btn"
+        @click="handleReturnToIdle"
+        style="margin-top: 12px"
+      >
+        返回修改参数
+      </el-button>
+    </div>
+
+    <!-- Empty State - shown when idle -->
+    <div v-if="backtestState === 'idle'" class="empty-state">
+      <el-card shadow="never" class="empty-card">
+        <el-empty description="配置参数后点击运行回测" :image-size="80">
+          <template #image>
+            <el-icon :size="48" color="var(--color-text-tertiary)">
+              <Odometer />
+            </el-icon>
+          </template>
+        </el-empty>
+      </el-card>
+    </div>
+
+    <!-- Results Section - shown when completed -->
+    <div v-if="backtestState === 'completed' && result" class="results-section">
+      <!-- Top action bar -->
+      <div class="result-action-bar">
+        <div class="action-bar-left">
+          <span class="result-title">回测结果</span>
+          <span v-if="result" class="result-subtitle">
+            {{ result.strategy_id }} · {{ result.config.symbol }}
+          </span>
+        </div>
+        <div class="action-bar-right">
+          <el-button size="small" @click="handleReturnToIdle">
+            ✕ 返回
+          </el-button>
+          <el-button size="small" class="rerun-btn" @click="handleRerun">
+            ↻ 重新回测
+          </el-button>
+          <el-button size="small" @click="handleDelete">
+            🗑 删除
+          </el-button>
+        </div>
+      </div>
+
+      <!-- Metrics cards -->
+      <div class="result-metrics">
+        <BacktestMetricsCards :result="result" />
+      </div>
+
+      <!-- Tab navigation -->
+      <el-tabs v-model="activeTab" class="result-tabs">
+        <el-tab-pane label="权益曲线" :name="0">
+          <BacktestEquityChart
+            :data="result.equity_curve"
+            :initial-capital="result.config.initial_capital"
+          />
+        </el-tab-pane>
+        <el-tab-pane label="交易明细" :name="1">
+          <BacktestTradesTable :trades="result.trades" />
+        </el-tab-pane>
+      </el-tabs>
+    </div>
+      </div><!-- /results-panel -->
+    </div><!-- /backtest-layout -->
   </div>
 </template>
 
-<style scoped lang="scss">
-.placeholder-view { max-width: 1344px; }
-.page-header { margin-bottom: 24px; }
-.page-header h1 {
-  font-size: 24px; font-weight: 600; color: var(--color-text-primary); margin: 0;
+<script setup lang="ts">
+import { ref, computed, onUnmounted } from 'vue'
+import { ElMessageBox } from 'element-plus'
+import { Odometer } from '@element-plus/icons-vue'
+import BacktestConfigForm from '@/components/backtest/BacktestConfigForm.vue'
+import BacktestMetricsCards from '@/components/backtest/BacktestMetricsCards.vue'
+import BacktestEquityChart from '@/components/backtest/BacktestEquityChart.vue'
+import BacktestTradesTable from '@/components/backtest/BacktestTradesTable.vue'
+import * as backtestApi from '@/api/backtest'
+import type { BacktestResultResponse, BacktestParams } from '@/types/backtest'
+
+const result = ref<BacktestResultResponse | null>(null)
+const error = ref('')
+const isRunning = ref(false)
+const backtestState = ref<'idle' | 'running' | 'completed' | 'failed'>('idle')
+const activeTab = ref(0)
+const pollProgress = ref(0)
+const currentJobId = ref<string | null>(null)
+const lastParams = ref<{
+  strategy_id?: string
+  symbol?: string
+  start_date?: string
+  end_date?: string
+} | null>(null)
+
+const MAX_POLL_ATTEMPTS = 60
+const POLL_INTERVAL = 2000
+let pollTimer: ReturnType<typeof setInterval> | null = null
+let pollCount = 0
+
+onUnmounted(() => {
+  if (pollTimer) {
+    clearInterval(pollTimer)
+    pollTimer = null
+  }
+})
+
+async function handleRun(params: BacktestParams) {
+  // Reset all state
+  result.value = null
+  error.value = ''
+  isRunning.value = true
+  backtestState.value = 'running'
+  pollCount = 0
+  pollProgress.value = 0
+  activeTab.value = 0
+
+  // Store params for progress panel display
+  lastParams.value = {
+    strategy_id: params.strategy_id,
+    symbol: params.symbol,
+    start_date: params.start_date,
+    end_date: params.end_date,
+  }
+
+  try {
+    // Step 1: Submit backtest job — returns BacktestResultResponse with status
+    const initialResult = await backtestApi.runBacktest(params)
+    currentJobId.value = initialResult.id
+
+    // Step 2: Check if already completed/failed
+    if (initialResult.status === 'completed') {
+      result.value = initialResult
+      backtestState.value = 'completed'
+      return
+    }
+
+    if (initialResult.status === 'failed') {
+      throw new Error(initialResult.error || '回测执行失败')
+    }
+
+    // Step 3: Poll for completion using GET /backtest/{id}
+    const finalResult = await pollJob(initialResult.id)
+
+    if (!finalResult) {
+      throw new Error('回测超时，请稍后重试')
+    }
+
+    if (finalResult.status === 'failed') {
+      throw new Error(finalResult.error || '回测执行失败')
+    }
+
+    // Step 4: Use the result
+    result.value = finalResult
+    backtestState.value = 'completed'
+  } catch (err: any) {
+    error.value = err?.message || '回测执行失败'
+    backtestState.value = 'failed'
+  } finally {
+    isRunning.value = false
+    if (pollTimer) {
+      clearInterval(pollTimer)
+      pollTimer = null
+    }
+  }
 }
-.placeholder-card {
+
+async function handleCancel() {
+  if (currentJobId.value) {
+    try {
+      await backtestApi.cancelBacktest(currentJobId.value)
+    } catch {
+      // Silently ignore cancel errors
+    }
+  }
+  cleanupState()
+}
+
+function handleReturnToIdle() {
+  cleanupState()
+}
+
+function handleRerun() {
+  cleanupState()
+  // User will click run from the config form again
+}
+
+async function handleDelete() {
+  if (!result.value) return
+  try {
+    await ElMessageBox.confirm(
+      '确定要删除该回测结果吗？删除后不可恢复。',
+      '确认删除',
+      {
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    )
+    await backtestApi.deleteBacktestResult(result.value.id)
+    cleanupState()
+  } catch {
+    // User cancelled or delete failed — silently ignore
+  }
+}
+
+function cleanupState() {
+  cleanupPolling()
+  result.value = null
+  error.value = ''
+  isRunning.value = false
+  backtestState.value = 'idle'
+  currentJobId.value = null
+  lastParams.value = null
+  activeTab.value = 0
+}
+
+function cleanupPolling() {
+  if (pollTimer) {
+    clearInterval(pollTimer)
+    pollTimer = null
+  }
+  pollCount = 0
+  pollProgress.value = 0
+}
+
+function pollJob(id: string): Promise<BacktestResultResponse | null> {
+  return new Promise((resolve, reject) => {
+    pollCount = 0
+    pollTimer = setInterval(async () => {
+      pollCount++
+      pollProgress.value = Math.min((pollCount / MAX_POLL_ATTEMPTS) * 100, 95)
+
+      try {
+        const data = await backtestApi.getBacktestResult(id)
+
+        if (data.status === 'completed') {
+          clearInterval(pollTimer!)
+          pollTimer = null
+          pollProgress.value = 100
+          resolve(data)
+        } else if (data.status === 'failed') {
+          clearInterval(pollTimer!)
+          pollTimer = null
+          resolve(data)
+        } else if (pollCount >= MAX_POLL_ATTEMPTS) {
+          clearInterval(pollTimer!)
+          pollTimer = null
+          resolve(null)
+        }
+        // else: still running, continue polling
+      } catch (err) {
+        clearInterval(pollTimer!)
+        pollTimer = null
+        reject(err)
+      }
+    }, POLL_INTERVAL)
+  })
+}
+</script>
+
+<style scoped lang="scss">
+.backtest-view {
+  max-width: 1344px;
+}
+
+.page-header {
+  margin-bottom: 24px;
+
+  .page-title {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+}
+
+// Left-right split layout
+.backtest-layout {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.config-panel {
+  width: 340px;
+  flex-shrink: 0;
+}
+
+.results-panel {
+  flex: 1;
+  min-width: 0; // prevent overflow
+}
+
+@media (max-width: 900px) {
+  .backtest-layout {
+    flex-direction: column;
+  }
+  .config-panel {
+    width: 100%;
+  }
+}
+
+// Progress Panel
+.progress-panel {
+  margin-bottom: 20px;
+  max-width: 480px;
+  margin-left: auto;
+  margin-right: auto;
+
+  .progress-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+  }
+
+  .progress-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 24px 0;
+  }
+
+  .strategy-summary {
+    font-size: 13px;
+    color: var(--color-text-tertiary);
+    text-align: center;
+  }
+
+  .progress-bar-wrapper {
+    width: 100%;
+    max-width: 320px;
+
+    .progress-bar {
+      width: 100%;
+    }
+  }
+
+  .running-status-text {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+  }
+
+  .cancel-btn {
+    min-width: 80px;
+  }
+}
+
+// Error Section
+.error-section {
+  margin-bottom: 20px;
+
+  .return-params-btn {
+    display: block;
+  }
+}
+
+// Empty State
+.empty-state {
+  margin-bottom: 20px;
+
+  .empty-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 40px;
+  }
+}
+
+// Results Section
+.results-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.result-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 48px;
+  padding: 0 16px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 8px;
-  padding: 40px;
+
+  .action-bar-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .result-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+  }
+
+  .result-subtitle {
+    font-size: 13px;
+    color: var(--color-text-tertiary);
+  }
+
+  .action-bar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+}
+
+.result-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.result-tabs {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 16px;
 }
 </style>

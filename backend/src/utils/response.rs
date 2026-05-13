@@ -126,7 +126,10 @@ mod tests {
             id: i32,
             name: String,
         }
-        let user = User { id: 1, name: "alice".into() };
+        let user = User {
+            id: 1,
+            name: "alice".into(),
+        };
         let resp = ApiResponse::success(user);
         let json = serde_json::to_value(&resp).unwrap();
         assert_eq!(json["code"], 0);
@@ -173,7 +176,13 @@ mod tests {
         let assert_status = |code: i32, expected: u16| {
             let err = ApiError::new(code, "test");
             let resp = err.into_response();
-            assert_eq!(resp.status().as_u16(), expected, "code {} should map to status {}", code, expected);
+            assert_eq!(
+                resp.status().as_u16(),
+                expected,
+                "code {} should map to status {}",
+                code,
+                expected
+            );
         };
 
         assert_status(ERR_BAD_REQUEST, 400);

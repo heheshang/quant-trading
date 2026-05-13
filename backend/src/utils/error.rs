@@ -36,6 +36,9 @@ pub enum AppError {
 
     #[error("Internal error: {0}")]
     Internal(String),
+
+    #[error("Too many requests: {0}")]
+    TooManyRequests(String),
 }
 
 impl AppError {
@@ -52,6 +55,7 @@ impl AppError {
             Self::RateLimit => 42901,
             Self::Database(_) => 50002,
             Self::Internal(_) => 50001,
+            Self::TooManyRequests(_) => 42902,
         }
     }
 }
@@ -68,6 +72,7 @@ impl IntoResponse for AppError {
             Self::Conflict(_) => StatusCode::CONFLICT,
             Self::RateLimit => StatusCode::TOO_MANY_REQUESTS,
             Self::Database(_) | Self::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::TooManyRequests(_) => StatusCode::TOO_MANY_REQUESTS,
         };
 
         let body = serde_json::json!({
@@ -135,8 +140,14 @@ mod tests {
         assert_status(AppError::NotFound("x".into()), StatusCode::NOT_FOUND);
         assert_status(AppError::Conflict("x".into()), StatusCode::CONFLICT);
         assert_status(AppError::RateLimit, StatusCode::TOO_MANY_REQUESTS);
-        assert_status(AppError::Database("x".into()), StatusCode::INTERNAL_SERVER_ERROR);
-        assert_status(AppError::Internal("x".into()), StatusCode::INTERNAL_SERVER_ERROR);
+        assert_status(
+            AppError::Database("x".into()),
+            StatusCode::INTERNAL_SERVER_ERROR,
+        );
+        assert_status(
+            AppError::Internal("x".into()),
+            StatusCode::INTERNAL_SERVER_ERROR,
+        );
     }
 
     #[test]
@@ -174,9 +185,8 @@ mod tests {
 
     #[test]
     fn test_from_jwt_err() {
-        let jwt_err = jsonwebtoken::errors::Error::from(
-            jsonwebtoken::errors::ErrorKind::InvalidToken,
-        );
+        let jwt_err =
+            jsonwebtoken::errors::Error::from(jsonwebtoken::errors::ErrorKind::InvalidToken);
         let app_err: AppError = jwt_err.into();
         assert!(matches!(app_err, AppError::TokenInvalid(_)));
     }

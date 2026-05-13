@@ -7,7 +7,7 @@ rust-version = "1.85"
 
 [dependencies]
 # Web framework
-axum = { version = "0.8", features = ["ws"] }
+axum = { version = "0.8", features = ["ws", "macros"] }
 axum-extra = { version = "0.10", features = ["typed-header"] }
 
 # Async runtime
@@ -56,9 +56,10 @@ secrecy = "0.10"
 # Environment
 dotenvy = "0.15"
 
-# Error handling
+tokio-util = { version = "0.7", features = ["rt"] }
 thiserror = "2"
 anyhow = "1"
+rand = "~0.8"
 
 [dev-dependencies]
 rstest = "0.24"

@@ -14,6 +14,10 @@ global.IntersectionObserver = vi.fn().mockImplementation(() => ({
   disconnect: vi.fn(),
 }))
 
+// Mock URL.createObjectURL for CSV export in tests
+global.URL.createObjectURL = vi.fn(() => 'blob:mock-url')
+global.URL.revokeObjectURL = vi.fn()
+
 // Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {
   writable: true,

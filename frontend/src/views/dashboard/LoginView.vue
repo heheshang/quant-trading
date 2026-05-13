@@ -6,7 +6,7 @@
       <!-- Brand -->
       <div class="brand-section">
         <svg class="brand-icon" width="44" height="44" viewBox="0 0 44 44" fill="none">
-          <rect width="44" height="44" rx="12" fill="#7C3AED" />
+          <rect width="44" height="44" rx="12" fill="var(--color-accent, #7170ff)" />
           <path d="M11 30V14L22 8L33 14V30L22 36L11 30Z" stroke="white" stroke-width="2" fill="none" />
           <path d="M16.5 24L20 27.5L27.5 20" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
         </svg>
@@ -187,19 +187,19 @@ async function handleLogin() {
 
 <style scoped lang="scss">
 // ============================================================
-// Color tokens (page-local, doesn't touch global variables)
+// Color tokens (page-local, aligned with design system)
 // ============================================================
-$purple:      #7C3AED;
-$purple-dark: #6D28D9;
+$accent:        var(--color-accent);          // #7170ff
+$accent-hover:  var(--color-accent-hover);    // #8b8aff
 $error-red:   #F87171;
-$bg-page:     #121212;
-$bg-input:    #1E1E2E;
-$bg-card:     #1A1A2A;
-$border:      #333344;
-$border-focus:#7C3AED;
-$text-body:   #E0E0E0;
-$text-label:  #D0D0E0;
-$text-muted:  #888899;
+$bg-page:     var(--color-bg);               // #08090a
+$bg-input:    var(--color-surface-elevated);  // #212223
+$bg-card:     var(--color-surface);           // #191a1b
+$border:      var(--color-border);
+$border-focus:var(--color-accent);
+$text-body:   var(--color-text-primary);
+$text-label:  var(--color-text-secondary);
+$text-muted:  var(--color-text-tertiary);
 $text-placeholder: #666677;
 
 // ============================================================
@@ -341,8 +341,8 @@ $text-placeholder: #666677;
 
   :deep(.el-input__wrapper.is-focus) {
     box-shadow:
-      0 0 0 1px $border-focus inset,
-      0 0 12px rgba(124, 58, 237, 0.15) !important;
+      0 0 0 1px var(--color-accent) inset,
+      0 0 12px rgba(113, 112, 255, 0.15) !important;
   }
 
   :deep(.el-input__inner) {
@@ -393,8 +393,8 @@ $text-placeholder: #666677;
   }
 
   :deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
-    background: $purple !important;
-    border-color: $purple !important;
+    background: $accent !important;
+    border-color: $accent !important;
   }
 
   :deep(.el-checkbox__input.is-checked .el-checkbox__inner::after) {
@@ -402,7 +402,7 @@ $text-placeholder: #666677;
   }
 
   :deep(.el-checkbox__input.is-focus .el-checkbox__inner) {
-    border-color: $purple;
+    border-color: $accent;
   }
 
   .checkbox-label {
@@ -412,13 +412,13 @@ $text-placeholder: #666677;
 
   .forgot-link {
     font-size: 13px;
-    color: $purple;
+    color: $accent;
     text-decoration: none;
     font-weight: 500;
     transition: color 0.15s;
 
     &:hover {
-      color: lighten($purple, 10%);
+      color: $accent-hover;
       text-decoration: underline;
     }
   }
@@ -443,13 +443,13 @@ $text-placeholder: #666677;
   border: none !important;
   transition: all 0.2s ease;
 
-  // Active state — use !important to beat Element Plus internal CSS
-  --el-button-bg-color: #7C3AED !important;
-  --el-button-border-color: #7C3AED !important;
-  --el-button-hover-bg-color: #6D28D9 !important;
-  --el-button-hover-border-color: #6D28D9 !important;
-  --el-button-active-bg-color: #6D28D9 !important;
-  --el-button-active-border-color: #6D28D9 !important;
+  // Active state — use design system accent color
+  --el-button-bg-color: var(--color-accent) !important;
+  --el-button-border-color: var(--color-accent) !important;
+  --el-button-hover-bg-color: var(--color-accent-hover) !important;
+  --el-button-hover-border-color: var(--color-accent-hover) !important;
+  --el-button-active-bg-color: var(--color-accent) !important;
+  --el-button-active-border-color: var(--color-accent) !important;
   --el-button-text-color: #ffffff !important;
   --el-button-hover-text-color: #ffffff !important;
   --el-button-active-text-color: #ffffff !important;
@@ -463,15 +463,15 @@ $text-placeholder: #666677;
   }
 
   &:not(.is-disabled) {
-    background: #7C3AED !important;
-    border-color: #7C3AED !important;
+    background: var(--color-accent) !important;
+    border-color: var(--color-accent) !important;
     color: #ffffff !important;
   }
 
   &:not(.is-disabled):hover {
-    background: #6D28D9 !important;
-    border-color: #6D28D9 !important;
-    box-shadow: 0 0 20px rgba(124, 58, 237, 0.3);
+    background: var(--color-accent-hover) !important;
+    border-color: var(--color-accent-hover) !important;
+    box-shadow: 0 0 20px rgba(113, 112, 255, 0.3);
     transform: translateY(-1px);
   }
 
@@ -549,14 +549,14 @@ $text-placeholder: #666677;
   border-top: 1px solid #2A2A3A;
 
   .register-link {
-    color: $purple;
+    color: $accent;
     text-decoration: none;
     font-weight: 500;
     margin-left: 4px;
     transition: color 0.15s;
 
     &:hover {
-      color: lighten($purple, 10%);
+      color: $accent-hover;
       text-decoration: underline;
     }
   }

@@ -40,7 +40,10 @@ pub async fn create_strategy(
     Json(body): Json<CreateStrategyRequest>,
 ) -> Result<(StatusCode, Json<ApiResponse<serde_json::Value>>), AppError> {
     let result = strategy::create_strategy(&db, user.user_id, body).await?;
-    Ok((StatusCode::CREATED, Json(ApiResponse::success(serde_json::json!(result)))))
+    Ok((
+        StatusCode::CREATED,
+        Json(ApiResponse::success(serde_json::json!(result))),
+    ))
 }
 
 /// GET /api/v1/strategies/{id}

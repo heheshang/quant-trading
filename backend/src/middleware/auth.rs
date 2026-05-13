@@ -1,10 +1,5 @@
 use crate::services::auth;
-use axum::{
-    extract::Request,
-    http::StatusCode,
-    middleware::Next,
-    response::Response,
-};
+use axum::{extract::Request, http::StatusCode, middleware::Next, response::Response};
 
 /// Extract authenticated user from request
 #[derive(Debug, Clone)]
@@ -28,42 +23,40 @@ pub async fn auth_middleware(
         .map(|s| s.to_string());
 
     match auth_header {
-        Some(token) => {
-            match auth::validate_token(&token, &crate::CONFIG.jwt_secret) {
-                Ok(claims) => {
-                    if claims.token_type != "access" {
-                        return Err((
-                            StatusCode::UNAUTHORIZED,
-                            axum::Json(serde_json::json!({
-                                "code": 40101,
-                                "message": "Invalid token type"
-                            })),
-                        ));
-                    }
-                    let user = AuthenticatedUser {
-                        user_id: claims.sub.parse().unwrap_or_default(),
-                        username: claims.username,
-                        role: claims.role,
-                        jti: claims.jti,
-                    };
-                    req.extensions_mut().insert(user);
-                    Ok(next.run(req).await)
-                }
-                Err(e) => {
-                    let (code, msg) = match e {
-                        crate::utils::error::AppError::TokenExpired => (40102, "Token expired"),
-                        _ => (40103, "Invalid token"),
-                    };
-                    Err((
+        Some(token) => match auth::validate_token(&token, &crate::CONFIG.jwt_secret) {
+            Ok(claims) => {
+                if claims.token_type != "access" {
+                    return Err((
                         StatusCode::UNAUTHORIZED,
                         axum::Json(serde_json::json!({
-                            "code": code,
-                            "message": msg
+                            "code": 40101,
+                            "message": "Invalid token type"
                         })),
-                    ))
+                    ));
                 }
+                let user = AuthenticatedUser {
+                    user_id: claims.sub.parse().unwrap_or_default(),
+                    username: claims.username,
+                    role: claims.role,
+                    jti: claims.jti,
+                };
+                req.extensions_mut().insert(user);
+                Ok(next.run(req).await)
             }
-        }
+            Err(e) => {
+                let (code, msg) = match e {
+                    crate::utils::error::AppError::TokenExpired => (40102, "Token expired"),
+                    _ => (40103, "Invalid token"),
+                };
+                Err((
+                    StatusCode::UNAUTHORIZED,
+                    axum::Json(serde_json::json!({
+                        "code": code,
+                        "message": msg
+                    })),
+                ))
+            }
+        },
         None => Err((
             StatusCode::UNAUTHORIZED,
             axum::Json(serde_json::json!({
@@ -80,7 +73,10 @@ where
 {
     type Rejection = (StatusCode, axum::Json<serde_json::Value>);
 
-    async fn from_request_parts(parts: &mut axum::http::request::Parts, _state: &S) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(
+        parts: &mut axum::http::request::Parts,
+        _state: &S,
+    ) -> Result<Self, Self::Rejection> {
         parts
             .extensions
             .get::<AuthenticatedUser>()

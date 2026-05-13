@@ -1,12 +1,16 @@
+pub mod backtest;
+pub mod backtest_results;
+pub mod permission;
+pub mod role;
+pub mod role_permission;
 pub mod strategy;
 pub mod user;
-pub mod role;
-pub mod permission;
-pub mod role_permission;
 pub mod user_session;
 
-use sea_orm::{ConnectionTrait, Database, DatabaseBackend, DatabaseConnection, EntityTrait, Schema};
 use sea_orm::PaginatorTrait;
+use sea_orm::{
+    ConnectionTrait, Database, DatabaseBackend, DatabaseConnection, EntityTrait, Schema,
+};
 use std::sync::Arc;
 use tracing::info;
 
@@ -27,42 +31,48 @@ pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), sea_orm::DbEr
 
     // Create roles table
     let stmt = backend.build(
-        schema.create_table_from_entity(role::Entity)
+        schema
+            .create_table_from_entity(role::Entity)
             .if_not_exists(),
     );
     db.execute(stmt).await?;
 
     // Create permissions table
     let stmt = backend.build(
-        schema.create_table_from_entity(permission::Entity)
+        schema
+            .create_table_from_entity(permission::Entity)
             .if_not_exists(),
     );
     db.execute(stmt).await?;
 
     // Create role_permissions table
     let stmt = backend.build(
-        schema.create_table_from_entity(role_permission::Entity)
+        schema
+            .create_table_from_entity(role_permission::Entity)
             .if_not_exists(),
     );
     db.execute(stmt).await?;
 
     // Create users table
     let stmt = backend.build(
-        schema.create_table_from_entity(user::Entity)
+        schema
+            .create_table_from_entity(user::Entity)
             .if_not_exists(),
     );
     db.execute(stmt).await?;
 
     // Create user_sessions table
     let stmt = backend.build(
-        schema.create_table_from_entity(user_session::Entity)
+        schema
+            .create_table_from_entity(user_session::Entity)
             .if_not_exists(),
     );
     db.execute(stmt).await?;
 
     // Create strategies table
     let stmt = backend.build(
-        schema.create_table_from_entity(strategy::Entity)
+        schema
+            .create_table_from_entity(strategy::Entity)
             .if_not_exists(),
     );
     db.execute(stmt).await?;
@@ -75,6 +85,14 @@ pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), sea_orm::DbEr
     ))
     .await?;
 
+    // Create backtest_results table
+    let stmt = backend.build(
+        schema
+            .create_table_from_entity(backtest_results::Entity)
+            .if_not_exists(),
+    );
+    db.execute(stmt).await?;
+
     info!("Database migrations completed");
 
     // Seed default roles if none exist
@@ -84,7 +102,6 @@ pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), sea_orm::DbEr
 }
 
 async fn seed_default_roles(db: &DatabaseConnection) -> Result<(), sea_orm::DbErr> {
-
     let count = role::Entity::find().count(db).await?;
 
     if count == 0 {

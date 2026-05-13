@@ -6,6 +6,8 @@ pub mod models;
 pub mod services;
 pub mod utils;
 
+pub use models::{backtest, schemas};
+
 use config::Config;
 use std::sync::LazyLock;
 
