@@ -42,7 +42,10 @@ const mockStrategy = {
   name: '均线趋势跟踪',
   user_id: 'user-1',
   description: '基于MA均线交叉的趋势跟踪策略',
-  template_type: 'trend_following',
+  symbol: 'BTCUSDT',
+  timeframe: '1H',
+  template_id: 'trend_following',
+  template_type: 'ma_crossover',
   parameters: { fast_period: 5, slow_period: 20, use_ema: true, signal: 'cross' },
   status: 'active' as const,
   created_at: '2026-05-01T08:00:00Z',
@@ -54,7 +57,7 @@ const mockTemplates = [
     id: 'trend_following',
     name: '趋势跟踪',
     description: '基于移动平均线交叉的趋势跟踪策略',
-    category: '趋势',
+    category: '趋势跟踪',
     default_parameters: { fast_period: 5, slow_period: 20, use_ema: true, signal: 'cross' },
     parameter_schema: [
       { name: 'fast_period', label: '快线周期', type: 'integer' as const, default: 5, min: 2, max: 50 },
@@ -93,7 +96,6 @@ describe('StrategyEditView', () => {
 
     const wrapper = await mountView()
 
-    // The StrategyCreateView shows "编辑策略" when strategyId prop is set
     expect(wrapper.find('.page-title').exists()).toBe(true)
   })
 
@@ -112,8 +114,7 @@ describe('StrategyEditView', () => {
 
     const wrapper = await mountView()
 
-    // The name field shows the strategy name
-    // StrategyCreateView gets strategyId prop, loads data, and fills name
+    // Strategy name should be visible
     expect(wrapper.text()).toContain('均线趋势跟踪')
   })
 
@@ -124,30 +125,44 @@ describe('StrategyEditView', () => {
     const wrapper = await mountView()
     await flushPromises()
 
-    // The template for trend_following should be selected (has is-selected class)
+    // The template for trend_following should be selected
     expect(wrapper.text()).toContain('趋势跟踪')
     expect(wrapper.text()).toContain('快线周期')
   })
 
-  it('calls updateStrategy on save', async () => {
+  it('shows symbol and timeframe as disabled in edit mode', async () => {
     vi.mocked(strategiesApi.getStrategy).mockResolvedValue(mockStrategy)
     vi.mocked(strategiesApi.listTemplates).mockResolvedValue(mockTemplates)
-    vi.mocked(strategiesApi.updateStrategy).mockResolvedValue(mockStrategy)
 
     const wrapper = await mountView()
     await flushPromises()
 
-    const saveBtn = wrapper.find('.save-btn')
-    expect(saveBtn.exists()).toBe(true)
-    await saveBtn.trigger('click')
+    // Symbol and timeframe should be visible and show "创建后不可更改" hint
+    expect(wrapper.text()).toContain('BTC/USDT')
+    expect(wrapper.text()).toContain('1H')
+  })
+
+  it('renders parameter fields from the selected template', async () => {
+    vi.mocked(strategiesApi.getStrategy).mockResolvedValue(mockStrategy)
+    vi.mocked(strategiesApi.listTemplates).mockResolvedValue(mockTemplates)
+
+    const wrapper = await mountView()
     await flushPromises()
 
-    expect(strategiesApi.updateStrategy).toHaveBeenCalledWith(
-      '1',
-      expect.objectContaining({
-        name: '均线趋势跟踪',
-      })
-    )
+    expect(wrapper.text()).toContain('快线周期')
+    expect(wrapper.text()).toContain('慢线周期')
+    expect(wrapper.text()).toContain('使用EMA')
+    expect(wrapper.text()).toContain('信号确认')
+  })
+
+  it('shows step indicator', async () => {
+    vi.mocked(strategiesApi.getStrategy).mockResolvedValue(mockStrategy)
+    vi.mocked(strategiesApi.listTemplates).mockResolvedValue(mockTemplates)
+
+    const wrapper = await mountView()
+    await flushPromises()
+
+    expect(wrapper.find('.step-indicator').exists()).toBe(true)
   })
 
   it('shows loading state while fetching strategy data', async () => {
@@ -158,9 +173,17 @@ describe('StrategyEditView', () => {
       () => new Promise(() => {})
     )
 
-    const wrapper = await mountView()
+    const wrapper = mount(StrategyEditView, {
+      global: {
+        plugins: [ElementPlus, router],
+        stubs: {
+          'router-link': { template: '<a class="router-link-stub"><slot /></a>' },
+          'router-view': true,
+        },
+      },
+    })
+    await router.isReady()
 
-    // Should show skeleton initially
     expect(wrapper.find('.el-skeleton').exists() || wrapper.find('.skeleton-form').exists()).toBe(true)
   })
 
@@ -172,19 +195,5 @@ describe('StrategyEditView', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('加载失败')
-  })
-
-  it('renders parameter fields from the selected template', async () => {
-    vi.mocked(strategiesApi.getStrategy).mockResolvedValue(mockStrategy)
-    vi.mocked(strategiesApi.listTemplates).mockResolvedValue(mockTemplates)
-
-    const wrapper = await mountView()
-    await flushPromises()
-
-    // The template params should be rendered
-    expect(wrapper.text()).toContain('快线周期')
-    expect(wrapper.text()).toContain('慢线周期')
-    expect(wrapper.text()).toContain('使用EMA')
-    expect(wrapper.text()).toContain('信号确认')
   })
 })

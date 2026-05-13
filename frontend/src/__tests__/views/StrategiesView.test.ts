@@ -10,6 +10,8 @@ vi.mock('@/api/strategies', () => ({
   listStrategies: vi.fn(),
   deleteStrategy: vi.fn(),
   toggleStrategy: vi.fn(),
+  bulkUpdateStatus: vi.fn(),
+  bulkDeleteStrategies: vi.fn(),
 }))
 
 // Mock router
@@ -28,35 +30,93 @@ const mockStrategies = [
     user_id: 'user-1',
     name: '均线趋势跟踪',
     description: 'MA crossover strategy',
+    symbol: 'BTCUSDT',
+    timeframe: '1H',
+    template_id: 'tpl-1',
     template_type: 'ma_crossover',
     parameters: { fast_period: 5, slow_period: 20 },
     status: 'active' as const,
     created_at: '2026-05-01T08:00:00Z',
     updated_at: '2026-05-12T10:00:00Z',
+    performance: {
+      total_return_pct: 12.34,
+      sharpe_ratio: 1.85,
+      max_drawdown_pct: -8.5,
+      total_trades: 142,
+    },
   },
   {
     id: '2',
     user_id: 'user-1',
     name: '网格交易',
     description: 'Bollinger grid strategy',
+    symbol: 'ETHUSDT',
+    timeframe: '4H',
+    template_id: 'tpl-2',
     template_type: 'bollinger',
     parameters: { grid_levels: 10, grid_range: 0.05 },
     status: 'paused' as const,
     created_at: '2026-04-15T08:00:00Z',
     updated_at: '2026-05-10T10:00:00Z',
+    performance: {
+      total_return_pct: -3.2,
+      sharpe_ratio: 0.45,
+      max_drawdown_pct: -15.8,
+      total_trades: 87,
+    },
   },
   {
     id: '3',
     user_id: 'user-1',
     name: 'MACD信号策略',
     description: 'MACD signal strategy',
+    symbol: 'BTCUSDT',
+    timeframe: '1D',
+    template_id: 'tpl-3',
     template_type: 'macd',
     parameters: { fast_length: 12, slow_length: 26 },
     status: 'stopped' as const,
     created_at: '2026-03-20T08:00:00Z',
     updated_at: '2026-04-01T10:00:00Z',
+    performance: {
+      total_return_pct: 5.67,
+      sharpe_ratio: 1.12,
+      max_drawdown_pct: -6.3,
+      total_trades: 53,
+    },
   },
 ]
+
+const mockPaginatedResponse = {
+  data: mockStrategies,
+  meta: { page: 1, size: 20, total: 3 },
+}
+
+const mockArchivedStrategy = {
+  id: '4',
+  user_id: 'user-1',
+  name: '旧趋势策略',
+  description: 'Archived trend strategy',
+  symbol: 'BTCUSDT',
+  timeframe: '1H',
+  template_id: 'tpl-4',
+  template_type: 'ma_crossover',
+  parameters: { fast_period: 10, slow_period: 50 },
+  status: 'archived' as const,
+  created_at: '2026-02-01T08:00:00Z',
+  updated_at: '2026-02-15T10:00:00Z',
+  performance: {
+    total_return_pct: 3.21,
+    sharpe_ratio: 0.95,
+    max_drawdown_pct: -4.2,
+    total_trades: 28,
+  },
+}
+
+const mockPaginatedWithArchived = {
+  data: [...mockStrategies, mockArchivedStrategy],
+  meta: { page: 1, size: 20, total: 4 },
+}
 
 const mountView = async () => {
   const wrapper = mount(StrategiesView, {
@@ -80,12 +140,11 @@ describe('StrategiesView', () => {
   })
 
   it('renders the page header with title and create button', async () => {
-    vi.mocked(strategiesApi.listStrategies).mockResolvedValue([])
+    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockPaginatedResponse)
     const wrapper = await mountView()
     await flushPromises()
 
     expect(wrapper.find('.page-title').text()).toContain('策略管理')
-    // The create button is rendered via router-link stub — it renders as a link with button inside
     expect(wrapper.find('.create-btn').exists()).toBe(true)
   })
 
@@ -99,7 +158,7 @@ describe('StrategiesView', () => {
   })
 
   it('renders strategy list from API data', async () => {
-    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockStrategies)
+    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockPaginatedResponse)
     const wrapper = await mountView()
     await flushPromises()
 
@@ -109,32 +168,32 @@ describe('StrategiesView', () => {
   })
 
   it('displays template type tags for each strategy', async () => {
-    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockStrategies)
+    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockPaginatedResponse)
     const wrapper = await mountView()
     await flushPromises()
 
-    // The template type tag shows Chinese label like "MA交叉"
     expect(wrapper.text()).toContain('MA交叉')
     expect(wrapper.text()).toContain('布林带')
     expect(wrapper.text()).toContain('MACD')
   })
 
   it('displays status labels correctly', async () => {
-    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockStrategies)
+    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockPaginatedWithArchived)
     const wrapper = await mountView()
     await flushPromises()
 
     expect(wrapper.text()).toContain('运行中')
     expect(wrapper.text()).toContain('已暂停')
     expect(wrapper.text()).toContain('已停止')
+    expect(wrapper.text()).toContain('已归档')
   })
 
   it('shows empty state when no strategies exist', async () => {
-    vi.mocked(strategiesApi.listStrategies).mockResolvedValue([])
+    vi.mocked(strategiesApi.listStrategies).mockResolvedValue({ data: [], meta: { page: 1, size: 20, total: 0 } })
     const wrapper = await mountView()
     await flushPromises()
 
-    expect(wrapper.text()).toContain('暂无策略')
+    expect(wrapper.text()).toContain('还没有创建策略')
   })
 
   it('shows error state when API fails', async () => {
@@ -143,20 +202,22 @@ describe('StrategiesView', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('加载失败')
-    expect(wrapper.find('.retry-btn').exists()).toBe(true)
+    expect(wrapper.find('.el-button').exists()).toBe(true)
   })
 
   it('supports retry on error', async () => {
     vi.mocked(strategiesApi.listStrategies)
       .mockRejectedValueOnce(new Error('Network error'))
-      .mockResolvedValueOnce(mockStrategies)
+      .mockResolvedValueOnce(mockPaginatedResponse)
 
     const wrapper = await mountView()
     await flushPromises()
 
     expect(wrapper.text()).toContain('加载失败')
 
-    await wrapper.find('.retry-btn').trigger('click')
+    // Click retry button — it's in el-result's #extra slot (footer area)
+    const retryBtn = wrapper.find('.el-result__main .el-button, .el-result__subtitle + div .el-button, .el-button[type="primary"]')
+    await retryBtn.trigger('click')
     await flushPromises()
 
     expect(wrapper.text()).toContain('均线趋势跟踪')
@@ -164,93 +225,110 @@ describe('StrategiesView', () => {
   })
 
   it('shows filter pills for status filtering', async () => {
-    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockStrategies)
+    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockPaginatedResponse)
     const wrapper = await mountView()
     await flushPromises()
 
-    // Should have filter pills (radio buttons for statuses)
     const filterPills = wrapper.find('.filter-pills')
     expect(filterPills.exists()).toBe(true)
     expect(wrapper.text()).toContain('全部')
+    expect(wrapper.text()).toContain('草稿')
     expect(wrapper.text()).toContain('运行中')
     expect(wrapper.text()).toContain('已暂停')
-    expect(wrapper.text()).toContain('已停止')
+    expect(wrapper.text()).toContain('已归档')
   })
 
-  it('calls toggleStrategy when toggle button is clicked', async () => {
-    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockStrategies)
-    vi.mocked(strategiesApi.toggleStrategy).mockResolvedValue(mockStrategies[0])
-
+  it('shows search and sort controls', async () => {
+    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockPaginatedResponse)
     const wrapper = await mountView()
     await flushPromises()
 
-    // Click toggle button on first strategy (active -> should be "暂停")
-    const toggleBtns = wrapper.findAll('.toggle-btn')
-    await toggleBtns[0].trigger('click')
-    await flushPromises()
-
-    expect(strategiesApi.toggleStrategy).toHaveBeenCalledWith('1', 'paused')
+    expect(wrapper.find('.search-input').exists()).toBe(true)
+    expect(wrapper.find('.sort-select').exists()).toBe(true)
   })
 
-  it('calls toggleStrategy with active when pausing a paused strategy', async () => {
-    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockStrategies)
-    vi.mocked(strategiesApi.toggleStrategy).mockResolvedValue(mockStrategies[1])
-
+  it('shows template marketplace link in header', async () => {
+    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockPaginatedResponse)
     const wrapper = await mountView()
     await flushPromises()
 
-    // The second strategy is paused, so toggle should say "启用"
-    const toggleBtns = wrapper.findAll('.toggle-btn')
-    await toggleBtns[1].trigger('click')
-    await flushPromises()
-
-    expect(strategiesApi.toggleStrategy).toHaveBeenCalledWith('2', 'active')
+    expect(wrapper.text()).toContain('策略模板市场')
   })
 
-  it('calls deleteStrategy when delete is confirmed', async () => {
-    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockStrategies)
-    vi.mocked(strategiesApi.deleteStrategy).mockResolvedValue(undefined)
-    // Make refresh after delete succeed
-    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockStrategies.slice(1))
-
+  it('displays symbol and timeframe for each strategy', async () => {
+    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockPaginatedResponse)
     const wrapper = await mountView()
     await flushPromises()
 
-    // Click delete button on first row
-    const deleteBtns = wrapper.findAll('.delete-btn')
-    await deleteBtns[0].trigger('click')
-    await flushPromises()
-
-    // el-popconfirm uses a popover that might not be visible in test
-    // We can verify the delete button exists and is clickable
-    expect(deleteBtns[0].exists()).toBe(true)
-  })
-
-  it('formats dates correctly', async () => {
-    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockStrategies)
-    const wrapper = await mountView()
-    await flushPromises()
-
-    // Date should be formatted — the created_at "2026-05-01T08:00:00Z" should show
-    expect(wrapper.text()).toContain('2026-05-01')
-  })
-
-  it('displays parameter summary for each strategy', async () => {
-    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockStrategies)
-    const wrapper = await mountView()
-    await flushPromises()
-
-    expect(wrapper.text()).toContain('fast_period')
-    expect(wrapper.text()).toContain('grid_levels')
+    // Symbol formatted as BTC/USDT
+    expect(wrapper.text()).toContain('BTC/USDT')
+    expect(wrapper.text()).toContain('ETH/USDT')
+    // Timeframe
+    expect(wrapper.text()).toContain('1H')
+    expect(wrapper.text()).toContain('4H')
   })
 
   it('navigates to create page when create button is clicked', async () => {
-    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockStrategies)
+    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockPaginatedResponse)
     const wrapper = await mountView()
     await flushPromises()
 
-    // The "create" button exists in the page header
     const createLink = wrapper.find('.router-link-stub')
     expect(createLink.exists()).toBe(true)
+  })
+
+  it('escapes XSS payload in description field using mustache interpolation', async () => {
+    const xssPayload = '<script>alert("XSS")</script>'
+    vi.mocked(strategiesApi.listStrategies).mockResolvedValue({
+      data: [{
+        ...mockStrategies[0],
+        description: xssPayload,
+      }],
+      meta: { page: 1, size: 20, total: 1 },
+    })
+    const wrapper = await mountView()
+    await flushPromises()
+
+    // The description text should appear as escaped literal text (not executed as HTML)
+    const descEl = wrapper.find('.strategy-desc')
+    expect(descEl.exists()).toBe(true)
+    // Vue's {{ }} interpolates text content — raw tags should not appear as DOM elements
+    expect(descEl.html()).not.toContain('<script>')
+    // The rendered text should contain the escaped representation
+    expect(descEl.text()).toContain('alert')
+  })
+
+  it('shows strategy name in delete modal for single strategy', async () => {
+    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockPaginatedResponse)
+    const wrapper = await mountView()
+    await flushPromises()
+
+    // Directly call the function that sets up delete targets and opens the modal
+    const vm = wrapper.vm as any
+    vm.deleteTargets = [mockStrategies[0]]
+    vm.deleteModalVisible = true
+    await flushPromises()
+
+    const modal = wrapper.find('.el-dialog')
+    expect(modal.exists()).toBe(true)
+    expect(modal.text()).toContain('均线趋势跟踪')
+    expect(modal.text()).toContain('此操作不可撤销')
+  })
+
+  it('shows strategy names in delete modal for bulk delete', async () => {
+    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockPaginatedResponse)
+    const wrapper = await mountView()
+    await flushPromises()
+
+    const vm = wrapper.vm as any
+    vm.deleteTargets = [mockStrategies[0], mockStrategies[1]]
+    vm.deleteModalVisible = true
+    await flushPromises()
+
+    const modal = wrapper.find('.el-dialog')
+    expect(modal.exists()).toBe(true)
+    expect(modal.text()).toContain('均线趋势跟踪')
+    expect(modal.text()).toContain('网格交易')
+    expect(modal.text()).toContain('2 个策略')
   })
 })

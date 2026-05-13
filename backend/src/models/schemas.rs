@@ -200,6 +200,19 @@ pub struct UpdateStatusRequest {
     pub status: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct BulkUpdateStatusRequest {
+    pub ids: Vec<uuid::Uuid>,
+    pub status: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ExportParams {
+    pub status: Option<String>,
+    #[allow(dead_code)]
+    pub format: Option<String>, // currently only json is supported
+}
+
 #[derive(Debug, Serialize)]
 pub struct TemplateInfo {
     pub id: String,

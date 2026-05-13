@@ -22,7 +22,7 @@ RUN cargo build --release && \
 FROM debian:bookworm-slim
 
 RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates libssl3 wget && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates libssl3 wget curl && \
     rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
@@ -39,6 +39,6 @@ USER quant
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD wget -qO- http://localhost:8080/api/v1/health || exit 1
+    CMD curl -f http://localhost:8080/api/v1/health || exit 1
 
 CMD ["/app/server"]

@@ -111,31 +111,51 @@ export interface Depth {
 
 // ===== Strategy Types =====
 
-/** Strategy summary for list/dashboard display */
+/** Strategy summary for list/dashboard display (ADR D1: symbol/timeframe) */
 export interface StrategySummary {
   id: string
   name: string
   description: string
+  symbol: string      // ADR D1
+  timeframe: string   // ADR D1
+  template_id?: string
   pnl: number
   sharpe: number
-  status: 'active' | 'paused' | 'stopped'
+  status: 'active' | 'paused' | 'stopped' | 'draft' | 'archived',
   template_type?: string
   param_summary?: string
   created_at: string
   updated_at: string
 }
 
-/** Full strategy detail from API */
+/** Full strategy detail from API (ADR D1: symbol/timeframe required) */
 export interface StrategyFull {
   id: string
   user_id: string
   name: string
   description: string
+  symbol: string         // ADR D1: 必填交易对，如 BTCUSDT
+  timeframe: string      // ADR D1: 必填时间周期，如 1H
+  strategy_type?: StrategyType  // T4.5: 策略类型
+  template_id: string    // ADR D6: UUID 引用
   template_type: string
   parameters: Record<string, any>
-  status: 'active' | 'paused' | 'stopped' | 'draft'
+  risk_config?: {
+    max_position: number
+    stop_loss: number
+    stop_profit: number
+  }
+  // 绩效指标（来自最新回测，非实时交易）
+  performance?: {
+    total_return_pct?: number    // 收益率 %
+    sharpe_ratio?: number         // 夏普率
+    max_drawdown_pct?: number    // 最大回撤 %
+    total_trades?: number        // 交易次数
+  }
+  status: 'active' | 'paused' | 'stopped' | 'draft' | 'archived'
   created_at: string
   updated_at: string
+  strategy_code?: string  // T4.5: 上传的策略代码文件路径
 }
 
 /** Strategy parameter definition schema (aligned with backend) */
@@ -150,7 +170,7 @@ export interface StrategyParamDef {
   description?: string
 }
 
-/** Strategy template (aligned with backend TemplateInfo) */
+/** Strategy template (aligned with backend TemplateInfo, ADR D6) */
 export interface StrategyTemplate {
   id: string
   name: string
@@ -158,26 +178,46 @@ export interface StrategyTemplate {
   category: string
   default_parameters: Record<string, any>
   parameter_schema: StrategyParamDef[]
+  // T4.5: strategy_type derived from category for CreateStrategyPayload
+  strategy_type?: StrategyType
+  // Marketplace fields (ADR D7)
+  author?: string
+  rating?: number
+  usage_count?: number
+  is_official?: boolean
 }
 
-/** Create strategy payload */
+/** Strategy type options (ADR D1) */
+export type StrategyType = 'trend_following' | 'mean_reversion' | 'grid_trading' | 'arbitrage' | 'custom'
+
+/** Create strategy payload (ADR D1: symbol/timeframe/strategy_type required, D6: template_id UUID) */
 export interface CreateStrategyPayload {
   name: string
-  template_type: string
+  description?: string     // T4.5: 策略描述，最多500字符
+  symbol: string            // ADR D1 必填
+  timeframe: string        // ADR D1 必填
+  strategy_type: StrategyType  // ADR D1 必填
+  template_id?: string     // ADR D6: UUID，兼容旧 template_type 字段
+  template_type?: string   // 兼容旧版
   parameters: Record<string, any>
+  strategy_code?: string   // T4.5: 可选 .py/.js 策略代码文件路径
 }
 
-/** Update strategy payload */
+/** Update strategy payload (ADR D3: symbol/timeframe immutable after create) */
 export interface UpdateStrategyPayload {
   name?: string
   parameters?: Record<string, any>
+  strategy_code?: string   // T4.5: 可选 .py/.js 策略代码文件路径
 }
 
-/** Strategy paginated query params */
+/** Strategy paginated query params (ADR D2) */
 export interface StrategyQueryParams {
   status?: string
   page?: number
   size?: number
+  search?: string       // ADR D2: 搜索策略名称
+  sort_by?: 'created_at' | 'name'  // ADR D2: 排序
+  sort_order?: 'asc' | 'desc'     // ADR D2: 升序/降序
 }
 
 export interface BacktestParams {

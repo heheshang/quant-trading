@@ -1,0 +1,69 @@
+{
+  "steps": {
+    "T1": {
+      "step": "T1",
+      "task_id": "t_890bb11f",
+      "files": [],
+      "archived_at": "2026-05-13T18:11:42.067038"
+    },
+    "T2": {
+      "step": "T2",
+      "task_id": "t_95954f0c",
+      "files": [],
+      "archived_at": "2026-05-13T18:11:42.068380"
+    },
+    "T3": {
+      "step": "T3",
+      "task_id": "t_7dae5f67",
+      "files": [],
+      "archived_at": "2026-05-13T18:11:42.069899"
+    },
+    "T4": {
+      "step": "T4",
+      "task_id": "t_a6471554",
+      "files": [],
+      "archived_at": "2026-05-13T18:11:42.071584"
+    },
+    "T5": {
+      "step": "T5",
+      "task_id": "t_0ccfde7e",
+      "files": [],
+      "archived_at": "2026-05-13T18:11:42.072566"
+    },
+    "T4.5": {
+      "step": "T4.5",
+      "task_id": "t_51762fb4",
+      "files": [],
+      "archived_at": "2026-05-13T18:11:42.073278"
+    },
+    "T6": {
+      "step": "T6",
+      "task_id": "t_64b4c282",
+      "files": [],
+      "archived_at": "2026-05-13T18:11:42.074208"
+    },
+    "T7": {
+      "step": "T7",
+      "task_id": "t_b2daf2de",
+      "files": [
+        {
+          "path": "docs//CHANGELOG.md",
+          "sha": "3451087b"
+        }
+      ],
+      "archived_at": "2026-05-13T18:11:42.075824"
+    },
+    "T8": {
+      "step": "T8",
+      "task_id": "t_30c266ba",
+      "files": [],
+      "archived_at": "2026-05-13T18:11:42.079490"
+    },
+    "T9": {
+      "step": "T9",
+      "task_id": "t_3587581b",
+      "files": [],
+      "archived_at": "2026-05-13T18:11:42.080208"
+    }
+  }
+}

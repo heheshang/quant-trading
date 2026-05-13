@@ -1,6 +1,7 @@
 use crate::middleware::auth::AuthenticatedUser;
 use crate::models::schemas::{
-    CreateStrategyRequest, PaginationParams, UpdateStatusRequest, UpdateStrategyRequest,
+    BulkUpdateStatusRequest, CreateStrategyRequest, ExportParams, PaginationParams,
+    UpdateStatusRequest, UpdateStrategyRequest,
 };
 use crate::services::strategy;
 use crate::utils::error::AppError;
@@ -87,4 +88,24 @@ pub async fn update_status(
     let result =
         strategy::update_strategy_status(&db, user.user_id, strategy_id, body.status).await?;
     Ok(Json(ApiResponse::success(serde_json::json!(result))))
+}
+
+/// POST /api/v1/strategies/bulk/status
+pub async fn bulk_update_status(
+    user: AuthenticatedUser,
+    State(db): State<Arc<DatabaseConnection>>,
+    Json(body): Json<BulkUpdateStatusRequest>,
+) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
+    let result = strategy::bulk_update_status(&db, user.user_id, body).await?;
+    Ok(Json(ApiResponse::success(serde_json::json!(result))))
+}
+
+/// GET /api/v1/strategies/export
+pub async fn export_strategies(
+    user: AuthenticatedUser,
+    State(db): State<Arc<DatabaseConnection>>,
+    Query(params): Query<ExportParams>,
+) -> Result<Json<ApiResponse<Vec<serde_json::Value>>>, AppError> {
+    let result = strategy::export_strategies(&db, user.user_id, params.status.as_deref()).await?;
+    Ok(Json(ApiResponse::success(result)))
 }

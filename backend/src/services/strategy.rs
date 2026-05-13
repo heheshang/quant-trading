@@ -1,8 +1,8 @@
 use crate::db::strategy;
 use crate::models::backtest::{Kline, Signal};
 use crate::models::schemas::{
-    CreateStrategyRequest, PaginatedResponse, PaginationParams, ParameterDef, StrategyResponse,
-    TemplateInfo, UpdateStrategyRequest,
+    BulkUpdateStatusRequest, CreateStrategyRequest, PaginatedResponse, PaginationParams,
+    ParameterDef, StrategyResponse, TemplateInfo, UpdateStrategyRequest,
 };
 use crate::utils::error::AppError;
 use sea_orm::{
@@ -59,8 +59,8 @@ fn ema(data: &[f64], period: usize) -> Vec<f64> {
     let mut result = vec![0.0; data.len()];
     // First EMA = SMA
     let mut sum = 0.0;
-    for i in 0..period.min(data.len()) {
-        sum += data[i];
+    for v in data.iter().take(period.min(data.len())) {
+        sum += *v;
     }
     let init_period = period.min(data.len());
     if init_period > 0 {
@@ -1257,6 +1257,30 @@ pub async fn list_strategies(
     })
 }
 
+pub async fn export_strategies(
+    db: &DatabaseConnection,
+    user_id: Uuid,
+    status_filter: Option<&str>,
+) -> Result<Vec<serde_json::Value>, AppError> {
+    let mut query = strategy::Entity::find().filter(strategy::Column::UserId.eq(user_id));
+
+    if let Some(status) = status_filter {
+        query = query.filter(strategy::Column::Status.eq(status));
+    }
+
+    let items: Vec<serde_json::Value> = query
+        .order_by_desc(strategy::Column::UpdatedAt)
+        .all(db)
+        .await?
+        .into_iter()
+        .map(model_to_response)
+        .map(serde_json::to_value)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| AppError::Internal(format!("serialization error: {}", e)))?;
+
+    Ok(items)
+}
+
 pub async fn get_strategy(
     db: &DatabaseConnection,
     user_id: Uuid,
@@ -1363,6 +1387,46 @@ pub async fn update_strategy_status(
 
     let saved = active.update(db).await?;
     Ok(model_to_response(saved))
+}
+
+pub async fn bulk_update_status(
+    db: &DatabaseConnection,
+    user_id: Uuid,
+    req: BulkUpdateStatusRequest,
+) -> Result<Vec<StrategyResponse>, AppError> {
+    if req.ids.is_empty() {
+        return Err(AppError::Validation("ids cannot be empty".into()));
+    }
+
+    let valid_statuses = ["active", "paused", "draft"];
+    if !valid_statuses.contains(&req.status.as_str()) {
+        return Err(AppError::Validation(format!(
+            "Invalid status: {}. Must be one of: active, paused, draft",
+            req.status
+        )));
+    }
+
+    let mut results = Vec::new();
+    for strategy_id in req.ids {
+        let m = strategy::Entity::find_by_id(strategy_id)
+            .one(db)
+            .await?
+            .ok_or_else(|| AppError::NotFound("Strategy not found".into()))?;
+
+        if m.user_id != user_id {
+            return Err(AppError::NotFound("Strategy not found".into()));
+        }
+
+        validate_status_transition(&m.status, &req.status)?;
+
+        let mut active: strategy::ActiveModel = m.into();
+        active.status = Set(req.status.clone());
+        active.updated_at = Set(chrono::Utc::now());
+
+        let saved = active.update(db).await?;
+        results.push(model_to_response(saved));
+    }
+    Ok(results)
 }
 
 // ============ Tests ============

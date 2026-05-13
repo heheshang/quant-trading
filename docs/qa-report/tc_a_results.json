@@ -1,0 +1,74 @@
+[
+  {
+    "label": "TC-A1 CREATE",
+    "passed": true,
+    "resp": "{'code': 0, 'data': {'created_at': '2026-05-13T07:16:44.850775Z', 'description': '测试策略', 'id': '1d5dd9e1-94fa-4f98-b701-b75bbab39f16', 'name': 'MA均线策略', 'parameters': {'fast_period': 5, 'slow_period':",
+    "err": null
+  },
+  {
+    "label": "TC-A2 LIST+paginate",
+    "passed": true,
+    "resp": "{'code': 0, 'data': {'items': [{'created_at': '2026-05-13T07:16:44.850775Z', 'description': '测试策略', 'id': '1d5dd9e1-94fa-4f98-b701-b75bbab39f16', 'name': 'MA均线策略', 'parameters': {'fast_period': 5, 'sl",
+    "err": null
+  },
+  {
+    "label": "TC-A3 GET single",
+    "passed": true,
+    "resp": "{'code': 0, 'data': {'created_at': '2026-05-13T07:16:44.850775Z', 'description': '测试策略', 'id': '1d5dd9e1-94fa-4f98-b701-b75bbab39f16', 'name': 'MA均线策略', 'parameters': {'fast_period': 5, 'slow_period':",
+    "err": null
+  },
+  {
+    "label": "TC-A4 UPDATE",
+    "passed": true,
+    "resp": "{'code': 0, 'data': {'created_at': '2026-05-13T07:16:44.850775Z', 'description': '修改后描述', 'id': '1d5dd9e1-94fa-4f98-b701-b75bbab39f16', 'name': 'MA均线策略_已修改', 'parameters': {'fast_period': 5, 'slow_per",
+    "err": null
+  },
+  {
+    "label": "TC-A5 draft->active",
+    "passed": true,
+    "resp": "{'code': 0, 'data': {'created_at': '2026-05-13T07:16:44.850775Z', 'description': '修改后描述', 'id': '1d5dd9e1-94fa-4f98-b701-b75bbab39f16', 'name': 'MA均线策略_已修改', 'parameters': {'fast_period': 5, 'slow_per",
+    "err": null
+  },
+  {
+    "label": "TC-A6 active->paused",
+    "passed": true,
+    "resp": "{'code': 0, 'data': {'created_at': '2026-05-13T07:16:44.850775Z', 'description': '修改后描述', 'id': '1d5dd9e1-94fa-4f98-b701-b75bbab39f16', 'name': 'MA均线策略_已修改', 'parameters': {'fast_period': 5, 'slow_per",
+    "err": null
+  },
+  {
+    "label": "TC-A7 paused->active",
+    "passed": true,
+    "resp": "{'code': 0, 'data': {'created_at': '2026-05-13T07:16:44.850775Z', 'description': '修改后描述', 'id': '1d5dd9e1-94fa-4f98-b701-b75bbab39f16', 'name': 'MA均线策略_已修改', 'parameters': {'fast_period': 5, 'slow_per",
+    "err": null
+  },
+  {
+    "label": "TC-A8 LIST templates",
+    "passed": true,
+    "resp": "{'code': 0, 'data': [{'category': 'trend', 'default_parameters': {'fast_period': 10, 'slow_period': 30}, 'description': 'Moving average crossover strategy using fast and slow MAs', 'id': 'ma_crossover",
+    "err": null
+  },
+  {
+    "label": "TC-A9 bulk status",
+    "passed": false,
+    "resp": null,
+    "err": "{'http_code': 400, 'body': 'Invalid URL: Cannot parse `id` with value `bulk`: UUID parsing failed: invalid character: found `u` at 2'}"
+  },
+  {
+    "label": "TC-A10 EXPORT (backend)",
+    "passed": false,
+    "resp": null,
+    "err": "{'http_code': 400, 'body': 'Invalid URL: Cannot parse `id` with value `export`: UUID parsing failed: invalid character: found `x` at 2'}"
+  },
+  {
+    "label": "TC-A11 DELETE",
+    "passed": true,
+    "resp": "{'code': 0, 'message': 'no content'}",
+    "err": null
+  },
+  {
+    "label": "TC-A12 verify deleted",
+    "passed": true,
+    "resp": null,
+    "err": "{'http_code': 404, 'response': {'code': 40401, 'message': 'Not found: Strategy not found'}}"
+  }
+]

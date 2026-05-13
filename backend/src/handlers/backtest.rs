@@ -52,7 +52,7 @@ pub async fn run_backtest(
     Json(req): Json<BacktestRunRequest>,
 ) -> Result<Json<ApiResponse<BacktestRunResponse>>, AppError> {
     // 1. Validate config
-    req.config.validate().map_err(|e| AppError::Validation(e))?;
+    req.config.validate().map_err(AppError::Validation)?;
 
     // 2. Verify strategy exists
     let strategy_model = backtest_db::find_strategy(&db, req.strategy_id)

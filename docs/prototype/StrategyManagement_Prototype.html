@@ -1,0 +1,1958 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>策略管理 - 交互原型 v2.0</title>
+<script src="https://unpkg.com/vue@3.4.21/dist/vue.global.prod.js"></script>
+<script src="https://unpkg.com/element-plus@2.7.2/dist/index.full.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/element-plus@2.7.2/dist/index.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --color-bg: #08090a;
+  --color-surface: #191a1b;
+  --color-surface-elevated: #212223;
+  --color-deep-bg: #050607;
+  --color-text-primary: #f7f8f8;
+  --color-text-secondary: #d0d6e0;
+  --color-text-tertiary: #8a8f98;
+  --color-accent: #7170ff;
+  --color-accent-hover: #8b8aff;
+  --color-border: rgba(255,255,255,0.08);
+  --color-border-hover: rgba(255,255,255,0.16);
+  --color-error: #e5484d;
+  --color-success: #10b981;
+  --color-warning: #f5a623;
+  --color-info: #60a5fa;
+  --color-buy: #10b981;
+  --color-sell: #e5484d;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+.mono { font-family: 'JetBrains Mono', monospace; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border-hover); border-radius: 3px; }
+
+/* Page Shell */
+.page-shell {
+  min-height: 100vh;
+  background: var(--color-bg);
+}
+
+/* Header */
+.app-header {
+  height: 56px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  gap: 24px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.app-logo {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  letter-spacing: -0.3px;
+}
+.app-nav {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+.nav-item {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: all 0.15s;
+  border: none;
+  background: transparent;
+}
+.nav-item:hover { color: var(--color-text-secondary); background: rgba(255,255,255,0.04); }
+.nav-item.active { color: var(--color-text-primary); background: var(--color-surface-elevated); }
+.nav-item.accent { color: var(--color-accent); }
+.header-right { display: flex; align-items: center; gap: 12px; }
+
+/* Buttons */
+.btn {
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+.btn-sm { height: 28px; padding: 0 10px; font-size: 12px; }
+.btn-primary { background: var(--color-accent); color: #fff; }
+.btn-primary:hover { background: var(--color-accent-hover); }
+.btn-default { background: var(--color-surface-elevated); color: var(--color-text-secondary); border: 1px solid var(--color-border); }
+.btn-default:hover { border-color: var(--color-border-hover); color: var(--color-text-primary); }
+.btn-danger { background: var(--color-error); color: #fff; }
+.btn-danger:hover { background: #ff6b70; }
+.btn-text { background: transparent; color: var(--color-text-tertiary); padding: 0 8px; }
+.btn-text:hover { color: var(--color-text-secondary); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-icon { width: 32px; padding: 0; justify-content: center; }
+
+/* Page Content */
+.page-content {
+  max-width: 1344px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+/* Page Title Row */
+.page-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.page-title {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  letter-spacing: -0.4px;
+}
+.page-title-row-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Filter Bar */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.filter-pills {
+  display: flex;
+  gap: 4px;
+  background: var(--color-surface);
+  border-radius: 8px;
+  padding: 4px;
+  border: 1px solid var(--color-border);
+}
+.pill {
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+}
+.pill:hover { color: var(--color-text-secondary); }
+.pill.active { background: var(--color-accent); color: #fff; }
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0 12px;
+  height: 36px;
+  min-width: 220px;
+}
+.search-box input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  width: 180px;
+}
+.search-box input::placeholder { color: var(--color-text-tertiary); }
+.search-icon { color: var(--color-text-tertiary); font-size: 14px; }
+.sort-select {
+  height: 32px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  padding: 0 10px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+/* Bulk Action Bar */
+.bulk-bar {
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 10px 16px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  animation: slideDown 0.2s ease;
+}
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.bulk-info {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  flex: 1;
+}
+.bulk-info strong { color: var(--color-text-primary); }
+.bulk-actions { display: flex; gap: 8px; }
+
+/* Table */
+.table-wrap {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+table { width: 100%; border-collapse: collapse; }
+thead th {
+  background: var(--color-surface-elevated);
+  padding: 12px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-tertiary);
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+thead th.center { text-align: center; }
+tbody tr {
+  border-bottom: 1px solid var(--color-border);
+  transition: background 0.1s;
+  height: 64px;
+}
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: rgba(255,255,255,0.02); }
+tbody td { padding: 12px 16px; font-size: 14px; vertical-align: middle; }
+tbody td.center { text-align: center; }
+.td-checkbox { width: 48px; }
+.td-name { min-width: 180px; }
+.strategy-name { font-size: 14px; font-weight: 600; color: var(--color-text-primary); }
+.strategy-desc { font-size: 12px; color: var(--color-text-tertiary); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+.td-symbol { text-align: center; }
+.symbol-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: var(--color-text-primary);
+}
+.td-timeframe { text-align: center; }
+.timeframe-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.td-template { }
+.td-status { text-align: center; }
+.td-actions { width: 80px; text-align: right; }
+
+/* Status Badge */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.status-active .status-dot { background: var(--color-success); }
+.status-active { color: var(--color-success); }
+.status-paused .status-dot { background: var(--color-warning); }
+.status-paused { color: var(--color-warning); }
+.status-stopped .status-dot { background: var(--color-sell); }
+.status-stopped { color: var(--color-sell); }
+.status-draft .status-dot { background: var(--color-text-tertiary); }
+.status-draft { color: var(--color-text-tertiary); }
+
+/* Template Tag */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+}
+.tag-trend { background: rgba(96,165,250,0.15); color: var(--color-info); }
+.tag-grid { background: rgba(16,185,129,0.15); color: var(--color-success); }
+.tag-arbitrage { background: rgba(245,166,35,0.15); color: var(--color-warning); }
+.tag-reversion { background: rgba(113,112,255,0.15); color: var(--color-accent); }
+.tag-custom { background: rgba(138,143,152,0.15); color: var(--color-text-tertiary); }
+
+/* Action Menu */
+.action-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: all 0.15s;
+}
+.action-btn:hover { background: rgba(255,255,255,0.06); color: var(--color-text-primary); }
+
+/* Dropdown Menu */
+.dropdown-menu {
+  position: absolute;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 4px;
+  min-width: 160px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  z-index: 200;
+}
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.1s;
+}
+.dropdown-item:hover { background: rgba(255,255,255,0.06); color: var(--color-text-primary); }
+.dropdown-item.danger:hover { background: rgba(229,72,77,0.1); color: var(--color-error); }
+.dropdown-divider { height: 1px; background: var(--color-border); margin: 4px 0; }
+
+/* Pagination */
+.pagination-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  gap: 8px;
+}
+.pg-btn {
+  height: 32px;
+  min-width: 32px;
+  padding: 0 8px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.pg-btn:hover:not(:disabled) { border-color: var(--color-border-hover); color: var(--color-text-primary); }
+.pg-btn.active { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
+.pg-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.pg-info { font-size: 13px; color: var(--color-text-tertiary); margin-left: auto; }
+
+/* Empty State */
+.empty-state {
+  padding: 80px 24px;
+  text-align: center;
+}
+.empty-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 16px;
+  background: var(--color-surface-elevated);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  color: var(--color-text-tertiary);
+}
+.empty-title { font-size: 16px; font-weight: 600; color: var(--color-text-primary); margin-bottom: 8px; }
+.empty-desc { font-size: 13px; color: var(--color-text-tertiary); margin-bottom: 24px; }
+
+/* Form Page */
+.form-page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px;
+}
+.form-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+.back-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.back-link:hover { color: var(--color-text-secondary); }
+.form-title { font-size: 18px; font-weight: 600; color: var(--color-text-primary); }
+
+/* Step Indicator */
+.step-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 32px;
+  gap: 0;
+}
+.step-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.step-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  border: 2px solid var(--color-border);
+  color: var(--color-text-tertiary);
+  background: var(--color-bg);
+  transition: all 0.2s;
+}
+.step-circle.done { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
+.step-circle.active { border-color: var(--color-accent); color: var(--color-accent); }
+.step-label { font-size: 13px; color: var(--color-text-tertiary); font-weight: 500; }
+.step-label.active { color: var(--color-text-primary); }
+.step-connector {
+  width: 64px;
+  height: 2px;
+  background: var(--color-border);
+  margin: 0 8px;
+}
+.step-connector.done { background: var(--color-accent); }
+
+/* Form Layout */
+.form-layout {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 24px;
+  align-items: start;
+}
+.form-panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.form-panel-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.form-panel-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+.form-section {
+  border-bottom: 1px solid var(--color-border);
+}
+.form-section:last-child { border-bottom: none; }
+.form-section-header {
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.1s;
+}
+.form-section-header:hover { background: rgba(255,255,255,0.02); }
+.form-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+.form-section-toggle {
+  font-size: 16px;
+  color: var(--color-text-tertiary);
+  transition: transform 0.2s;
+}
+.form-section-body { padding: 0 20px 16px; }
+
+/* Form Fields */
+.form-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.form-row:last-child { margin-bottom: 0; }
+.form-label {
+  width: 100px;
+  padding-top: 8px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+.form-label.required::before { content: '* '; color: var(--color-error); }
+.form-control {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.form-input {
+  height: 36px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 0 12px;
+  font-size: 14px;
+  color: var(--color-text-primary);
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+}
+.form-input:focus { border-color: var(--color-accent); }
+.form-input:disabled { opacity: 0.5; cursor: not-allowed; }
+.form-input.error { border-color: var(--color-error); }
+.form-select {
+  height: 36px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 0 12px;
+  font-size: 14px;
+  color: var(--color-text-primary);
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+  width: 100%;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238a8f98' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+}
+.form-select:focus { border-color: var(--color-accent); }
+.form-select:disabled { opacity: 0.5; cursor: not-allowed; }
+.form-hint {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+.form-error {
+  font-size: 11px;
+  color: var(--color-error);
+}
+.form-input-grp {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.form-input-grp .form-select { flex: 1; }
+.form-input-readonly {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 14px;
+  color: var(--color-text-tertiary);
+}
+
+/* Slider */
+.slider-row { margin-bottom: 16px; }
+.slider-row:last-child { margin-bottom: 0; }
+.slider-label-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.slider-label { font-size: 13px; color: var(--color-text-secondary); }
+.slider-value { font-size: 13px; font-weight: 600; color: var(--color-accent); font-family: 'JetBrains Mono', monospace; }
+.slider-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.slider {
+  flex: 1;
+  -webkit-appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-border);
+  outline: none;
+}
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 0 0 3px rgba(113,112,255,0.2);
+}
+.slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+.slider-num {
+  width: 80px;
+  height: 32px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 0 10px;
+  font-size: 14px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--color-text-primary);
+  text-align: center;
+  outline: none;
+}
+.slider-num:focus { border-color: var(--color-accent); }
+
+/* Switch */
+.switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.switch-row:last-child { margin-bottom: 0; }
+.switch-info { flex: 1; }
+.switch-title { font-size: 13px; color: var(--color-text-secondary); }
+.switch-desc { font-size: 11px; color: var(--color-text-tertiary); margin-top: 2px; }
+.switch {
+  width: 40px;
+  height: 22px;
+  border-radius: 11px;
+  background: #62666d;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s;
+  flex-shrink: 0;
+  border: none;
+}
+.switch.on { background: var(--color-accent); }
+.switch::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  top: 3px;
+  left: 3px;
+  transition: transform 0.2s;
+}
+.switch.on::after { transform: translateX(18px); }
+
+/* Template Cards Grid */
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  padding: 20px;
+}
+.template-card {
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.15s;
+  height: 180px;
+  display: flex;
+  flex-direction: column;
+}
+.template-card:hover { border-color: var(--color-border-hover); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+.template-card.selected { border: 2px solid var(--color-accent); background: rgba(113,112,255,0.04); }
+.template-icon { font-size: 24px; margin-bottom: 12px; }
+.template-name { font-size: 15px; font-weight: 600; color: var(--color-text-primary); margin-bottom: 4px; }
+.template-desc { font-size: 12px; color: var(--color-text-tertiary); flex: 1; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.template-footer { margin-top: 12px; }
+
+/* Summary Panel */
+.summary-panel {
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  position: sticky;
+  top: 80px;
+}
+.summary-header {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.summary-body { padding: 16px; }
+.summary-item {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-bottom: 8px;
+  display: flex;
+  gap: 6px;
+}
+.summary-item::before { content: '·'; color: var(--color-text-tertiary); }
+.summary-empty { font-size: 13px; color: var(--color-text-tertiary); text-align: center; padding: 20px; }
+
+/* Form Footer */
+.form-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 0;
+  margin-top: 24px;
+  border-top: 1px solid var(--color-border);
+}
+.form-footer-right { display: flex; gap: 10px; }
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.15s;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.modal {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  width: 420px;
+  max-width: 90vw;
+  overflow: hidden;
+  animation: slideUp 0.2s;
+}
+@keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+.modal-header {
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+.modal-title { font-size: 16px; font-weight: 600; color: var(--color-text-primary); }
+.modal-body { padding: 16px 24px 20px; }
+.modal-text { font-size: 14px; color: var(--color-text-secondary); line-height: 1.6; }
+.modal-footer { padding: 16px 24px; display: flex; justify-content: flex-end; gap: 10px; }
+
+/* Toast */
+.toast-container {
+  position: fixed;
+  top: 72px;
+  right: 24px;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.toast {
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 13px;
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: slideIn 0.2s;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  min-width: 240px;
+}
+@keyframes slideIn { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: translateX(0); } }
+.toast.success .toast-icon { color: var(--color-success); }
+.toast.error .toast-icon { color: var(--color-error); }
+.toast.info .toast-icon { color: var(--color-info); }
+.toast-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: var(--color-accent);
+  border-radius: 0 0 8px 8px;
+  animation: toastCountdown 3s linear forwards;
+}
+@keyframes toastCountdown { from { width: 100%; } to { width: 0%; } }
+
+/* Template Marketplace */
+.market-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--color-surface);
+  border-radius: 8px;
+  padding: 4px;
+  border: 1px solid var(--color-border);
+  margin-bottom: 20px;
+  width: fit-content;
+}
+.market-tab {
+  height: 32px;
+  padding: 0 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  transition: all 0.15s;
+}
+.market-tab:hover { color: var(--color-text-secondary); }
+.market-tab.active { background: var(--color-accent); color: #fff; }
+.market-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+.market-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 20px;
+  transition: all 0.15s;
+  cursor: pointer;
+  position: relative;
+}
+.market-card:hover { border-color: var(--color-border-hover); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+.market-card-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(245,166,35,0.2);
+  color: var(--color-warning);
+}
+.market-card-icon { font-size: 28px; margin-bottom: 12px; }
+.market-card-name { font-size: 15px; font-weight: 600; color: var(--color-text-primary); margin-bottom: 4px; }
+.market-card-author { font-size: 12px; color: var(--color-text-tertiary); margin-bottom: 8px; }
+.market-card-stats { display: flex; gap: 12px; margin-bottom: 12px; }
+.market-stat { font-size: 12px; color: var(--color-text-tertiary); }
+.market-stat strong { color: var(--color-text-secondary); }
+.market-card-footer { display: flex; align-items: center; justify-content: space-between; }
+.market-cta {
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  background: var(--color-accent);
+  color: #fff;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.market-cta:hover { background: var(--color-accent-hover); }
+.market-cta.installed {
+  background: var(--color-surface-elevated);
+  color: var(--color-text-tertiary);
+  cursor: default;
+}
+.market-sort-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.market-count { font-size: 13px; color: var(--color-text-tertiary); }
+
+/* Checkbox */
+.checkbox {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.checkbox.checked { background: var(--color-accent); border-color: var(--color-accent); }
+.checkbox.indeterminate { background: var(--color-accent); border-color: var(--color-accent); }
+.checkmark { color: #fff; font-size: 10px; font-weight: 700; }
+
+/* Drawer */
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 500;
+}
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 480px;
+  background: var(--color-surface);
+  border-left: 1px solid var(--color-border);
+  z-index: 501;
+  overflow-y: auto;
+  animation: slideFromRight 0.25s;
+}
+@keyframes slideFromRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
+.drawer-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.drawer-title { font-size: 18px; font-weight: 600; color: var(--color-text-primary); }
+.drawer-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.drawer-close:hover { background: rgba(255,255,255,0.06); color: var(--color-text-primary); }
+.drawer-body { padding: 24px; }
+.drawer-stat-row { display: flex; gap: 24px; margin: 20px 0; }
+.drawer-stat { flex: 1; }
+.drawer-stat-label { font-size: 12px; color: var(--color-text-tertiary); margin-bottom: 4px; }
+.drawer-stat-value { font-size: 20px; font-weight: 600; color: var(--color-text-primary); }
+.drawer-stat-value.green { color: var(--color-success); }
+.drawer-stat-value.red { color: var(--color-sell); }
+.drawer-params { margin: 20px 0; }
+.drawer-param { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--color-border); font-size: 13px; }
+.drawer-param:last-child { border-bottom: none; }
+.drawer-param-name { color: var(--color-text-tertiary); }
+.drawer-param-value { color: var(--color-text-primary); font-family: 'JetBrains Mono', monospace; }
+.drawer-cta-wrap { padding: 20px 24px; border-top: 1px solid var(--color-border); }
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .template-grid, .market-grid { grid-template-columns: repeat(3, 1fr); }
+  .form-layout { grid-template-columns: 1fr; }
+  .summary-panel { position: static; }
+}
+@media (max-width: 768px) {
+  .page-content { padding: 16px; }
+  .template-grid, .market-grid { grid-template-columns: repeat(2, 1fr); }
+  .filter-bar { flex-direction: column; align-items: stretch; }
+  .search-box { min-width: unset; width: 100%; }
+  .page-title-row { flex-direction: column; align-items: flex-start; gap: 12px; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- Toast Container -->
+<div class="toast-container">
+  <div v-for="t in toasts" :key="t.id" :class="['toast', t.type]">
+    <span class="toast-icon" v-if="t.type==='success'">✓</span>
+    <span class="toast-icon" v-else-if="t.type==='error'">✕</span>
+    <span class="toast-icon" v-else>i</span>
+    {{ t.message }}
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" v-if="modal.show" @click.self="modal.show=false">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">{{ modal.title }}</div></div>
+    <div class="modal-body"><div class="modal-text">{{ modal.text }}</div></div>
+    <div class="modal-footer">
+      <button class="btn btn-default" @click="modal.show=false">{{ modal.cancel || '取消' }}</button>
+      <button :class="['btn', modal.danger ? 'btn-danger' : 'btn-primary']" @click="modalConfirm">{{ modal.confirm || '确认' }}</button>
+    </div>
+  </div>
+</div>
+
+<!-- Template Detail Drawer -->
+<div class="drawer-overlay" v-if="drawer.show" @click="drawer.show=false"></div>
+<div class="drawer" v-if="drawer.show">
+  <div class="drawer-header">
+    <div>
+      <div style="font-size:28px;margin-bottom:8px">{{ drawer.template.icon }}</div>
+      <div class="drawer-title">{{ drawer.template.name }}</div>
+      <div style="font-size:13px;color:var(--color-text-tertiary);margin-top:4px">作者: {{ drawer.template.author }}</div>
+    </div>
+    <button class="drawer-close" @click="drawer.show=false">✕</button>
+  </div>
+  <div class="drawer-body">
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <span :class="['tag', drawer.template.tagClass]">{{ drawer.template.category }}</span>
+      <span v-if="drawer.template.verified" style="height:22px;padding:0 8px;background:rgba(113,112,255,0.15);color:var(--color-accent);border-radius:4px;font-size:11px;font-weight:500;display:flex;align-items:center;">官方认证</span>
+    </div>
+    <p style="font-size:14px;color:var(--color-text-secondary);line-height:1.7;margin-bottom:20px">{{ drawer.template.fullDesc }}</p>
+    <div style="border-top:1px solid var(--color-border);padding-top:16px">
+      <div style="font-size:13px;font-weight:600;color:var(--color-text-primary);margin-bottom:12px">策略参数</div>
+      <div class="drawer-params">
+        <div class="drawer-param" v-for="p in drawer.template.params" :key="p.name">
+          <span class="drawer-param-name">{{ p.label }}</span>
+          <span class="drawer-param-value">{{ p.value }}</span>
+        </div>
+      </div>
+    </div>
+    <div style="border-top:1px solid var(--color-border);padding-top:16px;margin-top:16px">
+      <div style="font-size:13px;font-weight:600;color:var(--color-text-primary);margin-bottom:12px">预计回测表现</div>
+      <div class="drawer-stat-row">
+        <div class="drawer-stat">
+          <div class="drawer-stat-label">年化收益</div>
+          <div class="drawer-stat-value green">{{ drawer.template.backtest.annualReturn }}</div>
+        </div>
+        <div class="drawer-stat">
+          <div class="drawer-stat-label">夏普比率</div>
+          <div class="drawer-stat-value">{{ drawer.template.backtest.sharpe }}</div>
+        </div>
+        <div class="drawer-stat">
+          <div class="drawer-stat-label">最大回撤</div>
+          <div class="drawer-stat-value red">{{ drawer.template.backtest.maxDrawdown }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="drawer-cta-wrap">
+    <button class="btn btn-primary" style="width:100%" @click="useTemplate(drawer.template)">{{ drawer.template.installed ? '已安装此模板' : '立即使用此模板创建策略' }}</button>
+  </div>
+</div>
+
+<!-- Page Shell -->
+<div class="page-shell">
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="app-logo">QuantBot</div>
+    <nav class="app-nav">
+      <button class="nav-item">仪表盘</button>
+      <button class="nav-item">行情</button>
+      <button class="nav-item">策略</button>
+      <button class="nav-item">回测</button>
+      <button class="nav-item">交易</button>
+      <button class="nav-item">持仓</button>
+    </nav>
+    <div class="header-right">
+      <button class="btn btn-icon btn-default">☾</button>
+      <div style="width:28px;height:28px;border-radius:50%;background:var(--color-accent);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#fff;cursor:pointer;">S</div>
+    </div>
+  </header>
+
+  <!-- ==================== STRATEGY LIST PAGE ==================== -->
+  <div class="page-content" v-if="currentPage === 'list'">
+
+    <!-- Title Row -->
+    <div class="page-title-row">
+      <div class="page-title">策略管理</div>
+      <div class="page-title-row-right">
+        <button class="btn btn-default" @click="currentPage='market'">
+          <span>📦</span> 策略模板市场
+        </button>
+        <button class="btn btn-primary" @click="startCreate">
+          <span>+</span> 创建策略
+        </button>
+      </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+      <div class="filter-pills">
+        <button v-for="s in statusFilters" :key="s.value"
+          :class="['pill', { active: filterStatus === s.value }]"
+          @click="filterStatus = s.value">{{ s.label }}</button>
+      </div>
+      <div class="search-box">
+        <span class="search-icon">⌕</span>
+        <input type="text" placeholder="搜索策略名称..." v-model="searchText" @input="onSearch">
+      </div>
+      <select class="sort-select" v-model="sortBy">
+        <option value="created_desc">创建时间（最新）</option>
+        <option value="created_asc">创建时间（最早）</option>
+        <option value="name_asc">名称 A-Z</option>
+        <option value="name_desc">名称 Z-A</option>
+      </select>
+    </div>
+
+    <!-- Bulk Action Bar -->
+    <div class="bulk-bar" v-if="selectedStrategies.length > 0">
+      <div class="bulk-info">已选择 <strong>{{ selectedStrategies.length }}</strong> 项</div>
+      <div class="bulk-actions">
+        <button class="btn btn-sm btn-default" v-if="canBulkEnable" @click="bulkAction('enable')">启用</button>
+        <button class="btn btn-sm btn-default" v-if="canBulkPause" @click="bulkAction('pause')">暂停</button>
+        <button class="btn btn-sm btn-default" v-if="canBulkStop" @click="bulkAction('stop')">停止</button>
+        <button class="btn btn-sm btn-danger" @click="confirmBulkDelete">删除</button>
+      </div>
+      <button class="btn btn-sm btn-text" @click="selectedStrategies=[]">取消全选</button>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="td-checkbox">
+              <div :class="['checkbox', {'checked': allSelected, 'indeterminate': someSelected && !allSelected}]" @click="toggleSelectAll">
+                <span class="checkmark" v-if="allSelected">✓</span>
+              </div>
+            </th>
+            <th>策略名称</th>
+            <th class="center">交易对</th>
+            <th class="center">周期</th>
+            <th>模板类型</th>
+            <th class="center">状态</th>
+            <th class="td-actions"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-if="filteredStrategies.length === 0">
+            <td colspan="7">
+              <div class="empty-state">
+                <div class="empty-icon">🧠</div>
+                <div class="empty-title" v-if="searchText">没有匹配的策略</div>
+                <div class="empty-title" v-else>还没有创建策略</div>
+                <div class="empty-desc" v-if="searchText">尝试调整筛选条件或搜索关键词</div>
+                <div class="empty-desc" v-else>创建第一个策略开始自动化交易</div>
+                <button class="btn btn-primary" v-if="!searchText" @click="startCreate">创建第一个策略</button>
+                <button class="btn btn-default" v-else @click="searchText='';filterStatus='all'">清除筛选</button>
+              </div>
+            </td>
+          </tr>
+          <tr v-for="s in paginatedStrategies" :key="s.id"
+            :style="{ opacity: s.status === 'stopped' ? 0.7 : 1 }">
+            <td class="td-checkbox">
+              <div :class="['checkbox', { checked: selectedStrategies.includes(s.id) }]"
+                @click="toggleSelect(s.id)">
+                <span class="checkmark" v-if="selectedStrategies.includes(s.id)">✓</span>
+              </div>
+            </td>
+            <td class="td-name">
+              <div class="strategy-name">{{ s.name }}</div>
+              <div class="strategy-desc">{{ s.description }}</div>
+            </td>
+            <td class="td-symbol center">
+              <span class="symbol-val">{{ s.symbol }}</span>
+            </td>
+            <td class="td-timeframe center">
+              <span class="timeframe-val">{{ s.timeframe }}</span>
+            </td>
+            <td class="td-template">
+              <span :class="['tag', s.tagClass]">{{ s.templateLabel }}</span>
+            </td>
+            <td class="td-status center">
+              <div :class="['status-badge', 'status-'+s.status]">
+                <span class="status-dot"></span>
+                {{ s.statusLabel }}
+              </div>
+            </td>
+            <td class="td-actions">
+              <div style="position:relative">
+                <button class="action-btn" @click="openActionMenu(s, $event)">⋮</button>
+                <div class="dropdown-menu" v-if="actionMenu.id === s.id" :style="{ top: '32px', right: '0' }">
+                  <template v-if="s.status === 'draft'">
+                    <div class="dropdown-item" @click="editStrategy(s)">编辑</div>
+                    <div class="dropdown-divider"></div>
+                    <div class="dropdown-item danger" @click="confirmDelete(s)">删除</div>
+                  </template>
+                  <template v-else-if="s.status === 'active'">
+                    <div class="dropdown-item" @click="pauseStrategy(s)">暂停</div>
+                    <div class="dropdown-item" @click="stopStrategy(s)">停止</div>
+                    <div class="dropdown-item" @click="editStrategy(s)">编辑</div>
+                    <div class="dropdown-item" @click="cloneStrategy(s)">克隆</div>
+                    <div class="dropdown-divider"></div>
+                    <div class="dropdown-item danger" @click="confirmDelete(s)">删除</div>
+                  </template>
+                  <template v-else-if="s.status === 'paused'">
+                    <div class="dropdown-item" @click="resumeStrategy(s)">启用</div>
+                    <div class="dropdown-item" @click="stopStrategy(s)">停止</div>
+                    <div class="dropdown-item" @click="editStrategy(s)">编辑</div>
+                    <div class="dropdown-item" @click="cloneStrategy(s)">克隆</div>
+                    <div class="dropdown-divider"></div>
+                    <div class="dropdown-item danger" @click="confirmDelete(s)">删除</div>
+                  </template>
+                  <template v-else>
+                    <div class="dropdown-item" @click="cloneStrategy(s)">克隆</div>
+                    <div class="dropdown-divider"></div>
+                    <div class="dropdown-item danger" @click="confirmDelete(s)">删除</div>
+                  </template>
+                </div>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination-wrap" v-if="filteredStrategies.length > 0">
+      <button class="pg-btn" :disabled="currentPageNum === 1" @click="currentPageNum--">‹</button>
+      <button v-for="p in pageRange" :key="p"
+        :class="['pg-btn', { active: p === currentPageNum }]"
+        @click="currentPageNum = p">{{ p }}</button>
+      <button class="pg-btn" :disabled="currentPageNum === totalPages" @click="currentPageNum++">›</button>
+      <div class="pg-info">共 {{ filteredStrategies.length }} 条</div>
+    </div>
+
+  </div>
+
+  <!-- ==================== CREATE/EDIT FORM PAGE ==================== -->
+  <div class="form-page" v-if="currentPage === 'create' || currentPage === 'edit'">
+
+    <div class="form-header">
+      <div class="back-link" @click="currentPage='list'">
+        <span>←</span> 返回策略列表
+      </div>
+      <div class="form-title">{{ currentPage === 'create' ? '创建策略' : '编辑策略' }}</div>
+      <div style="width:100px"></div>
+    </div>
+
+    <!-- Step Indicator -->
+    <div class="step-indicator">
+      <div class="step-item">
+        <div :class="['step-circle', { done: formStep > 1, active: formStep === 1 }]">
+          <span v-if="formStep > 1">✓</span><span v-else>1</span>
+        </div>
+        <span :class="['step-label', { active: formStep === 1 }]">选择模板</span>
+      </div>
+      <div :class="['step-connector', { done: formStep > 1 }]"></div>
+      <div class="step-item">
+        <div :class="['step-circle', { active: formStep === 2, done: formStep > 2 }]">
+          <span v-if="formStep > 2">✓</span><span v-else>2</span>
+        </div>
+        <span :class="['step-label', { active: formStep === 2 }]">配置参数</span>
+      </div>
+      <div :class="['step-connector', { done: formStep > 2 }]"></div>
+      <div class="step-item">
+        <div :class="['step-circle', { active: formStep === 3 }]">3</div>
+        <span :class="['step-label', { active: formStep === 3 }]">完成</span>
+      </div>
+    </div>
+
+    <!-- STEP 1: Template Selection -->
+    <div v-if="formStep === 1">
+      <div class="form-panel">
+        <div class="form-panel-header">
+          <div class="form-panel-title">选择策略模板</div>
+        </div>
+        <div class="template-grid">
+          <div v-for="tpl in templateList" :key="tpl.id"
+            :class="['template-card', { selected: form.templateId === tpl.id }]"
+            @click="selectTemplate(tpl)">
+            <div class="template-icon">{{ tpl.icon }}</div>
+            <div class="template-name">{{ tpl.name }}</div>
+            <div class="template-desc">{{ tpl.desc }}</div>
+            <div class="template-footer">
+              <span :class="['tag', tpl.tagClass]">{{ tpl.category }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="form-footer">
+        <div></div>
+        <button class="btn btn-primary" :disabled="!form.templateId" @click="formStep=2">下一步</button>
+      </div>
+    </div>
+
+    <!-- STEP 2: Configure Parameters -->
+    <div v-if="formStep === 2">
+      <div class="form-layout">
+        <!-- Left: Form -->
+        <div class="form-panel">
+
+          <!-- Basic Settings -->
+          <div class="form-section">
+            <div class="form-section-header">
+              <div class="form-section-title">基本设置</div>
+              <span class="form-section-toggle">−</span>
+            </div>
+            <div class="form-section-body">
+              <div class="form-row">
+                <label class="form-label required">策略名称</label>
+                <div class="form-control">
+                  <input type="text" class="form-input" placeholder="给策略起个名字" v-model="form.name"
+                    :class="{ error: formErrors.name }">
+                  <div class="form-error" v-if="formErrors.name">{{ formErrors.name }}</div>
+                </div>
+              </div>
+              <div class="form-row">
+                <label class="form-label">策略描述</label>
+                <div class="form-control">
+                  <input type="text" class="form-input" placeholder="描述策略做什么（选填）" v-model="form.description">
+                </div>
+              </div>
+              <div class="form-row">
+                <label class="form-label required">交易对</label>
+                <div class="form-control">
+                  <select class="form-select" v-model="form.symbol" :disabled="currentPage==='edit'"
+                    :style="{ opacity: currentPage==='edit' ? 0.5 : 1 }">
+                    <option value="">选择交易对</option>
+                    <option v-for="s in symbolOptions" :key="s" :value="s">{{ s }}</option>
+                  </select>
+                  <div class="form-hint" v-if="currentPage==='edit'">创建后不可更改</div>
+                  <div class="form-error" v-if="formErrors.symbol">{{ formErrors.symbol }}</div>
+                </div>
+              </div>
+              <div class="form-row">
+                <label class="form-label required">时间周期</label>
+                <div class="form-control">
+                  <select class="form-select" v-model="form.timeframe" :disabled="currentPage==='edit'"
+                    :style="{ opacity: currentPage==='edit' ? 0.5 : 1 }">
+                    <option value="">选择时间周期</option>
+                    <option v-for="t in timeframeOptions" :key="t" :value="t">{{ t }}</option>
+                  </select>
+                  <div class="form-hint" v-if="currentPage==='edit'">创建后不可更改</div>
+                  <div class="form-error" v-if="formErrors.timeframe">{{ formErrors.timeframe }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Entry Conditions -->
+          <div class="form-section">
+            <div class="form-section-header">
+              <div class="form-section-title">入场条件</div>
+              <span class="form-section-toggle">−</span>
+            </div>
+            <div class="form-section-body">
+              <div class="slider-row">
+                <div class="slider-label-row">
+                  <span class="slider-label">快线周期</span>
+                  <span class="slider-value">{{ form.params.fast_period }}</span>
+                </div>
+                <div class="slider-wrap">
+                  <input type="range" class="slider" min="2" max="50" v-model.number="form.params.fast_period">
+                  <input type="number" class="slider-num" min="2" max="50" v-model.number="form.params.fast_period">
+                </div>
+                <div class="form-hint">移动平均线快线周期，较短周期敏感度高</div>
+              </div>
+              <div class="slider-row">
+                <div class="slider-label-row">
+                  <span class="slider-label">慢线周期</span>
+                  <span class="slider-value">{{ form.params.slow_period }}</span>
+                </div>
+                <div class="slider-wrap">
+                  <input type="range" class="slider" min="5" max="200" v-model.number="form.params.slow_period">
+                  <input type="number" class="slider-num" min="5" max="200" v-model.number="form.params.slow_period">
+                </div>
+                <div class="form-hint">移动平均线慢线周期，较长周期趋势稳定</div>
+              </div>
+              <div class="form-row">
+                <label class="form-label">均线类型</label>
+                <div class="form-control">
+                  <select class="form-select" v-model="form.params.ma_type">
+                    <option value="SMA">简单移动平均 SMA</option>
+                    <option value="EMA">指数移动平均 EMA</option>
+                    <option value="WMA">加权移动平均 WMA</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Exit Conditions -->
+          <div class="form-section">
+            <div class="form-section-header">
+              <div class="form-section-title">出场条件</div>
+              <span class="form-section-toggle">−</span>
+            </div>
+            <div class="form-section-body">
+              <div class="slider-row">
+                <div class="slider-label-row">
+                  <span class="slider-label">止盈比例</span>
+                  <span class="slider-value">{{ form.params.take_profit_pct }}%</span>
+                </div>
+                <div class="slider-wrap">
+                  <input type="range" class="slider" min="0.5" max="10" step="0.1" v-model.number="form.params.take_profit_pct">
+                  <input type="number" class="slider-num" min="0.5" max="10" step="0.1" v-model.number="form.params.take_profit_pct">
+                </div>
+              </div>
+              <div class="slider-row">
+                <div class="slider-label-row">
+                  <span class="slider-label">止损比例</span>
+                  <span class="slider-value">{{ form.params.stop_loss_pct }}%</span>
+                </div>
+                <div class="slider-wrap">
+                  <input type="range" class="slider" min="0.5" max="10" step="0.1" v-model.number="form.params.stop_loss_pct">
+                  <input type="number" class="slider-num" min="0.5" max="10" step="0.1" v-model.number="form.params.stop_loss_pct">
+                </div>
+              </div>
+              <div class="switch-row">
+                <div class="switch-info">
+                  <div class="switch-title">追踪止损</div>
+                  <div class="switch-desc">开启后止损会随盈利方向移动</div>
+                </div>
+                <button :class="['switch', { on: form.params.trailing_stop }]" @click="form.params.trailing_stop=!form.params.trailing_stop"></button>
+              </div>
+              <div class="slider-row" v-if="form.params.trailing_stop">
+                <div class="slider-label-row">
+                  <span class="slider-label">追踪距离</span>
+                  <span class="slider-value">{{ form.params.trailing_distance }}%</span>
+                </div>
+                <div class="slider-wrap">
+                  <input type="range" class="slider" min="0.1" max="5" step="0.1" v-model.number="form.params.trailing_distance">
+                  <input type="number" class="slider-num" min="0.1" max="5" step="0.1" v-model.number="form.params.trailing_distance">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Summary -->
+        <div class="summary-panel">
+          <div class="summary-header">📋 策略摘要</div>
+          <div class="summary-body">
+            <template v-if="form.symbol && form.timeframe">
+              <div class="summary-item">交易 {{ form.symbol }}，{{ form.timeframe }} 周期</div>
+              <div class="summary-item">快线 {{ form.params.fast_period }} / 慢线 {{ form.params.slow_period }} {{ form.params.ma_type }}</div>
+              <div class="summary-item">止盈 {{ form.params.take_profit_pct }}% / 止损 {{ form.params.stop_loss_pct }}%</div>
+              <div class="summary-item" v-if="form.params.trailing_stop">追踪止损已开启（距离 {{ form.params.trailing_distance }}%）</div>
+              <div class="summary-item" v-else>追踪止损已关闭</div>
+              <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--color-border)">
+                <div style="font-size:12px;color:var(--color-text-tertiary)">模板: {{ selectedTemplateName }}</div>
+                <div style="font-size:12px;color:var(--color-text-tertiary)">预计算力：低（约 2ms/计算）</div>
+              </div>
+            </template>
+            <div class="summary-empty" v-else>
+              选择交易对和时间周期后，摘要将显示在这里
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-footer">
+        <button class="btn btn-text" @click="formStep=1">← 返回选择模板</button>
+        <div class="form-footer-right">
+          <button class="btn btn-default" @click="saveDraft">保存草稿</button>
+          <button class="btn btn-primary" @click="saveAndStart">
+            <span>▶</span> 保存并启动
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 3: Done -->
+    <div v-if="formStep === 3" style="text-align:center;padding:60px 0">
+      <div style="font-size:64px;margin-bottom:24px">🎉</div>
+      <div style="font-size:24px;font-weight:600;color:var(--color-text-primary);margin-bottom:12px">
+        {{ form.status === 'draft' ? '策略已保存为草稿' : '策略已启动！' }}
+      </div>
+      <div style="font-size:14px;color:var(--color-text-tertiary);margin-bottom:32px">
+        {{ form.name }} 正在运行中
+      </div>
+      <div style="display:flex;gap:12px;justify-content:center">
+        <button class="btn btn-default" @click="currentPage='list';resetForm()">返回列表</button>
+        <button class="btn btn-primary" @click="formStep=2;editStrategy(currentEditStrategy)">继续编辑</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ==================== TEMPLATE MARKETPLACE PAGE ==================== -->
+  <div class="page-content" v-if="currentPage === 'market'">
+
+    <div class="page-title-row">
+      <div class="page-title">策略模板市场</div>
+      <div class="page-title-row-right">
+        <div class="market-tabs">
+          <button :class="['market-tab', { active: marketTab === 'discover' }]" @click="marketTab='discover'">发现模板</button>
+          <button :class="['market-tab', { active: marketTab === 'mine' }]" @click="marketTab='mine'">我的模板</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Discover Tab -->
+    <template v-if="marketTab === 'discover'">
+      <div class="filter-bar">
+        <div class="filter-pills">
+          <button v-for="c in categoryFilters" :key="c.value"
+            :class="['pill', { active: marketCategory === c.value }]"
+            @click="marketCategory = c.value">{{ c.label }}</button>
+        </div>
+        <div class="search-box">
+          <span class="search-icon">⌕</span>
+          <input type="text" placeholder="搜索模板..." v-model="marketSearch">
+        </div>
+        <div class="market-count">{{ filteredMarketTemplates.length }} 个模板</div>
+      </div>
+
+      <div class="market-sort-row">
+        <div></div>
+        <select class="sort-select" v-model="marketSort">
+          <option value="popular">热门排序</option>
+          <option value="rating">评分最高</option>
+          <option value="newest">最新发布</option>
+        </select>
+      </div>
+
+      <div class="market-grid">
+        <div v-for="tpl in filteredMarketTemplates" :key="tpl.id" class="market-card">
+          <div class="market-card-badge" v-if="tpl.rank === 1">🏆 TOP</div>
+          <div class="market-card-icon">{{ tpl.icon }}</div>
+          <div class="market-card-name">{{ tpl.name }}</div>
+          <div class="market-card-author">作者: {{ tpl.author }}</div>
+          <div class="market-card-stats">
+            <span class="market-stat">⭐ <strong>{{ tpl.rating }}</strong></span>
+            <span class="market-stat">🔥 <strong>{{ tpl.users }}</strong> 人使用</span>
+          </div>
+          <div class="market-card-footer">
+            <span :class="['tag', tpl.tagClass]">{{ tpl.category }}</span>
+            <button :class="['market-cta', { installed: tpl.installed }]"
+              @click="tpl.installed ? null : installTemplate(tpl)">
+              {{ tpl.installed ? '已安装 ✓' : '立即使用' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- My Templates Tab -->
+    <template v-if="marketTab === 'mine'">
+      <div class="page-title-row" style="margin-bottom:16px">
+        <div></div>
+        <button class="btn btn-primary">+ 创建模板</button>
+      </div>
+      <div class="empty-state">
+        <div class="empty-icon">📝</div>
+        <div class="empty-title">还没有创建模板</div>
+        <div class="empty-desc">创建自定义模板，分享给其他用户</div>
+        <button class="btn btn-primary">创建第一个模板</button>
+      </div>
+    </template>
+
+  </div>
+
+</div><!-- .page-shell -->
+
+</div><!-- #app -->
+
+<script>
+const { createApp, ref, computed, watch, onMounted, onUnmounted } = Vue;
+
+createApp({
+  setup() {
+    // ==================== DATA ====================
+    const strategies = ref([
+      { id: 's1', name: 'Grid BTC-USDT', description: 'BTC网格做市策略，波动率套利', symbol: 'BTCUSDT', timeframe: '1H', templateId: 't1', templateLabel: '网格交易', tagClass: 'tag-grid', status: 'active', statusLabel: '运行中', params: { layers: 20, spread: 1.0, quantity: 0.01 } },
+      { id: 's2', name: 'MA Cross ETH', description: '以太坊双均线交叉策略', symbol: 'ETHUSDT', timeframe: '4H', templateId: 't2', templateLabel: '趋势跟踪', tagClass: 'tag-trend', status: 'paused', statusLabel: '已暂停', params: { fast_period: 12, slow_period: 26 } },
+      { id: 's3', name: 'Arbitrage BTC', description: 'BTC三角套利策略', symbol: 'BTCUSDT', timeframe: '1D', templateId: 't4', templateLabel: '套利', tagClass: 'tag-arbitrage', status: 'stopped', statusLabel: '已停止', params: { min_spread: 0.3 } },
+      { id: 's4', name: 'RSI Reversion', description: 'RSI均值回归策略', symbol: 'BTCUSDT', timeframe: '15M', templateId: 't3', templateLabel: '均值回归', tagClass: 'tag-reversion', status: 'draft', statusLabel: '草稿', params: { rsi_period: 14, oversold: 30, overbought: 70 } },
+      { id: 's5', name: 'Trend SMA', description: 'SMA趋势跟踪策略', symbol: 'BNBUSDT', timeframe: '1H', templateId: 't2', templateLabel: '趋势跟踪', tagClass: 'tag-trend', status: 'active', statusLabel: '运行中', params: { fast_period: 10, slow_period: 20 } },
+      { id: 's6', name: 'Grid ETH-USDT', description: 'ETH网格做市', symbol: 'ETHUSDT', timeframe: '1H', templateId: 't1', templateLabel: '网格交易', tagClass: 'tag-grid', status: 'paused', statusLabel: '已暂停', params: { layers: 15, spread: 0.8 } },
+      { id: 's7', name: 'Bollinger Band', description: '布林带均值回归', symbol: 'SOLUSDT', timeframe: '4H', templateId: 't3', templateLabel: '均值回归', tagClass: 'tag-reversion', status: 'active', statusLabel: '运行中', params: { period: 20, std: 2 } },
+      { id: 's8', name: 'Flash Crash', description: '合约做空策略', symbol: 'BTCUSDT', timeframe: '1H', templateId: 't5', templateLabel: '自定义', tagClass: 'tag-custom', status: 'stopped', statusLabel: '已停止', params: { threshold: -5 } },
+    ]);
+
+    const templates = ref([
+      { id: 't1', name: '网格交易', desc: '等差/等比网格，自动做市', icon: '🔲', category: '网格交易', tagClass: 'tag-grid' },
+      { id: 't2', name: '趋势跟踪', desc: '均线交叉/布林带突破', icon: '📈', category: '趋势跟踪', tagClass: 'tag-trend' },
+      { id: 't3', name: '均值回归', desc: 'RSI/布林线回归策略', icon: '📉', category: '均值回归', tagClass: 'tag-reversion' },
+      { id: 't4', name: '套利', desc: '跨交易所/三角套利', icon: '🔄', category: '套利', tagClass: 'tag-arbitrage' },
+      { id: 't5', name: '自定义', desc: '空白模板，从头创建', icon: '✏️', category: '自定义', tagClass: 'tag-custom' },
+    ]);
+
+    const marketTemplates = ref([
+      { id: 'm1', name: '双均线交叉策略', author: 'AlgoTrader_001', icon: '📈', category: '趋势跟踪', tagClass: 'tag-trend', rating: 4.8, users: 1234, rank: 1, installed: false, verified: true, fullDesc: '基于快速/慢速均线交叉的经典趋势跟踪策略。当快速均线上穿慢速均线时做多，下穿时做空。适用于趋势明显的市场。', params: [{ name: 'fast_period', label: '快线周期', value: '12' }, { name: 'slow_period', label: '慢线周期', value: '26' }, { name: 'ma_type', label: '均线类型', value: 'SMA' }], backtest: { annualReturn: '45.2%', sharpe: '1.85', maxDrawdown: '12.3%' } },
+      { id: 'm2', name: 'RSI均值回归', author: 'QuantMaster', icon: '📉', category: '均值回归', tagClass: 'tag-reversion', rating: 4.5, users: 892, rank: 2, installed: true, verified: false, fullDesc: '基于RSI指标的均值回归策略。当RSI低于超卖阈值时买入，高于超买阈值时卖出。', params: [{ name: 'rsi_period', label: 'RSI周期', value: '14' }, { name: 'oversold', label: '超卖阈值', value: '30' }, { name: 'overbought', label: '超买阈值', value: '70' }], backtest: { annualReturn: '32.1%', sharpe: '1.62', maxDrawdown: '8.7%' } },
+      { id: 'm3', name: '无限网格策略', author: 'GridKing', icon: '🔲', category: '网格交易', tagClass: 'tag-grid', rating: 4.9, users: 2341, rank: 3, installed: false, verified: true, fullDesc: '无上限网格策略，适合震荡市场。设置网格数量和间距，系统自动挂单。', params: [{ name: 'layers', label: '网格层数', value: '20' }, { name: 'spread', label: '网格间距', value: '1.0%' }], backtest: { annualReturn: '28.5%', sharpe: '1.41', maxDrawdown: '15.2%' } },
+      { id: 'm4', name: '三角套利', author: 'ArbitrageFox', icon: '⚡', category: '套利', tagClass: 'tag-arbitrage', rating: 4.2, users: 456, rank: 0, installed: false, verified: false, fullDesc: '跨交易所三角套利，捕捉价格差异。需同时在多个交易所开仓。', params: [{ name: 'min_spread', label: '最小价差', value: '0.3%' }], backtest: { annualReturn: '18.3%', sharpe: '2.1', maxDrawdown: '5.1%' } },
+      { id: 'm5', name: '布林带策略', author: 'BollingerBandit', icon: '📊', category: '均值回归', tagClass: 'tag-reversion', rating: 4.6, users: 678, rank: 0, installed: false, verified: false, fullDesc: '布林带通道突破策略。价格触及下轨买入，触及上轨卖出。', params: [{ name: 'period', label: '周期', value: '20' }, { name: 'std', label: '标准差倍数', value: '2' }], backtest: { annualReturn: '38.7%', sharpe: '1.73', maxDrawdown: '10.5%' } },
+      { id: 'm6', name: 'MACD+RSI组合', author: 'ComboTrader', icon: '📈', category: '趋势跟踪', tagClass: 'tag-trend', rating: 4.7, users: 923, rank: 0, installed: false, verified: false, fullDesc: 'MACD与RSI组合指标，过滤假信号。双重确认增加胜率。', params: [{ name: 'macd_fast', label: 'MACD快线', value: '12' }, { name: 'macd_slow', label: 'MACD慢线', value: '26' }, { name: 'rsi_period', label: 'RSI周期', value: '14' }], backtest: { annualReturn: '41.2%', sharpe: '1.91', maxDrawdown: '9.8%' } },
+      { id: 'm7', name: '马丁格尔网格', author: 'MartingaleKing', icon: '🔲', category: '网格交易', tagClass: 'tag-grid', rating: 4.3, users: 1567, rank: 0, installed: false, verified: false, fullDesc: '马丁格尔+网格混合策略，亏损加倍补仓。风险较高，慎用。', params: [{ name: 'base_lot', label: '基础仓位', value: '0.001' }, { name: 'multiplier', label: '倍数', value: '2.0' }], backtest: { annualReturn: '52.3%', sharpe: '1.12', maxDrawdown: '32.1%' } },
+      { id: 'm8', name: '突破策略', author: 'BreakoutMaster', icon: '📈', category: '趋势跟踪', tagClass: 'tag-trend', rating: 4.4, users: 734, rank: 0, installed: false, verified: false, fullDesc: '日内突破策略。昨日高点+低点+收盘价联合判断突破方向。', params: [{ name: 'lookback', label: '回溯周期', value: '20' }, { name: 'atr_mult', label: 'ATR倍数', value: '1.5' }], backtest: { annualReturn: '36.9%', sharpe: '1.55', maxDrawdown: '11.2%' } },
+    ]);
+
+    const symbolOptions = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'MATICUSDT'];
+    const timeframeOptions = ['1m', '5m', '15m', '30m', '1H', '4H', '1D', '1W'];
+
+    const statusFilters = [
+      { value: 'all', label: '全部' },
+      { value: 'active', label: '运行中' },
+      { value: 'paused', label: '已暂停' },
+      { value: 'draft', label: '草稿' },
+      { value: 'stopped', label: '已停止' },
+    ];
+
+    const categoryFilters = [
+      { value: 'all', label: '全部' },
+      { value: '趋势跟踪', label: '趋势跟踪' },
+      { value: '均值回归', label: '均值回归' },
+      { value: '网格交易', label: '网格交易' },
+      { value: '套利', label: '套利' },
+      { value: '自定义', label: '自定义' },
+    ];
+
+    // ==================== STATE ====================
+    const currentPage = ref('list');
+    const currentPageNum = ref(1);
+    const pageSize = ref(20);
+    const filterStatus = ref('all');
+    const searchText = ref('');
+    const sortBy = ref('created_desc');
+    const selectedStrategies = ref([]);
+    const formStep = ref(1);
+    const currentEditStrategy = ref(null);
+    const marketTab = ref('discover');
+    const marketCategory = ref('all');
+    const marketSearch = ref('');
+    const marketSort = ref('popular');
+    const templateList = ref(templates.value);
+
+    const form = ref({
+      templateId: '',
+      name: '',
+      description: '',
+      symbol: '',
+      timeframe: '',
+      params: {
+        fast_period: 12,
+        slow_period: 26,
+        ma_type: 'SMA',
+        take_profit_pct: 2.5,
+        stop_loss_pct: 5.0,
+        trailing_stop: false,
+        trailing_distance: 1.0,
+      },
+      status: 'draft',
+    });
+
+    const formErrors = ref({});
+
+    const toasts = ref([]);
+    const modal = ref({ show: false, title: '', text: '', confirm: '', cancel: '', danger: false, callback: null });
+    const drawer = ref({ show: false, template: null });
+    const actionMenu = ref({ id: null });
+
+    // ==================== COMPUTED ====================
+    const filteredStrategies = computed(() => {
+      let list = [...strategies.value];
+      if (filterStatus.value !== 'all') list = list.filter(s => s.status === filterStatus.value);
+      if (searchText.value) list = list.filter(s => s.name.toLowerCase().includes(searchText.value.toLowerCase()));
+      if (sortBy.value === 'created_desc') list.sort((a,b) => a.id.localeCompare(b.id));
+      if (sortBy.value === 'name_asc') list.sort((a,b) => a.name.localeCompare(b.name));
+      return list;
+    });
+
+    const totalPages = computed(() => Math.max(1, Math.ceil(filteredStrategies.value.length / pageSize.value)));
+    const paginatedStrategies = computed(() => {
+      const start = (currentPageNum.value - 1) * pageSize.value;
+      return filteredStrategies.value.slice(start, start + pageSize.value);
+    });
+
+    const pageRange = computed(() => {
+      const pages = [];
+      for (let i = 1; i <= totalPages.value; i++) pages.push(i);
+      return pages;
+    });
+
+    const allSelected = computed(() => paginatedStrategies.value.length > 0 && paginatedStrategies.value.every(s => selectedStrategies.value.includes(s.id)));
+    const someSelected = computed(() => selectedStrategies.value.length > 0);
+
+    const canBulkEnable = computed(() => selectedStrategies.value.some(id => { const s = strategies.value.find(x=>x.id===id); return s && (s.status==='paused'); }));
+    const canBulkPause = computed(() => selectedStrategies.value.some(id => { const s = strategies.value.find(x=>x.id===id); return s && s.status==='active'; }));
+    const canBulkStop = computed(() => selectedStrategies.value.some(id => { const s = strategies.value.find(x=>x.id===id); return s && (s.status==='active' || s.status==='paused'); }));
+
+    const selectedTemplateName = computed(() => {
+      const t = templates.value.find(t => t.id === form.value.templateId);
+      return t ? t.name : '';
+    });
+
+    const filteredMarketTemplates = computed(() => {
+      let list = [...marketTemplates.value];
+      if (marketCategory.value !== 'all') list = list.filter(t => t.category === marketCategory.value);
+      if (marketSearch.value) list = list.filter(t => t.name.toLowerCase().includes(marketSearch.value.toLowerCase()));
+      if (marketSort.value === 'popular') list.sort((a,b) => b.users - a.users);
+      if (marketSort.value === 'rating') list.sort((a,b) => b.rating - a.rating);
+      if (marketSort.value === 'newest') list.sort((a,b) => b.rank - a.rank);
+      return list;
+    });
+
+    // ==================== METHODS ====================
+    function showToast(message, type = 'info', duration = 3000) {
+      const id = Date.now();
+      toasts.value.push({ id, message, type });
+      setTimeout(() => { toasts.value = toasts.value.filter(t => t.id !== id); }, duration);
+    }
+
+    function onSearch() { currentPageNum.value = 1; }
+
+    function toggleSelectAll() {
+      if (allSelected.value) {
+        selectedStrategies.value = selectedStrategies.value.filter(id => !paginatedStrategies.value.find(s => s.id === id));
+      } else {
+        paginatedStrategies.value.forEach(s => { if (!selectedStrategies.value.includes(s.id)) selectedStrategies.value.push(s.id); });
+      }
+    }
+
+    function toggleSelect(id) {
+      if (selectedStrategies.value.includes(id)) selectedStrategies.value = selectedStrategies.value.filter(i => i !== id);
+      else selectedStrategies.value.push(id);
+    }
+
+    function openActionMenu(s, e) {
+      actionMenu.value.id = s.id;
+      e.stopPropagation();
+    }
+
+    function closeMenus() { actionMenu.value.id = null; }
+
+    onMounted(() => { document.addEventListener('click', closeMenus); });
+    onUnmounted(() => { document.removeEventListener('click', closeMenus); });
+
+    function selectTemplate(tpl) {
+      form.value.templateId = tpl.id;
+    }
+
+    function startCreate() {
+      currentPage.value = 'create';
+      currentEditStrategy.value = null;
+      resetForm();
+      formStep.value = 1;
+    }
+
+    function editStrategy(s) {
+      currentPage.value = 'edit';
+      currentEditStrategy.value = s;
+      form.value.templateId = s.templateId;
+      form.value.name = s.name;
+      form.value.description = s.description;
+      form.value.symbol = s.symbol;
+      form.value.timeframe = s.timeframe;
+      if (s.params.fast_period) form.value.params = { ...s.params };
+      form.value.status = s.status;
+      formStep.value = 2;
+      closeMenus();
+    }
+
+    function resetForm() {
+      form.value = {
+        templateId: '',
+        name: '',
+        description: '',
+        symbol: '',
+        timeframe: '',
+        params: { fast_period: 12, slow_period: 26, ma_type: 'SMA', take_profit_pct: 2.5, stop_loss_pct: 5.0, trailing_stop: false, trailing_distance: 1.0 },
+        status: 'draft',
+      };
+      formErrors.value = {};
+    }
+
+    function validateForm() {
+      formErrors.value = {};
+      if (!form.value.name.trim()) formErrors.value.name = '请输入策略名称';
+      if (!form.value.symbol) formErrors.value.symbol = '请选择交易对';
+      if (!form.value.timeframe) formErrors.value.timeframe = '请选择时间周期';
+      return Object.keys(formErrors.value).length === 0;
+    }
+
+    function saveDraft() {
+      if (!validateForm()) { showToast('请填写必填项', 'error'); return; }
+      if (currentEditStrategy.value) {
+        const idx = strategies.value.findIndex(s => s.id === currentEditStrategy.value.id);
+        if (idx !== -1) strategies.value[idx] = { ...strategies.value[idx], ...form.value, status: 'draft', statusLabel: '草稿' };
+        showToast('策略已保存', 'success');
+      } else {
+        const newS = {
+          id: 's' + Date.now(),
+          name: form.value.name,
+          description: form.value.description,
+          symbol: form.value.symbol,
+          timeframe: form.value.timeframe,
+          templateId: form.value.templateId,
+          templateLabel: selectedTemplateName.value || '自定义',
+          tagClass: templates.value.find(t => t.id === form.value.templateId)?.tagClass || 'tag-custom',
+          status: 'draft',
+          statusLabel: '草稿',
+          params: { ...form.value.params },
+        };
+        strategies.value.unshift(newS);
+        showToast('策略已保存为草稿', 'success');
+      }
+      formStep.value = 3;
+    }
+
+    function saveAndStart() {
+      if (!validateForm()) { showToast('请填写必填项', 'error'); return; }
+      form.value.status = 'active';
+      saveDraft();
+      formStep.value = 3;
+    }
+
+    function pauseStrategy(s) {
+      const idx = strategies.value.findIndex(x => x.id === s.id);
+      if (idx !== -1) { strategies.value[idx].status = 'paused'; strategies.value[idx].statusLabel = '已暂停'; }
+      showToast('策略已暂停', 'success');
+      closeMenus();
+    }
+
+    function resumeStrategy(s) {
+      const idx = strategies.value.findIndex(x => x.id === s.id);
+      if (idx !== -1) { strategies.value[idx].status = 'active'; strategies.value[idx].statusLabel = '运行中'; }
+      showToast('策略已启用', 'success');
+      closeMenus();
+    }
+
+    function stopStrategy(s) {
+      modal.value = {
+        show: true,
+        title: '停止策略',
+        text: `确定要停止策略「${s.name}」吗？停止后将无法恢复运行，只能克隆或删除。`,
+        confirm: '确认停止',
+        danger: true,
+        callback: () => {
+          const idx = strategies.value.findIndex(x => x.id === s.id);
+          if (idx !== -1) { strategies.value[idx].status = 'stopped'; strategies.value[idx].statusLabel = '已停止'; }
+          showToast('策略已停止', 'success');
+          closeMenus();
+        }
+      };
+    }
+
+    function confirmDelete(s) {
+      modal.value = {
+        show: true,
+        title: '删除策略',
+        text: `确定要删除策略「${s.name}」吗？删除后策略配置和数据将不可恢复。`,
+        confirm: '确认删除',
+        danger: true,
+        callback: () => {
+          strategies.value = strategies.value.filter(x => x.id !== s.id);
+          showToast('策略已删除', 'success');
+          closeMenus();
+        }
+      };
+    }
+
+    function confirmBulkDelete() {
+      modal.value = {
+        show: true,
+        title: '批量删除',
+        text: `确定要删除选中的 ${selectedStrategies.value.length} 个策略吗？删除后不可恢复。`,
+        confirm: '确认删除',
+        danger: true,
+        callback: () => {
+          strategies.value = strategies.value.filter(x => !selectedStrategies.value.includes(x.id));
+          selectedStrategies.value = [];
+          showToast('已删除选中策略', 'success');
+        }
+      };
+    }
+
+    function bulkAction(action) {
+      selectedStrategies.value.forEach(id => {
+        const s = strategies.value.find(x => x.id === id);
+        if (!s) return;
+        if (action === 'enable') { s.status = 'active'; s.statusLabel = '运行中'; }
+        else if (action === 'pause') { s.status = 'paused'; s.statusLabel = '已暂停'; }
+        else if (action === 'stop') { s.status = 'stopped'; s.statusLabel = '已停止'; }
+      });
+      showToast(`已执行批量${action === 'enable' ? '启用' : action === 'pause' ? '暂停' : '停止'}`, 'success');
+      selectedStrategies.value = [];
+    }
+
+    function modalConfirm() {
+      if (modal.value.callback) modal.value.callback();
+      modal.value.show = false;
+    }
+
+    function cloneStrategy(s) {
+      const clone = { ...s, id: 's' + Date.now(), name: s.name + ' (克隆)', status: 'draft', statusLabel: '草稿' };
+      strategies.value.unshift(clone);
+      showToast('策略已克隆', 'success');
+      closeMenus();
+    }
+
+    function useTemplate(tpl) {
+      drawer.value.show = false;
+      form.value.templateId = tpl.id;
+      currentPage.value = 'create';
+      formStep.value = 2;
+    }
+
+    function installTemplate(tpl) {
+      tpl.installed = true;
+      showToast(`「${tpl.name}」已安装`, 'success');
+    }
+
+    return {
+      currentPage, currentPageNum, pageSize, filterStatus, searchText, sortBy,
+      selectedStrategies, formStep, currentEditStrategy, marketTab, marketCategory,
+      marketSearch, marketSort, templateList, form, formErrors, toasts, modal, drawer,
+      actionMenu, strategies, statusFilters, categoryFilters, marketTemplates,
+      symbolOptions, timeframeOptions, templates,
+      filteredStrategies, totalPages, paginatedStrategies, pageRange,
+      allSelected, someSelected, canBulkEnable, canBulkPause, canBulkStop,
+      selectedTemplateName, filteredMarketTemplates,
+      showToast, onSearch, toggleSelectAll, toggleSelect, openActionMenu,
+      selectTemplate, startCreate, editStrategy, resetForm, validateForm,
+      saveDraft, saveAndStart, pauseStrategy, resumeStrategy, stopStrategy,
+      confirmDelete, confirmBulkDelete, bulkAction, modalConfirm, cloneStrategy,
+      useTemplate, installTemplate,
+    };
+  }
+}).use(ElementPlus).mount('#app');
+</script>
+</body>
+</html>

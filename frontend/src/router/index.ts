@@ -9,6 +9,7 @@ import MarketView from '@/views/market/MarketView.vue'
 import StrategiesView from '@/views/strategy/StrategiesView.vue'
 import StrategyCreateView from '@/views/strategy/StrategyCreateView.vue'
 import StrategyEditView from '@/views/strategy/StrategyEditView.vue'
+import StrategyTemplateView from '@/views/strategy/StrategyTemplateView.vue'
 import BacktestView from '@/views/backtest/BacktestView.vue'
 import TradingView from '@/views/trade/TradingView.vue'
 import PortfolioView from '@/views/portfolio/PortfolioView.vue'
@@ -86,6 +87,12 @@ const routes: RouteRecordRaw[] = [
         name: 'StrategyEdit',
         component: StrategyEditView,
         meta: { requiresAuth: true, title: '编辑策略' },
+      },
+      {
+        path: 'strategies/templates',
+        name: 'StrategyTemplates',
+        component: StrategyTemplateView,
+        meta: { requiresAuth: true, title: '策略模板市场' },
       },
       {
         path: 'backtest',

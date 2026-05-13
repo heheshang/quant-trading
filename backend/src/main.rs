@@ -104,6 +104,10 @@ fn create_router(db: DbPool, cors: CorsLayer) -> Router {
         )
         .route("/strategies", get(handlers::strategy::list_strategies))
         .route("/strategies", post(handlers::strategy::create_strategy))
+        .route(
+            "/strategies/bulk/status",
+            post(handlers::strategy::bulk_update_status),
+        )
         .route("/strategies/{id}", get(handlers::strategy::get_strategy))
         .route(
             "/strategies/{id}",
@@ -116,6 +120,10 @@ fn create_router(db: DbPool, cors: CorsLayer) -> Router {
         .route(
             "/strategies/{id}/status",
             post(handlers::strategy::update_status),
+        )
+        .route(
+            "/strategies/export",
+            get(handlers::strategy::export_strategies),
         )
         .layer(middleware::from_fn(
             quant_trading_backend::middleware::auth::auth_middleware,

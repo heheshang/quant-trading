@@ -296,7 +296,7 @@ function getParamRule(param: StrategyParamDef) {
 async function loadStrategies() {
   loadingStrategies.value = true
   try {
-    strategies.value = await listStrategies()
+    strategies.value = (await listStrategies()).data
   } catch {
     strategies.value = []
   } finally {

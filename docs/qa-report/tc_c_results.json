@@ -1,0 +1,74 @@
+[
+  {
+    "label": "TC-C1 IDOR: B reads A's strategy (should be blocked)",
+    "passed": true,
+    "resp": null,
+    "err": "{'http_code': 404, 'response': {'code': 40401, 'message': 'Not found: Strategy not found'}}"
+  },
+  {
+    "label": "TC-C2 IDOR: B updates A's strategy (blocked)",
+    "passed": true,
+    "resp": null,
+    "err": "{'http_code': 404, 'response': {'code': 40401, 'message': 'Not found: Strategy not found'}}"
+  },
+  {
+    "label": "TC-C3 IDOR: B deletes A's strategy (blocked)",
+    "passed": true,
+    "resp": null,
+    "err": "{'http_code': 404, 'response': {'code': 40401, 'message': 'Not found: Strategy not found'}}"
+  },
+  {
+    "label": "TC-C4 IDOR: B changes A's status (blocked)",
+    "passed": true,
+    "resp": null,
+    "err": "{'http_code': 404, 'response': {'code': 40401, 'message': 'Not found: Strategy not found'}}"
+  },
+  {
+    "label": "TC-C5 Empty name validation",
+    "passed": true,
+    "resp": null,
+    "err": "{'http_code': 400, 'response': {'code': 40002, 'message': 'Validation error: Parameter validation failed: fast_period is required'}}"
+  },
+  {
+    "label": "TC-C6 Invalid status transition (active->stopped)",
+    "passed": true,
+    "resp": null,
+    "err": "{'http_code': 400, 'response': {'code': 40002, 'message': 'Validation error: Invalid status transition: active -> stopped'}}"
+  },
+  {
+    "label": "TC-C7 Invalid UUID handling",
+    "passed": true,
+    "resp": null,
+    "err": "{'http_code': 400, 'body': 'Invalid URL: Cannot parse `id` with value `invalid-uuid`: UUID parsing failed: invalid character: found `i` at 1'}"
+  },
+  {
+    "label": "TC-C8 Missing auth rejected",
+    "passed": true,
+    "resp": null,
+    "err": "{'http_code': 401, 'response': {'code': 40101, 'message': 'Missing authorization header'}}"
+  },
+  {
+    "label": "TC-C9 XSS payload accepted in description",
+    "passed": false,
+    "resp": null,
+    "err": "{'http_code': 400, 'response': {'code': 40002, 'message': 'Validation error: Parameter validation failed: fast_period is required'}}"
+  },
+  {
+    "label": "TC-C10 XSS stored value",
+    "passed": false,
+    "resp": null,
+    "err": null
+  },
+  {
+    "label": "TC-C11 SQL injection protection",
+    "passed": true,
+    "resp": null,
+    "err": "{'http_code': 400, 'response': {'code': 40002, 'message': 'Validation error: Parameter validation failed: fast_period is required'}}"
+  },
+  {
+    "label": "TC-C12 Long name (600 chars) rejected",
+    "passed": true,
+    "resp": null,
+    "err": "{'http_code': 400, 'response': {'code': 40002, 'message': 'Validation error: Parameter validation failed: fast_period is required'}}"
+  }
+]
