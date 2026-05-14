@@ -1,4 +1,31 @@
 ## [0.5.0] — 2026-05-13
+## [0.6.0] — 2026-05-14
+
+### 新增
+
+#### 订单管理模块
+
+- **订单管理前端页面** (`frontend/src/views/order/OrderManagementView.vue`)
+  - 订单列表页（状态筛选/时间范围/交易对搜索）
+  - 订单创建对话框（市价单/限价单）
+  - 订单详情侧滑栏
+  - 持仓面板
+  - 成交记录 Tabs
+  - 批量撤单功能
+
+- **订单管理 API** (`backend/src/handlers/order.rs`)
+  - `POST /api/v1/orders` — 创建委托（市价/限价/止损）
+  - `GET /api/v1/orders` — 查询委托列表（分页+多条件筛选）
+  - `GET /api/v1/orders/:id` — 委托详情
+  - `POST /api/v1/orders/:id/cancel` — 撤单
+  - `POST /api/v1/orders/cancel-all` — 批量撤单
+  - `GET /api/v1/trades` — 成交记录
+  - `GET /api/v1/positions` — 持仓列表
+  - `GET /api/v1/account` — 账户信息
+  - `GET /api/v1/symbols` — 交易对配置
+  - 风控前置（D8）、保证金冻结（D3）、PG行锁（D2）
+
+
 
 ### 新增
 

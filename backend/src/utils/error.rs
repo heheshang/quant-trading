@@ -31,6 +31,22 @@ pub enum AppError {
     #[error("Rate limit exceeded")]
     RateLimit,
 
+    /// ADR D11: 40002 - 余额不足
+    #[error("Insufficient balance: {0}")]
+    InsufficientBalance(String),
+
+    /// ADR D11: 40003 - 风控拒绝
+    #[error("Risk rejected: {0}")]
+    RiskRejected(String),
+
+    /// ADR D11: 40004 - 交易对不可交易
+    #[error("Symbol not tradable: {0}")]
+    SymbolNotTradable(String),
+
+    /// ADR D11: 40005 - 持仓不足
+    #[error("Insufficient position: {0}")]
+    InsufficientPosition(String),
+
     #[error("Database error: {0}")]
     Database(String),
 
@@ -39,13 +55,22 @@ pub enum AppError {
 
     #[error("Too many requests: {0}")]
     TooManyRequests(String),
+
+    /// ADR D11: 50301 - 服务不可用
+    #[error("Service unavailable: {0}")]
+    ServiceUnavailable(String),
 }
 
 impl AppError {
+    /// ADR D11: 错误码体系
     pub fn code(&self) -> i32 {
         match self {
             Self::BadRequest(_) => 40001,
-            Self::Validation(_) => 40002,
+            Self::InsufficientBalance(_) => 40002,
+            Self::RiskRejected(_) => 40003,
+            Self::SymbolNotTradable(_) => 40004,
+            Self::InsufficientPosition(_) => 40005,
+            Self::Validation(_) => 40010,
             Self::InvalidCredentials => 40101,
             Self::TokenExpired => 40102,
             Self::TokenInvalid(_) => 40103,
@@ -56,6 +81,7 @@ impl AppError {
             Self::Database(_) => 50002,
             Self::Internal(_) => 50001,
             Self::TooManyRequests(_) => 42902,
+            Self::ServiceUnavailable(_) => 50301,
         }
     }
 }
@@ -63,16 +89,21 @@ impl AppError {
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         let status = match &self {
-            Self::BadRequest(_) | Self::Validation(_) => StatusCode::BAD_REQUEST,
+            Self::BadRequest(_)
+            | Self::InsufficientBalance(_)
+            | Self::RiskRejected(_)
+            | Self::SymbolNotTradable(_)
+            | Self::InsufficientPosition(_)
+            | Self::Validation(_) => StatusCode::BAD_REQUEST,
             Self::InvalidCredentials | Self::TokenExpired | Self::TokenInvalid(_) => {
                 StatusCode::UNAUTHORIZED
             }
             Self::Forbidden(_) => StatusCode::FORBIDDEN,
             Self::NotFound(_) => StatusCode::NOT_FOUND,
             Self::Conflict(_) => StatusCode::CONFLICT,
-            Self::RateLimit => StatusCode::TOO_MANY_REQUESTS,
+            Self::RateLimit | Self::TooManyRequests(_) => StatusCode::TOO_MANY_REQUESTS,
             Self::Database(_) | Self::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            Self::TooManyRequests(_) => StatusCode::TOO_MANY_REQUESTS,
+            Self::ServiceUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
         };
 
         let body = serde_json::json!({
@@ -112,7 +143,11 @@ mod tests {
     #[test]
     fn test_app_error_code_mapping() {
         assert_eq!(AppError::BadRequest("x".into()).code(), 40001);
-        assert_eq!(AppError::Validation("x".into()).code(), 40002);
+        assert_eq!(AppError::InsufficientBalance("x".into()).code(), 40002);
+        assert_eq!(AppError::RiskRejected("x".into()).code(), 40003);
+        assert_eq!(AppError::SymbolNotTradable("x".into()).code(), 40004);
+        assert_eq!(AppError::InsufficientPosition("x".into()).code(), 40005);
+        assert_eq!(AppError::Validation("x".into()).code(), 40010);
         assert_eq!(AppError::InvalidCredentials.code(), 40101);
         assert_eq!(AppError::TokenExpired.code(), 40102);
         assert_eq!(AppError::TokenInvalid("x".into()).code(), 40103);
@@ -122,6 +157,7 @@ mod tests {
         assert_eq!(AppError::RateLimit.code(), 42901);
         assert_eq!(AppError::Database("x".into()).code(), 50002);
         assert_eq!(AppError::Internal("x".into()).code(), 50001);
+        assert_eq!(AppError::ServiceUnavailable("x".into()).code(), 50301);
     }
 
     #[test]
@@ -132,6 +168,22 @@ mod tests {
         };
 
         assert_status(AppError::BadRequest("x".into()), StatusCode::BAD_REQUEST);
+        assert_status(
+            AppError::InsufficientBalance("x".into()),
+            StatusCode::BAD_REQUEST,
+        );
+        assert_status(
+            AppError::RiskRejected("x".into()),
+            StatusCode::BAD_REQUEST,
+        );
+        assert_status(
+            AppError::SymbolNotTradable("x".into()),
+            StatusCode::BAD_REQUEST,
+        );
+        assert_status(
+            AppError::InsufficientPosition("x".into()),
+            StatusCode::BAD_REQUEST,
+        );
         assert_status(AppError::Validation("x".into()), StatusCode::BAD_REQUEST);
         assert_status(AppError::InvalidCredentials, StatusCode::UNAUTHORIZED);
         assert_status(AppError::TokenExpired, StatusCode::UNAUTHORIZED);
@@ -148,6 +200,10 @@ mod tests {
             AppError::Internal("x".into()),
             StatusCode::INTERNAL_SERVER_ERROR,
         );
+        assert_status(
+            AppError::ServiceUnavailable("x".into()),
+            StatusCode::SERVICE_UNAVAILABLE,
+        );
     }
 
     #[test]
@@ -159,6 +215,26 @@ mod tests {
         assert_eq!(
             AppError::Validation("min 8 chars".to_string()).to_string(),
             "Validation error: min 8 chars"
+        );
+        assert_eq!(
+            AppError::InsufficientBalance("need 100".to_string()).to_string(),
+            "Insufficient balance: need 100"
+        );
+        assert_eq!(
+            AppError::RiskRejected("max position".to_string()).to_string(),
+            "Risk rejected: max position"
+        );
+        assert_eq!(
+            AppError::SymbolNotTradable("DISABLED".to_string()).to_string(),
+            "Symbol not tradable: DISABLED"
+        );
+        assert_eq!(
+            AppError::InsufficientPosition("no BTC".to_string()).to_string(),
+            "Insufficient position: no BTC"
+        );
+        assert_eq!(
+            AppError::ServiceUnavailable("engine down".to_string()).to_string(),
+            "Service unavailable: engine down"
         );
         assert_eq!(
             AppError::InvalidCredentials.to_string(),

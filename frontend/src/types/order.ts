@@ -1,8 +1,8 @@
 /** Order side (ADR D6) */
 export type OrderSide = 'buy' | 'sell'
 
-/** Order type (ADR D6) */
-export type OrderType = 'limit' | 'market'
+/** Order type (ADR D6/D9: MVP supports limit + market; stop/stop_limit reserved) */
+export type OrderType = 'limit' | 'market' | 'stop' | 'stop_limit'
 
 /** Order status - ADR aligned (D2: PG row lock state machine) */
 export type OrderStatus = 'pending' | 'partial_filled' | 'filled' | 'cancelled' | 'expired' | 'rejected'
@@ -20,6 +20,7 @@ export interface Order {
   side: OrderSide
   order_type: OrderType
   price: string | null
+  stop_price: string | null
   quantity: string
   filled_quantity: string
   avg_fill_price: string | null
@@ -28,6 +29,7 @@ export interface Order {
   fee: string
   reject_reason: string | null
   time_in_force: TimeInForce
+  strategy_id: string | null
   created_at: string
   updated_at: string
   cancelled_at: string | null
@@ -153,6 +155,37 @@ export function getOrderStatusText(status: OrderStatus): string {
     rejected: '已拒绝',
   }
   return map[status]
+}
+
+/** Trade record from API (ADR D4: /api/v1/trades) */
+export interface Trade {
+  trade_id: string
+  order_id: string
+  symbol: string
+  side: OrderSide
+  price: string
+  quantity: string
+  fee: string
+  is_maker: boolean
+  created_at: string
+}
+
+/** Trade query params (GET /api/v1/trades) */
+export interface TradeQueryParams {
+  symbol?: string
+  side?: OrderSide
+  start_date?: string
+  end_date?: string
+  page?: number
+  size?: number
+}
+
+/** Paginated trade list response */
+export interface TradeListResponse {
+  items: Trade[]
+  total: number
+  page: number
+  size: number
 }
 
 /** Order side display text */
