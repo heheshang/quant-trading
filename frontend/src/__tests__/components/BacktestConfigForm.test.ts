@@ -50,6 +50,9 @@ function createWrapper() {
 describe('BacktestConfigForm', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // Default mocks so mounted hook never throws
+    vi.mocked(strategiesApi.listStrategies).mockResolvedValue({ data: [] } as any)
+    vi.mocked(strategiesApi.listTemplates).mockResolvedValue({ data: [] } as any)
   })
 
   it('renders all form fields', async () => {
@@ -162,7 +165,8 @@ describe('BacktestConfigForm', () => {
   })
 
   it('renders strategy params section when a strategy is selected', async () => {
-    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockStrategies as any)
+    vi.mocked(strategiesApi.listStrategies).mockResolvedValue({ data: mockStrategies } as any)
+    vi.mocked(strategiesApi.listTemplates).mockResolvedValue({ data: mockTemplates } as any)
     const wrapper = createWrapper()
     await flushPromises()
 
@@ -181,8 +185,8 @@ describe('BacktestConfigForm', () => {
   })
 
   it('shows strategy params with correct param fields', async () => {
-    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockStrategies as any)
-    vi.mocked(strategiesApi.listTemplates).mockResolvedValue(mockTemplates as any)
+    vi.mocked(strategiesApi.listStrategies).mockResolvedValue({ data: mockStrategies } as any)
+    vi.mocked(strategiesApi.listTemplates).mockResolvedValue({ data: mockTemplates } as any)
     const wrapper = createWrapper()
     await flushPromises()
 
@@ -196,8 +200,8 @@ describe('BacktestConfigForm', () => {
   })
 
   it('clears params when strategy changes', async () => {
-    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockStrategies as any)
-    vi.mocked(strategiesApi.listTemplates).mockResolvedValue(mockTemplates as any)
+    vi.mocked(strategiesApi.listStrategies).mockResolvedValue({ data: mockStrategies } as any)
+    vi.mocked(strategiesApi.listTemplates).mockResolvedValue({ data: mockTemplates } as any)
     const wrapper = createWrapper()
     await flushPromises()
 

@@ -1,3 +1,83 @@
+## [0.5.0] — 2026-05-13
+
+### 新增
+
+#### K 线数据管理模块
+
+- **K 线数据查询 API** (`/api/v1/kline/query`)
+  - `GET /api/v1/kline/query` — 分页查询 K 线数据（symbol / interval / 时间范围）
+  - `GET /api/v1/kline/latest` — 获取指定交易对 + 周期的最新一根 K 线
+  - 支持 8 种周期：`1m` / `5m` / `15m` / `30m` / `1h` / `4h` / `1d` / `1w`
+  - 强制 `user_id` 过滤（JWT），多用户数据隔离
+  - Redis Read-Through 缓存（1m 周期 5min TTL，其他 1h TTL）
+  - 时间范围超过 10 年返回 `400`
+  - `gap_detected` 标记（连续超过 8h 无数据）
+
+- **K 线数据导入 API** (`/api/v1/kline/import`)
+  - `POST /api/v1/kline/import` — 批量导入（CSV / API / 交易所直采）
+  - 支持拖拽上传 CSV 文件（FormData）和 JSON 数组导入
+  - 分片处理：5000 条/批次，`COPY FROM STDIN` 并行写入
+  - UPSERT 策略：`ON CONFLICT (user_id, symbol, interval, open_time) DO NOTHING`
+  - 性能目标：10 万条 CSV 数据 < 30s
+  - 文件大小限制：100 MB（超过返回 `413`）
+  - `GET /api/v1/kline/import-history` — 导入历史记录（分页）
+
+- **K 线数据导出 API** (`/api/v1/kline/export`)
+  - `GET /api/v1/kline/export` — 导出为 CSV 或 JSON
+  - 流式响应，支持大数据量导出
+  - 可选字段导出（`fields` 参数）
+  - 文件名格式：`kline_{symbol}_{interval}_{start}_{end}.{csv|json}`
+
+- **K 线数据删除 API** (`/api/v1/kline`)
+  - `DELETE /api/v1/kline` — 删除指定范围的 K 线数据（不可逆）
+
+- **数据质量检测 API** (`/api/v1/kline/quality`)
+  - `GET /api/v1/kline/quality` — 数据质量检测报告
+  - 5 项检测规则：缺尖（>2×interval 无数据）、异常值（偏离 5 日均值 ±15%）、重复、零成交量、价格反向
+  - 覆盖率计算：`valid_rows / total_rows`
+
+- **数据清洗 API** (`/api/v1/kline/clean`)
+  - `POST /api/v1/kline/clean` — 自动清洗（缺尖线性插值、重复去重、异常标记）
+  - 清洗前自动创建 `kline_backup` 快照（7 天过期）
+  - 异常数据标记 `suspicious` / `corrupted`，不自动删除
+  - 返回 `backup_id` 用于回滚（P2 阶段实现）
+
+#### 存储与缓存
+
+- **TimescaleDB 分区存储**
+  - `kline_data` 超表按 `open_time` 分区
+  - `compress_segmentby` 按 `(user_id, symbol, interval)` 压缩
+  - `drop_chunks_policy` 自动过期：1m/5m → 30 天，15m/30m/1h → 1 年，4h/1d/1w → 永久
+
+- **Redis 热数据缓存**
+  - Key 格式：`kline:{symbol}:{timeframe}:{ts}`
+  - 仅缓存最近 24h 数据（内存保护）
+  - 导入/清洗后主动 invalidate 对应 key prefix
+
+#### 错误码扩展
+
+| code | 含义 |
+|------|------|
+| 40003 | 数据校验失败（high < low / volume < 0） |
+| 40401 | K 线数据不存在 |
+| 41301 | 请求体过大（CSV 超 100 MB） |
+| 50301 | Redis 缓存不可用（降级为直接查库） |
+
+#### 数据库模型
+
+| 表 | 说明 |
+|----|------|
+| `kline_data` | K 线数据主表（UUID 主键，复合唯一键 `(user_id, symbol, interval, open_time)`，TimescaleDB 超表） |
+| `kline_import_log` | 导入日志（记录每次导入的统计信息） |
+| `kline_quality_report` | 质量检测报告（存储历史报告） |
+| `kline_backup` | 清洗前备份快照（7 天自动过期） |
+
+#### 回测引擎 P0 阻塞项解除
+
+- 实现 `db/kline.rs::load_klines()`，签名与 PRD section 8.2 一致，供 `backtest_engine.rs` 直接调用
+
+---
+
 # Changelog
 
 ## v0.3.0 (2026-05-13)

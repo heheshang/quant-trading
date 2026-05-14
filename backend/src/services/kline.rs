@@ -6,10 +6,9 @@ use crate::models::schemas::{
 };
 use crate::utils::error::AppError;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter,
-    QueryOrder, QuerySelect, Set,
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, PaginatorTrait,
+    QueryFilter, QueryOrder, QuerySelect,
 };
-use serde_json::Value;
 use uuid::Uuid;
 
 const VALID_INTERVALS: [&str; 8] = ["1m", "5m", "15m", "30m", "1h", "4h", "1d", "1w"];
@@ -74,7 +73,7 @@ pub async fn query_klines(
         query = query.filter(kline::Column::OpenTime.lte(end));
     }
 
-    let total = query.count(db).await? as u64;
+    let total = query.clone().count(db).await? as u64;
 
     let items: Vec<KlineResponse> = query
         .order_by_asc(kline::Column::OpenTime)
@@ -134,7 +133,7 @@ pub async fn import_klines(
 ) -> Result<KlineImportResult, AppError> {
     validate_import_request(&req)?;
 
-    let total = req.data.len() as i64;
+    let _total = req.data.len() as i64;
     let mut imported = 0_i64;
     let mut duplicates = 0_i64;
     let mut failed = 0_i64;
@@ -297,22 +296,22 @@ pub async fn import_history(
         LIMIT 100
     "#;
 
-    letstmts = Statement::from_sql_and_values(
+    let stmt = Statement::from_sql_and_values(
         DatabaseBackend::Postgres,
         raw_sql,
         vec![user_id.to_string().into(), thirty_days_ago.into()],
     );
 
     let rows: Vec<ImportSummary> = db
-        .query_all(&stmts)
+        .query_all(stmt)
         .await?
         .into_iter()
         .filter_map(|row| {
-            let symbol: String = row.try_get("symbol").ok()?;
-            let interval: String = row.try_get("interval").ok()?;
-            let source: String = row.try_get("source").ok()?;
-            let total_rows: i64 = row.try_get("cnt").ok()?;
-            let created_at: chrono::DateTime<chrono::Utc> = row.try_get("first_import").ok()?;
+            let symbol: String = row.try_get_by_index::<String>(0).ok()?;
+            let interval: String = row.try_get_by_index::<String>(1).ok()?;
+            let source: String = row.try_get_by_index::<String>(2).ok()?;
+            let total_rows: i64 = row.try_get_by_index::<i64>(3).ok()?;
+            let created_at: chrono::DateTime<chrono::Utc> = row.try_get_by_index::<chrono::DateTime<chrono::Utc>>(4).ok()?;
 
             Some(ImportSummary {
                 symbol,
@@ -558,7 +557,7 @@ pub async fn clean_klines(
         .all(db)
         .await?;
 
-    let interval_ms: i64 = match req.interval.as_str() {
+    let _interval_ms: i64 = match req.interval.as_str() {
         "1m" => 60_000,
         "5m" => 300_000,
         "15m" => 900_000,

@@ -1,6 +1,8 @@
 pub mod auth;
 pub mod backtest;
 pub mod kline;
+pub mod market;
+pub mod order;
 pub mod strategy;
 pub mod users;
 pub mod ws;

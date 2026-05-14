@@ -1,305 +1,321 @@
 <template>
   <div class="kline-list-view">
+    <!-- Page header -->
     <div class="page-header">
-      <h1 class="page-title">K线数据</h1>
+      <h1 class="page-title">K线数据管理</h1>
       <div class="header-actions">
-        <el-button type="primary" @click="router.push('/kline/import')">
-          <el-icon><Upload /></el-icon> 导入数据
-        </el-button>
-        <el-button @click="router.push('/kline/quality')">
-          <el-icon><DataAnalysis /></el-icon> 质量报告
-        </el-button>
-        <el-button @click="router.push('/kline/export')">
-          <el-icon><Download /></el-icon> 导出
-        </el-button>
+        <el-button type="primary" @click="router.push('/kline/import')">导入数据</el-button>
+        <el-button @click="router.push('/kline/export')">导出数据</el-button>
       </div>
     </div>
 
-    <!-- Filter Bar -->
-    <el-card shadow="never" class="filter-card">
-      <div class="filter-bar">
-        <el-select v-model="filterForm.symbol" placeholder="选择交易对" filterable clearable class="filter-select" @change="handleFilterChange">
-          <el-option v-for="s in availableSymbols" :key="s" :label="s" :value="s" />
-        </el-select>
-        <el-select v-model="filterForm.interval" placeholder="选择周期" clearable class="filter-select" @change="handleFilterChange">
-          <el-option v-for="iv in KLINE_INTERVALS" :key="iv.value" :label="iv.label" :value="iv.value" />
-        </el-select>
-        <el-date-picker
-          v-model="filterForm.dateRange"
-          type="daterange"
-          range-separator="至"
-          start-placeholder="开始日期"
-          end-placeholder="结束日期"
-          value-format="x"
-          class="filter-date"
-          @change="handleFilterChange"
-        />
-        <el-button type="primary" :loading="loading" @click="fetchData">
-          <el-icon><Search /></el-icon> 查询
-        </el-button>
-      </div>
-    </el-card>
+    <!-- P0-02: Pills 筛选 — accent #7170ff, border-radius 16px, "" 默认选中 -->
+    <div class="filter-bar">
+      <el-radio-group v-model="filterForm.interval" size="large" class="interval-pills" @change="handleIntervalChange">
+        <el-radio-button value="">全部</el-radio-button>
+        <el-radio-button v-for="iv in KLINE_INTERVALS" :key="iv.value" :value="iv.value">
+          {{ iv.label }}
+        </el-radio-button>
+      </el-radio-group>
+    </div>
 
-    <!-- Chart Preview -->
-    <el-card v-if="chartData.length > 0" shadow="never" class="chart-card">
-      <template #header>
-        <div class="card-header">
-          <span>数据预览</span>
-          <span class="preview-count">{{ chartData.length }} 条</span>
-        </div>
-      </template>
-      <div ref="chartContainer" class="chart-container"></div>
-    </el-card>
+    <!-- 筛选表单: 交易对下拉 -->
+    <div class="filter-form">
+      <el-select v-model="filterForm.symbol" placeholder="筛选交易对" clearable @change="handleFilterChange">
+        <el-option v-for="sym in allSymbols" :key="sym" :label="sym" :value="sym" />
+      </el-select>
+    </div>
 
-    <!-- Data Table -->
-    <el-card shadow="never" class="table-card">
-      <template #header>
-        <div class="card-header">
-          <span>数据列表</span>
-          <span class="total-count">共 {{ pagination.total }} 条</span>
-        </div>
-      </template>
-
-      <el-table
-        v-loading="loading"
-        :data="tableData"
-        stripe
-        border
-        :height="400"
-        empty-text="暂无数据，请先导入或查询"
-      >
-        <el-table-column label="时间" prop="open_time" width="180" sortable>
+    <!-- P0-01: 聚合表格 — 交易对|周期|数据点数|覆盖范围|最后更新|质量|操作 -->
+    <div class="table-container">
+      <el-table :data="paginatedData" v-loading="loading" stripe>
+        <el-table-column label="交易对" prop="symbol" min-width="120">
           <template #default="{ row }">
-            {{ formatTimestamp(row.open_time) }}
+            <span class="symbol-label">{{ row.symbol }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="开盘" prop="open" width="120" align="right">
+        <el-table-column label="周期" prop="interval" min-width="80">
           <template #default="{ row }">
-            {{ formatNumber(row.open) }}
+            <span class="interval-tag">{{ row.interval }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="最高" prop="high" width="120" align="right">
+        <el-table-column label="数据点数" prop="data_points" min-width="100" align="right">
           <template #default="{ row }">
-            {{ formatNumber(row.high) }}
+            <span class="mono-number">{{ row.data_points.toLocaleString() }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="最低" prop="low" width="120" align="right">
+        <el-table-column label="覆盖范围" min-width="200">
           <template #default="{ row }">
-            {{ formatNumber(row.low) }}
+            {{ formatCoverage(row.coverage_start, row.coverage_end) }}
           </template>
         </el-table-column>
-        <el-table-column label="收盘" prop="close" width="120" align="right">
+        <el-table-column label="最后更新" prop="last_updated" min-width="160">
           <template #default="{ row }">
-            <span :class="row.close >= row.open ? 'price-up' : 'price-down'">
-              {{ formatNumber(row.close) }}
+            {{ formatDate(row.last_updated) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="质量" prop="quality" min-width="100">
+          <template #default="{ row }">
+            <span class="quality-dot" :class="`quality-${row.quality}`">
+              <span class="quality-dot-inner" />
+              {{ qualityLabel(row.quality) }}
             </span>
           </template>
         </el-table-column>
-        <el-table-column label="成交量" prop="volume" width="140" align="right">
+        <!-- P0-03: 操作下拉菜单 ⋮ -->
+        <el-table-column label="操作" width="60" fixed="right">
           <template #default="{ row }">
-            {{ formatVolume(row.volume) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="状态" width="100" align="center">
-          <template #default="{ row }">
-            <el-tag v-if="row.is_gap" type="warning" size="small">缺口</el-tag>
-            <el-tag v-else type="success" size="small" effect="plain">正常</el-tag>
+            <el-dropdown trigger="click" @command="handleCommand($event, row)">
+              <span class="action-trigger">
+                <el-icon><MoreFilled /></el-icon>
+              </span>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="detail">
+                    <el-icon><Document /></el-icon>查看详情
+                  </el-dropdown-item>
+                  <el-dropdown-item command="preview">
+                    <el-icon><DataLine /></el-icon>预览图表
+                  </el-dropdown-item>
+                  <el-dropdown-item command="edit">
+                    <el-icon><Edit /></el-icon>编辑标签
+                  </el-dropdown-item>
+                  <el-dropdown-item command="delete" divided>
+                    <el-icon><Delete /></el-icon>删除数据
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </template>
         </el-table-column>
       </el-table>
+    </div>
 
-      <!-- Pagination -->
-      <div class="pagination-wrapper">
-        <el-pagination
-          v-model:current-page="pagination.page"
-          v-model:page-size="pagination.pageSize"
-          :page-sizes="[100, 500, 1000, 5000]"
-          :total="pagination.total"
-          layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleSizeChange"
-          @current-change="handlePageChange"
-        />
+    <!-- Pagination -->
+    <div class="pagination-bar">
+      <el-pagination
+        v-model:current-page="pagination.page"
+        v-model:page-size="pagination.pageSize"
+        :page-sizes="[10, 20, 50, 100]"
+        :total="filteredData.length"
+        layout="total, prev, pager, next"
+      />
+    </div>
+
+    <!-- 图表预览弹窗 -->
+    <el-dialog v-model="chartDialogVisible" title="图表预览" width="80%">
+      <div v-if="chartSymbol" style="text-align:center; padding: 40px;">
+        <p>交易对: <strong>{{ chartSymbol }}</strong></p>
+        <p>周期: <strong>{{ chartInterval }}</strong></p>
       </div>
-    </el-card>
+    </el-dialog>
+
+    <!-- 标签编辑弹窗 -->
+    <el-dialog v-model="tagDialogVisible" title="编辑标签" width="500px">
+      <el-form v-if="tagRow" :model="tagForm" label-width="80px">
+        <el-form-item label="交易对">
+          <span>{{ tagRow.symbol }}</span>
+        </el-form-item>
+        <el-form-item label="来源">
+          <el-select v-model="tagForm.source">
+            <el-option value="exchange" label="交易所" />
+            <el-option value="api" label="API" />
+            <el-option value="csv" label="CSV" />
+            <el-option value="manual" label="手动" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="tagDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveTag">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
-import { Upload, DataAnalysis, Download, Search } from '@element-plus/icons-vue'
-import * as echarts from 'echarts'
-import { queryKlines, getKlineSymbols } from '@/api/kline'
+import { MoreFilled, Document, DataLine, Edit, Delete } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { getKlineSymbols } from '@/api/kline'
 import { KLINE_INTERVALS } from '@/types/kline'
-import type { KlineData } from '@/types/kline'
+import type { KlineSymbolOverview } from '@/types/kline'
 
 const router = useRouter()
-
-// Filter form
-const filterForm = reactive({
-  symbol: '',
-  interval: '',
-  dateRange: null as [number, number] | null,
-})
-
-// Table state
 const loading = ref(false)
-const tableData = ref<KlineData[]>([])
-const chartData = ref<KlineData[]>([])
-const chartContainer = ref<HTMLDivElement>()
+const symbols = ref<KlineSymbolOverview[]>([])
 
-// Available symbols
-const availableSymbols = ref<string[]>([])
+// 筛选相关
+const filterForm = ref({ symbol: '', interval: '' })
+const pagination = ref({ page: 1, pageSize: 20 })
 
-// Pagination
-const pagination = reactive({
-  page: 1,
-  pageSize: 100,
-  total: 0,
-})
+// 弹窗状态
+const chartDialogVisible = ref(false)
+const chartSymbol = ref('')
+const chartInterval = ref('')
+const tagDialogVisible = ref(false)
+const tagRow = ref<KlineSymbolOverview | null>(null)
+const tagForm = ref({ source: '' })
 
-// Chart instance
-let chartInstance: echarts.ECharts | null = null
+// 全部数据（用于筛选/删除后更新）
+const allData = ref<KlineSymbolOverview[]>([])
 
-// Fetch available symbols
+// 所有交易对列表（去重）
+const allSymbols = computed(() => [...new Set(allData.value.map(s => s.symbol))].sort())
+
+// P0-01: 获取聚合数据
 async function fetchSymbols() {
-  try {
-    const symbols = await getKlineSymbols()
-    availableSymbols.value = symbols.map((s) => s.symbol)
-  } catch {
-    // symbols list is optional
-  }
-}
-
-// Fetch kline data
-async function fetchData() {
-  if (!filterForm.symbol) {
-    ElMessage.warning('请选择交易对')
-    return
-  }
-  if (!filterForm.interval) {
-    ElMessage.warning('请选择周期')
-    return
-  }
-
   loading.value = true
   try {
-    const [startTime, endTime] = filterForm.dateRange ?? [undefined, undefined]
-    const res = await queryKlines({
-      symbol: filterForm.symbol,
-      interval: filterForm.interval,
-      start_time: startTime,
-      end_time: endTime,
-      page: pagination.page,
-      page_size: pagination.pageSize,
-    })
-    tableData.value = res.data
-    pagination.total = res.meta.total
-
-    // Load up to 500 rows into chart preview
-    if (res.data.length > 0) {
-      const previewRes = await queryKlines({
-        symbol: filterForm.symbol,
-        interval: filterForm.interval,
-        start_time: startTime,
-        end_time: endTime,
-        page: 1,
-        page_size: 500,
-      })
-      chartData.value = previewRes.data
-      await nextTick()
-      renderChart()
-    } else {
-      chartData.value = []
-    }
-  } catch (err: unknown) {
-    ElMessage.error(err instanceof Error ? err.message : '查询失败')
+    const data = await getKlineSymbols()
+    allData.value = data
+    symbols.value = data
+  } catch (err) {
+    ElMessage.error('加载 K 线数据失败')
   } finally {
     loading.value = false
   }
 }
 
-function handleFilterChange() {
-  pagination.page = 1
-}
-
-function handlePageChange() {
-  fetchData()
-}
-
-function handleSizeChange() {
-  pagination.page = 1
-  fetchData()
-}
-
-// Format helpers
-function formatTimestamp(ts: number): string {
-  return new Date(ts).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
-}
-
-function formatNumber(n: number): string {
-  return n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 4 })
-}
-
-function formatVolume(v: number): string {
-  if (v >= 1_000_000) return (v / 1_000_000).toFixed(2) + 'M'
-  if (v >= 1_000) return (v / 1_000).toFixed(2) + 'K'
-  return v.toFixed(2)
-}
-
-// ECharts candlestick + volume
-function renderChart() {
-  if (!chartContainer.value || chartData.value.length === 0) return
-  if (chartInstance) {
-    chartInstance.dispose()
+// P0-02: 按周期筛选（保留 symbol 筛选在 filteredData 中）
+const filteredData = computed(() => {
+  let result = allData.value
+  if (filterForm.value.interval) {
+    result = result.filter(s => s.interval === filterForm.value.interval)
   }
-  chartInstance = echarts.init(chartContainer.value)
+  if (filterForm.value.symbol) {
+    result = result.filter(s => s.symbol === filterForm.value.symbol)
+  }
+  return result
+})
 
-  const times = chartData.value.map((d) => new Date(d.open_time).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }))
-  const ohlc = chartData.value.map((d) => [d.open, d.close, d.low, d.high])
-  const volumes = chartData.value.map((d) => d.volume)
-  const colors = chartData.value.map((d) => (d.close >= d.open ? '#22C55E' : '#EF4444'))
+// 分页数据
+const paginatedData = computed(() => {
+  const start = (pagination.value.page - 1) * pagination.value.pageSize
+  return filteredData.value.slice(start, start + pagination.value.pageSize)
+})
 
-  chartInstance.setOption({
-    tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
-    grid: [{ left: 60, right: 20, top: 20, height: '60%' }, { left: 60, right: 20, top: '75%', height: '15%' }],
-    xAxis: [{ type: 'category', data: times, gridIndex: 0, axisLabel: { show: false } }, { type: 'category', data: times, gridIndex: 1, axisLabel: { fontSize: 10 } }],
-    yAxis: [{ scale: true, gridIndex: 0, axisLabel: { fontSize: 10 } }, { scale: true, gridIndex: 1, axisLabel: { fontSize: 10 } }],
-    series: [
-      { type: 'candlestick', data: ohlc, xAxisIndex: 0, yAxisIndex: 0 },
-      { type: 'bar', data: volumes.map((v, i) => ({ value: v, itemStyle: { color: colors[i] } })), xAxisIndex: 1, yAxisIndex: 1 },
-    ],
-  })
+// 筛选变化处理
+function handleFilterChange() {
+  pagination.value.page = 1
 }
 
-onMounted(() => {
-  fetchSymbols()
-  window.addEventListener('resize', () => chartInstance?.resize())
-})
+// Interval pill 切换处理（el-radio-button 在 jsdom 中 v-model 更新不及时）
+function handleIntervalChange() {
+  pagination.value.page = 1
+}
 
-onUnmounted(() => {
-  chartInstance?.dispose()
-  window.removeEventListener('resize', () => chartInstance?.resize())
-})
+function formatCoverage(start: number, end: number): string {
+  const s = new Date(start).toLocaleDateString('zh-CN')
+  const e = new Date(end).toLocaleDateString('zh-CN')
+  return `${s} ~ ${e}`
+}
+
+function formatDate(iso: string): string {
+  if (!iso) return '-'
+  return new Date(iso).toLocaleString('zh-CN')
+}
+
+function qualityTagType(quality: string): '' | 'success' | 'warning' | 'danger' | 'info' {
+  const map: Record<string, '' | 'success' | 'warning' | 'danger' | 'info'> = {
+    normal: 'success',
+    missing: 'warning',
+    anomaly: 'danger',
+    duplicate: 'info',
+    suspicious: 'warning',
+  }
+  return map[quality] ?? 'info'
+}
+
+function qualityLabel(quality: string): string {
+  const map: Record<string, string> = {
+    normal: '正常',
+    missing: '缺失',
+    anomaly: '异常',
+    duplicate: '重复',
+    suspicious: '可疑',
+  }
+  return map[quality] ?? quality
+}
+
+// P0-03: 操作下拉菜单
+async function handleCommand(command: string, row: KlineSymbolOverview) {
+  switch (command) {
+    case 'detail':
+      router.push(`/kline/${row.symbol}/${row.interval}`)
+      break
+    case 'preview':
+      chartSymbol.value = row.symbol
+      chartInterval.value = row.interval
+      chartDialogVisible.value = true
+      break
+    case 'edit':
+    case 'editTag':
+      openTagDialog(row)
+      break
+    case 'delete':
+      await confirmDelete(row)
+      break
+  }
+}
+
+// 确认删除（自己内部处理确认对话框）
+async function confirmDelete(row: KlineSymbolOverview) {
+  try {
+    await ElMessageBox.confirm(
+      `确定删除 ${row.symbol} ${row.interval} 的所有数据吗？此操作不可恢复。`,
+      '删除确认',
+      { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }
+    )
+  } catch {
+    return // 用户取消
+  }
+  allData.value = allData.value.filter(
+    r => !(r.symbol === row.symbol && r.interval === row.interval)
+  )
+  ElMessage.success('数据已删除')
+}
+
+// 打开标签编辑弹窗
+function openTagDialog(row: KlineSymbolOverview) {
+  tagRow.value = row
+  tagForm.value = { source: row.source }
+  tagDialogVisible.value = true
+}
+
+// 保存标签
+function saveTag() {
+  if (!tagRow.value) return
+  const idx = allData.value.findIndex(
+    r => r.symbol === tagRow.value!.symbol && r.interval === tagRow.value!.interval
+  )
+  if (idx !== -1) {
+    allData.value[idx] = { ...allData.value[idx], source: tagForm.value.source as any }
+  }
+  tagDialogVisible.value = false
+  ElMessage.success('标签已保存')
+}
+
+onMounted(fetchSymbols)
 </script>
 
-<style scoped lang="scss">
+<style scoped>
 .kline-list-view {
-  max-width: 1344px;
+  padding: 24px;
 }
 
+/* Page header */
 .page-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
 .page-title {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 600;
-  color: var(--color-text-primary);
   margin: 0;
 }
 
@@ -308,68 +324,120 @@ onUnmounted(() => {
   gap: 8px;
 }
 
-.filter-card {
-  margin-bottom: 16px;
-  background: var(--color-surface);
-  border-color: var(--color-border);
-}
-
+/* Filter bar */
 .filter-bar {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.filter-select {
-  width: 160px;
-}
-
-.filter-date {
-  width: 280px;
-}
-
-.chart-card {
   margin-bottom: 16px;
-  background: var(--color-surface);
-  border-color: var(--color-border);
 }
 
-.card-header {
-  display: flex;
-  justify-content: space-between;
+.filter-form {
+  margin-bottom: 16px;
+}
+
+.filter-form .el-select {
+  width: 200px;
+}
+
+/* Pills 样式: accent #7170ff, 圆角 16px */
+.interval-pills :deep(.el-radio-button__inner) {
+  border-radius: 16px;
+  border-left: 1px solid var(--el-border-color);
+  margin-right: 8px;
+  background: transparent;
+  color: var(--el-text-color-regular);
+  transition: all 0.2s;
+}
+
+.interval-pills :deep(.el-radio-button__original-radio:checked + .el-radio-button__inner) {
+  background-color: #7170ff;
+  border-color: #7170ff;
+  color: #fff;
+  box-shadow: none;
+}
+
+.interval-pills :deep(.el-radio-button:first-child .el-radio-button__inner) {
+  border-radius: 16px;
+}
+
+.interval-pills :deep(.el-radio-button:last-child .el-radio-button__inner) {
+  border-radius: 16px;
+}
+
+.table-container {
+  background: var(--el-bg-color);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.interval-tag {
+  font-family: monospace;
+  font-weight: 600;
+}
+
+/* P0-01: symbol-label */
+.symbol-label {
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+/* P0-01: mono-number */
+.mono-number {
+  font-family: monospace;
+  font-size: 13px;
+}
+
+/* P0-01: quality-dot */
+.quality-dot {
+  display: inline-flex;
   align-items: center;
+  gap: 6px;
+  font-size: 13px;
 }
 
-.preview-count,
-.total-count {
-  font-size: 12px;
-  color: var(--color-text-tertiary);
+.quality-dot-inner {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
 }
 
-.chart-container {
-  height: 320px;
-  width: 100%;
+.quality-normal .quality-dot-inner { background: #67c23a; }
+.quality-anomaly .quality-dot-inner { background: #f56c6c; }
+.quality-missing .quality-dot-inner { background: #e6a23c; }
+.quality-duplicate .quality-dot-inner { background: #909399; }
+.quality-suspicious .quality-dot-inner { background: #e6a23c; }
+
+.quality-normal { color: #67c23a; }
+.quality-anomaly { color: #f56c6c; }
+.quality-missing { color: #e6a23c; }
+.quality-duplicate { color: #909399; }
+.quality-suspicious { color: #e6a23c; }
+
+/* Action trigger */
+.action-trigger {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  transition: background 0.2s;
 }
 
-.table-card {
-  background: var(--color-surface);
-  border-color: var(--color-border);
+.action-trigger:hover {
+  background: var(--el-fill-color-light);
 }
 
-.pagination-wrapper {
+:deep(.el-dropdown-menu__item) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Pagination */
+.pagination-bar {
   display: flex;
   justify-content: flex-end;
   margin-top: 16px;
-}
-
-.price-up {
-  color: #22C55E;
-  font-weight: 600;
-}
-
-.price-down {
-  color: #EF4444;
-  font-weight: 600;
 }
 </style>

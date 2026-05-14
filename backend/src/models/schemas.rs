@@ -1,3 +1,6 @@
+// Re-export market schemas for convenience
+pub use crate::models::market_schemas::*;
+
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 

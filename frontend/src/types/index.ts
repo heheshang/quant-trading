@@ -93,21 +93,20 @@ export interface Kline {
   volume: number
 }
 
-export interface Ticker {
-  symbol: string
-  price: number
-  change: number
-  change_percent: number
-  volume: number
-  high: number
-  low: number
-}
+// Re-export from market.ts (ADR D1/D2 aligned types)
+export type {
+  Ticker,
+  DepthLevel,
+  Depth,
+  WsMessageType,
+  WsMessage,
+  WsSubscribe,
+  WsPong,
+  WsStatus,
+  SymbolMetadata,
+} from './market'
 
-export interface Depth {
-  bids: [number, number][]
-  asks: [number, number][]
-  timestamp: number
-}
+export { SYMBOL_NAMES, formatSymbol } from './market'
 
 // ===== Strategy Types =====
 
@@ -281,3 +280,29 @@ export interface Portfolio {
   total_pnl: number
   positions: Position[]
 }
+
+// Re-export from order.ts (ADR D6 aligned types)
+export type {
+  OrderSide,
+  OrderType,
+  OrderStatus,
+  TradeMode,
+  TimeInForce,
+  Order as AdrOrder,
+  CreateOrderRequest,
+  OrderQueryParams,
+  OrderListResponse,
+  CancelOrderResponse,
+  CancelAllResponse,
+  PaperAccount,
+  SymbolConfig,
+  TradeWsMessageType,
+  TradeWsMessage,
+  Position as AdrPosition,
+} from './order'
+
+export {
+  getOrderStatusType,
+  getOrderStatusText,
+  getOrderSideText,
+} from './order'

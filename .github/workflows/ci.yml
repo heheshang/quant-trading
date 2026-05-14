@@ -104,10 +104,11 @@ jobs:
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/quant_trading_test
           REDIS_URL: redis://localhost:6379
+          CORS_ORIGINS: http://localhost:5173
 
-  # ─── Frontend: Lint & TypeCheck ────
+  # ─── Frontend: Lint & Type Check ────
   frontend-lint:
-    name: Frontend Lint
+    name: Frontend Lint & Type Check
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -173,3 +174,81 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  # ─── Docker: Build Images ────
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    needs: [backend-build, frontend-build]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: docker build -f Dockerfile.backend -t quant-backend:ci .
+
+      - name: Build frontend image
+        run: docker build -f Dockerfile.frontend -t quant-frontend:ci .
+
+      - name: Verify backend healthcheck
+        run: |
+          docker network create quant-ci-network
+          docker run -d --name quant-postgres-ci \
+            --network quant-ci-network \
+            -e POSTGRES_USER=quant \
+            -e POSTGRES_PASSWORD=ci_test_pw \
+            -e POSTGRES_DB=quant_trading \
+            postgres:16-alpine
+          docker run -d --name quant-redis-ci \
+            --network quant-ci-network \
+            redis:7-alpine
+          sleep 5
+          docker run -d --name quant-backend-ci \
+            --network quant-ci-network \
+            -e DATABASE_URL="postgres://quant:ci_test_pw@quant-postgres-ci:5432/quant_trading" \
+            -e REDIS_URL="redis://quant-redis-ci:6379" \
+            -e JWT_SECRET=ci-test-secret \
+            -e CORS_ORIGINS="http://localhost:80" \
+            quant-backend:ci
+          sleep 10
+          docker exec quant-backend-ci curl -f http://localhost:8080/api/v1/health || (docker logs quant-backend-ci && exit 1)
+
+      - name: Verify market API endpoints
+        run: |
+          # Register test user
+          docker exec quant-backend-ci curl -sf -X POST http://localhost:8080/api/v1/auth/register \
+            -H 'Content-Type: application/json' \
+            -d '{"username":"market_tester","password":"Test1234!","email":"market@test.com"}' \
+            || echo "User may already exist, continuing..."
+
+          # Login and capture token
+          TOKEN=$(docker exec quant-backend-ci curl -sf -X POST http://localhost:8080/api/v1/auth/login \
+            -H 'Content-Type: application/json' \
+            -d '{"username":"market_tester","password":"Test1234!"}' | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['access_token'])")
+          echo "Access token acquired"
+
+          # Test GET /api/v1/market/tickers
+          docker exec quant-backend-ci curl -sf -H "Authorization: Bearer $TOKEN" \
+            http://localhost:8080/api/v1/market/tickers
+          echo "Market tickers endpoint OK"
+
+          # Test GET /api/v1/market/ticker?symbol=BTCUSDT
+          docker exec quant-backend-ci curl -sf -H "Authorization: Bearer $TOKEN" \
+            'http://localhost:8080/api/v1/market/ticker?symbol=BTCUSDT'
+          echo "Market ticker (single) endpoint OK"
+
+          # Test GET /api/v1/market/depth?symbol=BTCUSDT&levels=5
+          docker exec quant-backend-ci curl -sf -H "Authorization: Bearer $TOKEN" \
+            'http://localhost:8080/api/v1/market/depth?symbol=BTCUSDT&levels=5'
+          echo "Market depth endpoint OK"
+
+          # Test GET /api/v1/market/ticker/history?symbol=BTCUSDT&start=0&end=0
+          docker exec quant-backend-ci curl -sf -H "Authorization: Bearer $TOKEN" \
+            'http://localhost:8080/api/v1/market/ticker/history?symbol=BTCUSDT&start=0&end=0' || \
+            echo "Ticker history endpoint (P1, expected to return error for no data)"
+          echo "Market API verification complete"
+
+      - name: Cleanup CI containers
+        if: always()
+        run: |
+          docker rm -f quant-backend-ci quant-postgres-ci quant-redis-ci 2>/dev/null || true
+          docker network rm quant-ci-network 2>/dev/null || true

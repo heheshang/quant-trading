@@ -32,3 +32,14 @@ export {
   getTickers,
   getDepth,
 } from './market'
+export {
+  createOrder as createAdrOrder,
+  getOrders,
+  getOrder,
+  cancelOrder as cancelAdrOrder,
+  cancelAllOrders,
+  getAccount,
+  getSymbols,
+  getPositions,
+  closePosition as closeAdrPosition,
+} from './order'

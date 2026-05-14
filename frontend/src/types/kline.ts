@@ -100,7 +100,7 @@ export interface KlineExportParams {
   interval: string
   start_time?: number
   end_time?: number
-  format: 'csv' | 'json'
+  format: 'csv' | 'json' | 'excel'
   fields?: string[]   // which columns to include
 }
 
@@ -135,6 +135,18 @@ export interface KlineFetchRequest {
   exchange: 'binance'
   start_time?: number
   end_time?: number
+}
+
+/** Aggregated overview row for kline symbols list (GET /kline/symbols) */
+export interface KlineSymbolOverview {
+  symbol: string
+  interval: string
+  data_points: number
+  coverage_start: number   // ms timestamp
+  coverage_end: number     // ms timestamp
+  last_updated: string     // ISO datetime or relative time
+  quality: 'normal' | 'missing' | 'anomaly' | 'duplicate' | 'suspicious'
+  source?: 'csv' | 'api' | 'exchange'
 }
 
 /** Kline interval options */

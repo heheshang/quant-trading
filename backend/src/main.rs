@@ -5,7 +5,9 @@ use axum::{
 };
 use quant_trading_backend::db::{init_db, run_migrations, DbPool};
 use quant_trading_backend::handlers;
+use quant_trading_backend::services::matching_engine::MatchingEngine;
 use quant_trading_backend::CONFIG;
+use std::sync::Arc;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::EnvFilter;
@@ -51,8 +53,11 @@ async fn main() {
         .allow_methods(Any)
         .allow_headers(Any);
 
+    // Create matching engine
+    let matching_engine = Arc::new(MatchingEngine::new(db.clone(), 200, 0.001));
+
     // Build application
-    let app = create_router(db, cors);
+    let app = create_router(db, cors, matching_engine);
 
     // Start server
     let addr = CONFIG.server_addr();
@@ -65,7 +70,7 @@ async fn main() {
     axum::serve(listener, app).await.expect("Server failed");
 }
 
-fn create_router(db: DbPool, cors: CorsLayer) -> Router {
+fn create_router(db: DbPool, cors: CorsLayer, matching_engine: Arc<MatchingEngine>) -> Router {
     // Auth routes (no auth required)
     let auth_routes = Router::new()
         .route("/register", post(handlers::auth::register))
@@ -141,6 +146,36 @@ fn create_router(db: DbPool, cors: CorsLayer) -> Router {
             quant_trading_backend::middleware::auth::auth_middleware,
         ));
 
+    // Market routes (authenticated)
+    let market_routes = Router::new()
+        .route("/market/tickers", get(handlers::market::get_tickers))
+        .route("/market/ticker", get(handlers::market::get_ticker))
+        .route("/market/depth", get(handlers::market::get_depth))
+        .route(
+            "/market/ticker/history",
+            get(handlers::market::get_ticker_history),
+        )
+        .route("/market/kline", get(handlers::market::get_kline))
+        .layer(middleware::from_fn(
+            quant_trading_backend::middleware::auth::auth_middleware,
+        ));
+
+    // Order/Trading routes (authenticated, with matching engine)
+    let order_routes = Router::new()
+        .route("/orders", post(handlers::order::create_order))
+        .route("/orders", get(handlers::order::list_orders))
+        .route("/orders/{id}", get(handlers::order::get_order))
+        .route("/orders/{id}/cancel", post(handlers::order::cancel_order))
+        .route("/orders/cancel-all", post(handlers::order::cancel_all_orders))
+        .route("/trades", get(handlers::order::list_trades))
+        .route("/positions", get(handlers::order::list_positions))
+        .route("/account", get(handlers::order::get_account))
+        .route("/symbols", get(handlers::order::list_symbols))
+        .layer(axum::Extension(matching_engine))
+        .layer(middleware::from_fn(
+            quant_trading_backend::middleware::auth::auth_middleware,
+        ));
+
     // Backtest routes (authenticated)
     let backtest_routes = Router::new()
         .route("/backtest", post(handlers::backtest::run_backtest))
@@ -186,6 +221,8 @@ fn create_router(db: DbPool, cors: CorsLayer) -> Router {
         .nest("/api/v1", user_routes)
         .nest("/api/v1", strategy_routes)
         .nest("/api/v1", kline_routes)
+        .nest("/api/v1", market_routes)
+        .nest("/api/v1", order_routes)
         .nest("/api/v1", backtest_routes)
         .nest("/api/v1", cancel_routes)
         .nest("/api/v1", public_routes)

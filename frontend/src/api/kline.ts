@@ -11,6 +11,7 @@ import type {
   KlineCleanResult,
   KlineFetchRequest,
   KlineResponse,
+  KlineSymbolOverview,
 } from '@/types/kline'
 import type { PaginatedResponse } from '@/types'
 
@@ -111,6 +112,6 @@ export function exportKlines(params: KlineExportParams): Promise<Blob> {
  * List available symbols for current user.
  * GET /api/v1/kline/symbols
  */
-export function getKlineSymbols(): Promise<{ symbol: string; intervals: string[] }[]> {
+export function getKlineSymbols(): Promise<KlineSymbolOverview[]> {
   return client.get('/kline/symbols')
 }

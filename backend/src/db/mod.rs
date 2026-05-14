@@ -1,6 +1,7 @@
 pub mod backtest;
 pub mod backtest_results;
 pub mod kline;
+pub mod order;
 pub mod permission;
 pub mod role;
 pub mod role_permission;
@@ -98,6 +99,46 @@ pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), sea_orm::DbEr
     let stmt = backend.build(
         schema
             .create_table_from_entity(kline::Entity)
+            .if_not_exists(),
+    );
+    db.execute(stmt).await?;
+
+    // Create orders table (trading module)
+    let stmt = backend.build(
+        schema
+            .create_table_from_entity(order::Entity)
+            .if_not_exists(),
+    );
+    db.execute(stmt).await?;
+
+    // Create trades table
+    let stmt = backend.build(
+        schema
+            .create_table_from_entity(order::trades::Entity)
+            .if_not_exists(),
+    );
+    db.execute(stmt).await?;
+
+    // Create positions table
+    let stmt = backend.build(
+        schema
+            .create_table_from_entity(order::positions::Entity)
+            .if_not_exists(),
+    );
+    db.execute(stmt).await?;
+
+    // Create paper_accounts table
+    let stmt = backend.build(
+        schema
+            .create_table_from_entity(order::paper_accounts::Entity)
+            .if_not_exists(),
+    );
+    db.execute(stmt).await?;
+
+    // Create symbol_configs table
+    let stmt = backend.build(
+        schema
+            .create_table_from_entity(order::symbol_configs::Entity)
             .if_not_exists(),
     );
     db.execute(stmt).await?;

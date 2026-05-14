@@ -2,7 +2,7 @@
   <div class="kline-export-view">
     <div class="page-header">
       <div class="header-left">
-        <el-button class="back-btn" text @click="router.push('/kline')">
+        <el-button class="back-btn" text @click="router.push('/klines')">
           <el-icon><ArrowLeft /></el-icon>
           返回
         </el-button>
@@ -49,10 +49,21 @@
         </el-form-item>
 
         <el-form-item label="导出格式" required>
-          <el-radio-group v-model="form.format" class="format-group">
-            <el-radio value="csv">CSV</el-radio>
-            <el-radio value="json">JSON</el-radio>
-          </el-radio-group>
+          <div class="format-cards">
+            <div
+              v-for="fmt in formatOptions"
+              :key="fmt.value"
+              class="format-card"
+              :class="{ 'is-selected': form.format === fmt.value }"
+              @click="form.format = fmt.value"
+            >
+              <div class="format-card-icon">
+                <el-icon :size="24"><component :is="fmt.icon" /></el-icon>
+              </div>
+              <div class="format-card-name">{{ fmt.label }}</div>
+              <div class="format-card-desc">{{ fmt.desc }}</div>
+            </div>
+          </div>
         </el-form-item>
 
         <el-form-item label="选择字段">
@@ -100,7 +111,7 @@
 import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ArrowLeft, Download, Document } from '@element-plus/icons-vue'
+import { ArrowLeft, Download, Document, Grid } from '@element-plus/icons-vue'
 import { exportKlines, getKlineSymbols } from '@/api/kline'
 import { KLINE_INTERVALS } from '@/types/kline'
 
@@ -114,8 +125,14 @@ const form = reactive({
   interval: '',
   startTime: null as number | null,
   endTime: null as number | null,
-  format: 'csv' as 'csv' | 'json',
+  format: 'csv' as 'csv' | 'json' | 'excel',
 })
+
+const formatOptions = [
+  { label: 'CSV', value: 'csv' as const, icon: Document, desc: '逗号分隔值' },
+  { label: 'JSON', value: 'json' as const, icon: Grid, desc: '结构化数据' },
+  { label: 'Excel', value: 'excel' as const, icon: Grid, desc: '电子表格' },
+]
 
 const allFields = reactive([
   { key: 'open_time', label: 'timestamp', checked: true },
@@ -228,9 +245,46 @@ fetchSymbols()
 .form-select { width: 200px; }
 .form-date { width: 220px; }
 
-.format-group {
+.format-cards {
   display: flex;
-  gap: 16px;
+  gap: 12px;
+}
+
+.format-card {
+  border: 2px solid var(--color-border);
+  border-radius: 8px;
+  padding: 16px 20px;
+  cursor: pointer;
+  text-align: center;
+  min-width: 100px;
+  transition: border-color 0.2s, background 0.2s;
+
+  &:hover {
+    border-color: var(--el-color-primary-light-5);
+    background: var(--color-surface-hover);
+  }
+
+  &.is-selected {
+    border-color: var(--el-color-primary);
+    background: rgba(59, 130, 246, 0.05);
+  }
+}
+
+.format-card-icon {
+  color: var(--color-text-secondary);
+  margin-bottom: 8px;
+}
+
+.format-card-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: 4px;
+}
+
+.format-card-desc {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
 }
 
 .field-checkboxes {

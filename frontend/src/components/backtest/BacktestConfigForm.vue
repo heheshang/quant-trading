@@ -296,7 +296,8 @@ function getParamRule(param: StrategyParamDef) {
 async function loadStrategies() {
   loadingStrategies.value = true
   try {
-    strategies.value = (await listStrategies()).data
+    const res = await listStrategies()
+    strategies.value = res?.data ?? []
   } catch {
     strategies.value = []
   } finally {
@@ -307,8 +308,8 @@ async function loadStrategies() {
 async function loadTemplates() {
   loadingTemplates.value = true
   try {
-    const result = await listTemplates()
-    templates.value = result ?? []
+    const res = await listTemplates()
+    templates.value = res?.data ?? []
   } catch {
     templates.value = []
   } finally {

@@ -2,7 +2,7 @@
   <div class="kline-import-view">
     <div class="page-header">
       <div class="header-left">
-        <el-button class="back-btn" text @click="router.push('/kline')">
+        <el-button class="back-btn" text @click="router.push('/klines')">
           <el-icon><ArrowLeft /></el-icon>
           返回
         </el-button>
@@ -60,11 +60,20 @@
         <template v-if="selectedMethod === 'csv'">
           <el-form :model="csvForm" label-width="120px" class="config-form">
             <el-form-item label="交易对" required>
-              <el-input v-model="csvForm.symbol" placeholder="例如 BTCUSDT" clearable />
+              <el-select v-model="csvForm.symbol" placeholder="选择交易对" filterable clearable class="form-select">
+                <el-option v-for="s in availableSymbols" :key="s" :label="s" :value="s" />
+              </el-select>
             </el-form-item>
             <el-form-item label="时间周期" required>
               <el-select v-model="csvForm.interval" placeholder="选择周期">
                 <el-option v-for="iv in KLINE_INTERVALS" :key="iv.value" :label="iv.label" :value="iv.value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="数据来源" required>
+              <el-select v-model="csvForm.source" placeholder="选择数据来源">
+                <el-option label="CSV 文件" value="csv" />
+                <el-option label="API 接口" value="api" />
+                <el-option label="交易所" value="exchange" />
               </el-select>
             </el-form-item>
             <el-form-item label="CSV文件" required>
@@ -78,9 +87,9 @@
                 :on-change="handleFileChange"
               >
                 <el-icon><Upload /></el-icon>
-                <div class="el-upload__text">拖拽文件到此处，或 <em>点击上传</em></div>
+                <div class="el-upload__text">拖拽文件到此处，或 <em>点击选择文件</em></div>
                 <template #tip>
-                  <div class="el-upload__tip">支持 CSV 格式，列：timestamp,open,high,low,close,volume</div>
+                  <div class="el-upload__tip">支持 10 万条/次，CSV 格式，列：open_time,open,high,low,close,volume</div>
                 </template>
               </el-upload>
             </el-form-item>
@@ -91,7 +100,9 @@
         <template v-else-if="selectedMethod === 'api'">
           <el-form :model="apiForm" label-width="120px" class="config-form">
             <el-form-item label="交易对" required>
-              <el-input v-model="apiForm.symbol" placeholder="例如 BTCUSDT" clearable />
+              <el-select v-model="apiForm.symbol" placeholder="选择交易对" filterable clearable class="form-select">
+                <el-option v-for="s in availableSymbols" :key="s" :label="s" :value="s" />
+              </el-select>
             </el-form-item>
             <el-form-item label="时间周期" required>
               <el-select v-model="apiForm.interval" placeholder="选择周期">
@@ -116,7 +127,9 @@
               </el-select>
             </el-form-item>
             <el-form-item label="交易对" required>
-              <el-input v-model="exchangeForm.symbol" placeholder="例如 BTCUSDT" clearable />
+              <el-select v-model="exchangeForm.symbol" placeholder="选择交易对" filterable clearable class="form-select">
+                <el-option v-for="s in availableSymbols" :key="s" :label="s" :value="s" />
+              </el-select>
             </el-form-item>
             <el-form-item label="时间周期" required>
               <el-select v-model="exchangeForm.interval" placeholder="选择周期">
@@ -163,21 +176,25 @@
           >
             <template #sub-title>
               <div class="result-stats">
-                <div class="stat-item">
-                  <span class="stat-label">总条数</span>
-                  <span class="stat-value">{{ importResult.imported + importResult.duplicates + importResult.failed }}</span>
+                <div class="stat-card">
+                  <el-icon :size="24" class="stat-icon"><Document /></el-icon>
+                  <span class="stat-number">{{ importResult.imported + importResult.duplicates + importResult.failed }}</span>
+                  <span class="stat-label">总行数</span>
                 </div>
-                <div class="stat-item success">
+                <div class="stat-card stat-success">
+                  <el-icon :size="24" class="stat-icon"><CircleCheck /></el-icon>
+                  <span class="stat-number">{{ importResult.imported }}</span>
                   <span class="stat-label">成功</span>
-                  <span class="stat-value">{{ importResult.imported }}</span>
                 </div>
-                <div class="stat-item warning">
+                <div class="stat-card stat-warning">
+                  <el-icon :size="24" class="stat-icon"><Warning /></el-icon>
+                  <span class="stat-number">{{ importResult.duplicates }}</span>
                   <span class="stat-label">重复</span>
-                  <span class="stat-value">{{ importResult.duplicates }}</span>
                 </div>
-                <div class="stat-item danger">
+                <div class="stat-card stat-danger">
+                  <el-icon :size="24" class="stat-icon"><CircleClose /></el-icon>
+                  <span class="stat-number">{{ importResult.failed }}</span>
                   <span class="stat-label">失败</span>
-                  <span class="stat-value">{{ importResult.failed }}</span>
                 </div>
               </div>
               <div v-if="importResult.errors?.length" class="error-list">
@@ -191,7 +208,7 @@
               </div>
             </template>
             <template #extra>
-              <el-button type="primary" @click="router.push('/kline')">返回列表</el-button>
+              <el-button type="primary" @click="router.push('/klines')">返回列表</el-button>
               <el-button @click="resetImport">继续导入</el-button>
             </template>
           </el-result>
@@ -202,11 +219,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Upload, ArrowLeft, ArrowRight, Check, Document, Connection, ShoppingCart } from '@element-plus/icons-vue'
-import { uploadKlinesCSV, importKlines, fetchKlinesFromExchange } from '@/api/kline'
+import { Upload, ArrowLeft, ArrowRight, Check, Document, Connection, ShoppingCart, CircleCheck, Warning, CircleClose } from '@element-plus/icons-vue'
+import { uploadKlinesCSV, importKlines, fetchKlinesFromExchange, getKlineSymbols } from '@/api/kline'
 import { KLINE_INTERVALS } from '@/types/kline'
 import type { KlineImportResult } from '@/types/kline'
 import type { UploadFile } from 'element-plus'
@@ -222,8 +239,9 @@ const progressText = ref('正在导入...')
 const importResult = ref<KlineImportResult | null>(null)
 const uploadRef = ref()
 const selectedFile = ref<File | null>(null)
+const availableSymbols = ref<string[]>([])
 
-const csvForm = reactive({ symbol: '', interval: '' })
+const csvForm = reactive({ symbol: '', interval: '', source: 'csv' as 'csv' | 'api' | 'exchange' })
 const apiForm = reactive({ symbol: '', interval: '', startTime: null as number | null, endTime: null as number | null })
 const exchangeForm = reactive({ exchange: 'binance', symbol: '', interval: '', startTime: null as number | null, endTime: null as number | null })
 
@@ -244,15 +262,16 @@ async function startImport() {
 
   try {
     if (selectedMethod.value === 'csv') {
-      if (!csvForm.symbol) { ElMessage.warning('请填写交易对'); importing.value = false; return }
+      if (!csvForm.symbol) { ElMessage.warning('请选择交易对'); importing.value = false; return }
       if (!csvForm.interval) { ElMessage.warning('请选择时间周期'); importing.value = false; return }
+      if (!csvForm.source) { ElMessage.warning('请选择数据来源'); importing.value = false; return }
       if (!selectedFile.value) { ElMessage.warning('请选择 CSV 文件'); importing.value = false; return }
 
       progressText.value = '正在上传文件...'
       const result = await uploadKlinesCSV(csvForm.symbol, csvForm.interval, selectedFile.value)
       importResult.value = result
     } else if (selectedMethod.value === 'api') {
-      if (!apiForm.symbol) { ElMessage.warning('请填写交易对'); importing.value = false; return }
+      if (!apiForm.symbol) { ElMessage.warning('请选择交易对'); importing.value = false; return }
       if (!apiForm.interval) { ElMessage.warning('请选择时间周期'); importing.value = false; return }
 
       progressText.value = '正在调用 API...'
@@ -264,7 +283,7 @@ async function startImport() {
       })
       importResult.value = result
     } else if (selectedMethod.value === 'exchange') {
-      if (!exchangeForm.symbol) { ElMessage.warning('请填写交易对'); importing.value = false; return }
+      if (!exchangeForm.symbol) { ElMessage.warning('请选择交易对'); importing.value = false; return }
       if (!exchangeForm.interval) { ElMessage.warning('请选择时间周期'); importing.value = false; return }
 
       progressText.value = '正在从交易所获取数据...'
@@ -295,11 +314,23 @@ function resetImport() {
   selectedFile.value = null
   csvForm.symbol = ''
   csvForm.interval = ''
+  csvForm.source = 'csv'
   apiForm.symbol = ''
   apiForm.interval = ''
   exchangeForm.symbol = ''
   exchangeForm.interval = ''
 }
+
+async function fetchSymbols() {
+  try {
+    const symbols = await getKlineSymbols()
+    availableSymbols.value = symbols.map((s) => s.symbol)
+  } catch { /* optional */ }
+}
+
+onMounted(() => {
+  fetchSymbols()
+})
 </script>
 
 <style scoped lang="scss">
@@ -459,8 +490,30 @@ function resetImport() {
   margin-bottom: 24px;
 }
 
+.form-select { width: 200px; }
+
 .csv-uploader {
   width: 100%;
+
+  :deep(.el-upload-dragger) {
+    width: 320px;
+    height: 240px;
+    border-radius: 12px;
+    border: 2px dashed var(--color-border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.2s;
+
+    &:hover {
+      border-color: var(--el-color-primary);
+    }
+  }
+
+  :deep(.el-upload) {
+    width: auto;
+  }
 }
 
 .step-actions {
@@ -485,30 +538,53 @@ function resetImport() {
 
 .result-stats {
   display: flex;
-  gap: 32px;
+  gap: 16px;
   justify-content: center;
   margin: 16px 0;
 }
 
-.stat-item {
-  text-align: center;
+.stat-card {
+  width: 160px;
+  height: 80px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
 
-  .stat-label {
-    display: block;
-    font-size: 12px;
-    color: var(--color-text-tertiary);
-    margin-bottom: 4px;
+  .stat-icon {
+    color: var(--color-text-secondary);
   }
 
-  .stat-value {
-    font-size: 24px;
+  .stat-number {
+    font-size: 20px;
     font-weight: 700;
     color: var(--color-text-primary);
+    line-height: 1.2;
   }
 
-  &.success .stat-value { color: var(--el-color-success); }
-  &.warning .stat-value { color: var(--el-color-warning); }
-  &.danger .stat-value { color: var(--el-color-danger); }
+  .stat-label {
+    font-size: 12px;
+    color: var(--color-text-tertiary);
+  }
+
+  &.stat-success {
+    .stat-icon { color: var(--el-color-success); }
+    .stat-number { color: var(--el-color-success); }
+  }
+
+  &.stat-warning {
+    .stat-icon { color: var(--el-color-warning); }
+    .stat-number { color: var(--el-color-warning); }
+  }
+
+  &.stat-danger {
+    .stat-icon { color: var(--el-color-danger); }
+    .stat-number { color: var(--el-color-danger); }
+  }
 }
 
 .error-list {
