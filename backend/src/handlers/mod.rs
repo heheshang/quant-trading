@@ -3,6 +3,7 @@ pub mod backtest;
 pub mod kline;
 pub mod market;
 pub mod order;
+pub mod portfolio;
 pub mod strategy;
 pub mod users;
 pub mod ws;

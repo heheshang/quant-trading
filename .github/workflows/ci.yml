@@ -175,6 +175,65 @@ jobs:
       - name: Build
         run: npm run build
 
+  # ─── Security: Cargo Audit ────
+  cargo-audit:
+    name: Cargo Audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit
+
+      - name: Run cargo audit
+        run: cargo audit
+
+  # ─── Security: NPM Audit ────
+  npm-audit:
+    name: NPM Audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run npm audit
+        run: npm audit --audit-level=high
+
+  # ─── Security: Gitleaks ────
+  gitleaks:
+    name: Gitleaks (Secret Scan)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   # ─── Docker: Build Images ────
   docker-build:
     name: Docker Build
@@ -206,7 +265,7 @@ jobs:
             --network quant-ci-network \
             -e DATABASE_URL="postgres://quant:ci_test_pw@quant-postgres-ci:5432/quant_trading" \
             -e REDIS_URL="redis://quant-redis-ci:6379" \
-            -e JWT_SECRET=ci-test-secret \
+            -e JWT_SECRET=ci-test-secret-for-github-actions-min-32chars \
             -e CORS_ORIGINS="http://localhost:80" \
             quant-backend:ci
           sleep 10
@@ -246,6 +305,35 @@ jobs:
             'http://localhost:8080/api/v1/market/ticker/history?symbol=BTCUSDT&start=0&end=0' || \
             echo "Ticker history endpoint (P1, expected to return error for no data)"
           echo "Market API verification complete"
+
+          # ── Portfolio API verification ──
+          # Test unauthenticated access returns 401 (proves route exists)
+          HTTP_CODE=$(docker exec quant-backend-ci curl -sf -o /dev/null -w '%{http_code}' \
+            http://localhost:8080/api/v1/portfolio/summary)
+          if [ "$HTTP_CODE" = "401" ]; then echo "Portfolio summary unauth → 401 OK"; else echo "WARNING: Portfolio summary unauth → $HTTP_CODE (expected 401)"; fi
+
+          HTTP_CODE=$(docker exec quant-backend-ci curl -sf -o /dev/null -w '%{http_code}' \
+            http://localhost:8080/api/v1/portfolio/positions)
+          if [ "$HTTP_CODE" = "401" ]; then echo "Portfolio positions unauth → 401 OK"; else echo "WARNING: Portfolio positions unauth → $HTTP_CODE (expected 401)"; fi
+
+          HTTP_CODE=$(docker exec quant-backend-ci curl -sf -o /dev/null -w '%{http_code}' \
+            http://localhost:8080/api/v1/portfolio/performance)
+          if [ "$HTTP_CODE" = "401" ]; then echo "Portfolio performance unauth → 401 OK"; else echo "WARNING: Portfolio performance unauth → $HTTP_CODE (expected 401)"; fi
+
+          # Test authenticated access
+          docker exec quant-backend-ci curl -sf -H "Authorization: Bearer $TOKEN" \
+            http://localhost:8080/api/v1/portfolio/summary
+          echo "Portfolio summary (auth) endpoint OK"
+
+          docker exec quant-backend-ci curl -sf -H "Authorization: Bearer $TOKEN" \
+            http://localhost:8080/api/v1/portfolio/performance
+          echo "Portfolio performance (auth) endpoint OK"
+
+          docker exec quant-backend-ci curl -sf -H "Authorization: Bearer $TOKEN" \
+            http://localhost:8080/api/v1/portfolio/positions
+          echo "Portfolio positions (auth) endpoint OK"
+
+          echo "Portfolio API verification complete"
 
       - name: Cleanup CI containers
         if: always()

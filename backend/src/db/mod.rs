@@ -3,6 +3,7 @@ pub mod backtest_results;
 pub mod kline;
 pub mod order;
 pub mod permission;
+pub mod portfolio;
 pub mod role;
 pub mod role_permission;
 pub mod strategy;
@@ -134,6 +135,36 @@ pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), sea_orm::DbEr
             .if_not_exists(),
     );
     db.execute(stmt).await?;
+
+    // Create portfolio_equity_history table
+    let stmt = backend.build(
+        schema
+            .create_table_from_entity(portfolio::Entity)
+            .if_not_exists(),
+    );
+    db.execute(stmt).await?;
+
+    // Add FK from portfolio_equity_history.user_id → users.id (if not already present)
+    // This FK cannot be created in docker-init SQL because users table is created here.
+    let fk_sql = r#"
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.table_constraints
+                WHERE constraint_name = 'fk_portfolio_equity_user'
+                  AND table_name = 'portfolio_equity_history'
+            ) THEN
+                ALTER TABLE portfolio_equity_history
+                    ADD CONSTRAINT fk_portfolio_equity_user
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+            END IF;
+        END $$;
+    "#;
+    db.execute(sea_orm::Statement::from_string(
+        backend,
+        fk_sql.to_string(),
+    ))
+    .await?;
 
     // Create symbol_configs table
     let stmt = backend.build(

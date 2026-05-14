@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portfolio 组合权益 - 设计原型</title>
+<!-- Element Plus -->
+<link rel="stylesheet" href="https://unpkg.com/element-plus@2.9.1/dist/index.css">
+<link rel="stylesheet" href="https://unpkg.com/element-plus@2.9.1/theme-chalk/dark/css-vars.css">
+<!-- Element Plus Icons -->
+<script src="https://unpkg.com/@element-plus/icons-vue@2.3.1/dist/index.iife.min.js"></script>
+<!-- Vue 3 -->
+<script src="https://unpkg.com/vue@3.5.13/dist/vue.global.prod.js"></script>
+<!-- Element Plus JS -->
+<script src="https://unpkg.com/element-plus@2.9.1/dist/index.full.js"></script>
+<!-- ECharts -->
+<script src="https://unpkg.com/echarts@5.5.1/dist/echarts.min.js"></script>
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --color-bg: #08090a;
+  --color-surface: #191a1b;
+  --color-surface-elevated: #212223;
+  --color-deep-bg: #050607;
+  --color-text-primary: #f7f8f8;
+  --color-text-secondary: #d0d6e0;
+  --color-text-tertiary: #8a8f98;
+  --color-accent: #7170ff;
+  --color-accent-hover: #8b8aff;
+  --color-border: rgba(255,255,255,0.08);
+  --color-border-hover: rgba(255,255,255,0.16);
+  --color-error: #e5484d;
+  --color-success: #10b981;
+  --color-warning: #f5a623;
+  --color-info: #60a5fa;
+  --color-buy: #67C23A;
+  --color-sell: #F56C6C;
+  --color-buy-bg: rgba(103,194,58,0.12);
+  --color-sell-bg: rgba(245,108,108,0.12);
+  --color-positive: #67C23A;
+  --color-negative: #F56C6C;
+  --color-neutral: #8a8f98;
+  --color-frozen: #f5a623;
+  --font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body, #app {
+  width: 100%; height: 100%;
+  font-family: var(--font-ui);
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Override Element Plus dark vars */
+.dark {
+  --el-bg-color: var(--color-surface);
+  --el-bg-color-overlay: var(--color-surface-elevated);
+  --el-bg-color-page: var(--color-bg);
+  --el-text-color-primary: var(--color-text-primary);
+  --el-text-color-regular: var(--color-text-secondary);
+  --el-text-color-secondary: var(--color-text-tertiary);
+  --el-border-color: var(--color-border);
+  --el-border-color-light: var(--color-border);
+  --el-border-color-lighter: var(--color-border);
+  --el-fill-color-blank: var(--color-surface);
+  --el-color-primary: var(--color-accent);
+  --el-color-success: var(--color-buy);
+  --el-color-danger: var(--color-sell);
+  --el-color-warning: var(--color-warning);
+}
+
+/* Page layout */
+.portfolio-page {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 0 24px 40px;
+}
+
+/* Header */
+.portfolio-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  padding: 0;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 24px;
+}
+.portfolio-header__title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+.portfolio-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Metric cards row */
+.metric-cards-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.metric-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 20px;
+  position: relative;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  cursor: default;
+  overflow: hidden;
+}
+.metric-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--color-border-hover);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+.metric-card__icon {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  font-size: 24px;
+  opacity: 0.4;
+}
+.metric-card__label {
+  font-size: 13px;
+  color: var(--color-text-tertiary);
+  margin-bottom: 8px;
+}
+.metric-card__value {
+  font-size: 28px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  line-height: 1.2;
+}
+.metric-card__sub {
+  font-size: 13px;
+  margin-top: 4px;
+  font-family: var(--font-mono);
+}
+
+/* PnL colors */
+.pnl-positive { color: var(--color-positive) !important; }
+.pnl-negative { color: var(--color-negative) !important; }
+.pnl-neutral { color: var(--color-neutral) !important; }
+
+/* Flash animations */
+@keyframes flash-positive {
+  from { background-color: rgba(103,194,58,0.18); }
+  to { background-color: transparent; }
+}
+@keyframes flash-negative {
+  from { background-color: rgba(245,108,108,0.18); }
+  to { background-color: transparent; }
+}
+.flash-positive { animation: flash-positive 2s ease-out; }
+.flash-negative { animation: flash-negative 2s ease-out; }
+
+/* Equity curve */
+.equity-curve-section {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 24px;
+}
+.equity-curve__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.equity-curve__title {
+  font-size: 14px;
+  font-weight: 600;
+}
+#equity-chart {
+  width: 100%;
+  height: 280px;
+}
+
+/* Bottom two-column */
+.bottom-columns {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 16px;
+}
+
+/* Surface card */
+.surface-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 16px;
+}
+.surface-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.surface-card__title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Performance cards */
+.perf-cards-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.perf-card {
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 16px;
+}
+.perf-card__label {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  margin-bottom: 6px;
+}
+.perf-card__value {
+  font-size: 22px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+/* Table overrides */
+.el-table {
+  --el-table-bg-color: transparent;
+  --el-table-tr-bg-color: transparent;
+  --el-table-header-bg-color: transparent;
+  --el-table-row-hover-bg-color: rgba(255,255,255,0.04);
+  --el-table-border-color: var(--color-border);
+  --el-table-text-color: var(--color-text-secondary);
+  --el-table-header-text-color: var(--color-text-tertiary);
+  font-size: 13px;
+}
+.el-table th.el-table__cell {
+  font-weight: 500;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.mono-cell {
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+/* Side tags */
+.side-tag--long {
+  color: var(--color-buy);
+  background: var(--color-buy-bg);
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.side-tag--short {
+  color: var(--color-sell);
+  background: var(--color-sell-bg);
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+/* Pnl cell */
+.pnl-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.4;
+}
+.pnl-cell__amount {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+}
+.pnl-cell__percent {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+/* Row backgrounds */
+.row-long { background-color: rgba(103,194,58,0.04) !important; }
+.row-short { background-color: rgba(245,108,108,0.04) !important; }
+
+/* Sortable header */
+.sortable-header {
+  cursor: pointer;
+  user-select: none;
+}
+.sortable-header:hover { color: var(--color-text-primary); }
+
+/* Sparkline */
+.sparkline-svg {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Strategy name link */
+.strategy-link {
+  color: var(--color-accent);
+  cursor: pointer;
+  text-decoration: none;
+}
+.strategy-link:hover {
+  color: var(--color-accent-hover);
+  text-decoration: underline;
+}
+
+/* Progress mini bar */
+.progress-mini {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.progress-mini__bar {
+  width: 60px;
+  height: 4px;
+  background: var(--color-border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.progress-mini__fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+/* Skeleton */
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+.skeleton-line {
+  background: linear-gradient(90deg, #191a1b 25%, #212223 50%, #191a1b 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+
+/* Empty state */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: var(--color-text-tertiary);
+}
+.empty-state__icon { font-size: 64px; margin-bottom: 16px; opacity: 0.4; }
+.empty-state__title { font-size: 16px; font-weight: 500; margin-bottom: 8px; }
+.empty-state__desc { font-size: 13px; text-align: center; max-width: 300px; line-height: 1.6; }
+
+/* Tab navigation */
+.portfolio-tabs {
+  display: flex;
+  gap: 24px;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 24px;
+}
+.portfolio-tab {
+  padding: 12px 0;
+  font-size: 14px;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.2s, border-color 0.2s;
+}
+.portfolio-tab:hover { color: var(--color-text-secondary); }
+.portfolio-tab--active {
+  color: var(--color-text-primary);
+  border-bottom-color: var(--color-accent);
+}
+
+/* Refresh spin */
+@keyframes spin-once {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.refresh-spinning .el-icon { animation: spin-once 0.6s ease; }
+
+/* Responsive */
+@media (max-width: 1199px) {
+  .metric-cards-row { grid-template-columns: repeat(2, 1fr); }
+  .bottom-columns { grid-template-columns: 1fr; }
+}
+@media (max-width: 767px) {
+  .metric-cards-row { grid-template-columns: 1fr; }
+  .portfolio-header { flex-direction: column; align-items: flex-start; gap: 12px; height: auto; padding: 12px 0; }
+  .portfolio-header__actions { width: 100%; flex-wrap: wrap; }
+}
+
+/* Granularity selector */
+.granularity-selector .el-segmented {
+  --el-segmented-item-selected-color: var(--color-text-primary);
+  --el-segmented-item-selected-bg-color: var(--color-accent);
+}
+
+/* Page transition */
+.page-section { animation: fadeIn 0.3s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="portfolio-page">
+    <!-- Header -->
+    <div class="portfolio-header">
+      <div class="portfolio-header__title">组合权益</div>
+      <div class="portfolio-header__actions">
+        <el-date-picker
+          v-model="dateRange"
+          type="daterange"
+          range-separator="—"
+          start-placeholder="开始日期"
+          end-placeholder="结束日期"
+          format="YYYY-MM-DD"
+          value-format="YYYY-MM-DD"
+          size="default"
+          style="width: 280px"
+        />
+        <el-segmented v-model="granularity" :options="granularityOptions" size="default" />
+        <el-button
+          circle
+          plain
+          :icon="RefreshIcon"
+          size="default"
+          :class="{ 'refresh-spinning': isRefreshing }"
+          @click="handleRefresh"
+        />
+      </div>
+    </div>
+
+    <!-- Tab Navigation -->
+    <div class="portfolio-tabs">
+      <div
+        v-for="tab in tabs"
+        :key="tab.key"
+        class="portfolio-tab"
+        :class="{ 'portfolio-tab--active': activeTab === tab.key }"
+        @click="activeTab = tab.key"
+      >{{ tab.label }}</div>
+    </div>
+
+    <!-- Page 1: Dashboard -->
+    <div v-if="activeTab === 'dashboard'" class="page-section">
+      <!-- Metric Cards -->
+      <div class="metric-cards-row">
+        <div class="metric-card" :class="{ 'flash-positive': flashState.totalEquity }">
+          <el-icon class="metric-card__icon" style="color: var(--color-accent)"><Wallet /></el-icon>
+          <div class="metric-card__label">总资产</div>
+          <div class="metric-card__value">{{ formatMoney(summary.totalEquity) }}</div>
+          <div class="metric-card__sub pnl-neutral">{{ summary.totalPositions }} 个持仓</div>
+        </div>
+        <div class="metric-card" :class="flashClass(summary.cumulativePnl, 'cumulativePnl')">
+          <el-icon class="metric-card__icon" :style="{ color: pnlColor(summary.cumulativePnl) }">
+            <TrendingUp v-if="summary.cumulativePnl >= 0" /><TrendingDown v-else />
+          </el-icon>
+          <div class="metric-card__label">累计盈亏</div>
+          <div class="metric-card__value" :class="pnlClass(summary.cumulativePnl)">{{ formatPnl(summary.cumulativePnl) }}</div>
+          <div class="metric-card__sub" :class="pnlClass(summary.cumulativePnl)">{{ formatPercent(summary.cumulativePnlRate) }}</div>
+        </div>
+        <div class="metric-card" :class="flashClass(summary.dailyPnl, 'dailyPnl')">
+          <el-icon class="metric-card__icon" :style="{ color: pnlColor(summary.dailyPnl) }">
+            <Calendar v-if="summary.dailyPnl >= 0" /><Timer v-else />
+          </el-icon>
+          <div class="metric-card__label">当日盈亏</div>
+          <div class="metric-card__value" :class="pnlClass(summary.dailyPnl)">{{ formatPnl(summary.dailyPnl) }}</div>
+          <div class="metric-card__sub" :class="pnlClass(summary.dailyPnl)">{{ formatPercent(summary.dailyPnlRate) }}</div>
+        </div>
+        <div class="metric-card" :class="flashClass(summary.returnRate, 'returnRate')">
+          <el-icon class="metric-card__icon" :style="{ color: pnlColor(summary.returnRate) }"><DataLine /></el-icon>
+          <div class="metric-card__label">收益率</div>
+          <div class="metric-card__value" :class="pnlClass(summary.returnRate)">{{ formatPercent(summary.returnRate) }}</div>
+          <div class="metric-card__sub">
+            <svg class="sparkline-svg" width="60" height="20" viewBox="0 0 60 20">
+              <polyline :points="sparklinePoints" fill="none" :stroke="pnlColor(summary.returnRate)" stroke-width="1.5" />
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Equity Curve -->
+      <div class="equity-curve-section">
+        <div class="equity-curve__header">
+          <div class="equity-curve__title">权益曲线</div>
+        </div>
+        <div id="equity-chart"></div>
+      </div>
+
+      <!-- Bottom two-column -->
+      <div class="bottom-columns">
+        <!-- Left: Positions -->
+        <div class="surface-card">
+          <div class="surface-card__header">
+            <div class="surface-card__title">持仓汇总 <el-badge :value="positions.length" type="info" /></div>
+            <el-input
+              v-model="positionSearch"
+              placeholder="搜索交易对"
+              :prefix-icon="Search"
+              size="small"
+              style="width: 180px"
+              clearable
+            />
+          </div>
+          <el-table
+            :data="filteredPositions"
+            :row-class-name="positionRowClass"
+            style="width: 100%"
+            :header-cell-style="{ background: 'transparent' }"
+            empty-text="暂无持仓"
+            size="small"
+          >
+            <el-table-column prop="symbol" label="交易对" min-width="120">
+              <template #default="{ row }">
+                <span style="font-weight: 600">{{ row.symbol }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="side" label="方向" width="80" align="center">
+              <template #default="{ row }">
+                <span :class="row.side === 'long' ? 'side-tag--long' : 'side-tag--short'">
+                  {{ row.side === 'long' ? '多' : '空' }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="quantity" label="数量" width="110" align="right">
+              <template #default="{ row }">
+                <span class="mono-cell">{{ row.quantity }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="avgPrice" label="均价" width="120" align="right">
+              <template #default="{ row }">
+                <span class="mono-cell">{{ formatMoney(row.avgPrice) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="currentPrice" label="现价" width="120" align="right">
+              <template #default="{ row }">
+                <span class="mono-cell">{{ formatMoney(row.currentPrice) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="浮动盈亏" width="160" align="right" sortable :sort-method="sortByPnl">
+              <template #default="{ row }">
+                <div class="pnl-cell">
+                  <span class="pnl-cell__amount" :class="pnlClass(row.unrealizedPnl)">{{ formatPnl(row.unrealizedPnl) }}</span>
+                  <span class="pnl-cell__percent" :class="pnlClass(row.unrealizedPnl)">{{ formatPercent(row.unrealizedPnlRate) }}</span>
+                </div>
+              </template>
+            </el-table-column>
+          </el-table>
+          <div style="display: flex; justify-content: flex-end; margin-top: 12px">
+            <el-pagination
+              v-model:current-page="positionPage"
+              :page-size="10"
+              :total="filteredPositions.length"
+              layout="total, prev, pager, next"
+              small
+            />
+          </div>
+        </div>
+
+        <!-- Right: Performance -->
+        <div>
+          <div class="perf-cards-row">
+            <div class="perf-card">
+              <div class="perf-card__label">最大回撤</div>
+              <div class="perf-card__value pnl-negative">{{ formatPercent(performance.maxDrawdown) }}</div>
+            </div>
+            <div class="perf-card">
+              <div class="perf-card__label">夏普率</div>
+              <div class="perf-card__value" :class="sharpeClass(performance.sharpe)">{{ performance.sharpe.toFixed(2) }}</div>
+            </div>
+            <div class="perf-card">
+              <div class="perf-card__label">胜率</div>
+              <div class="perf-card__value" :class="winRateClass(performance.winRate)">{{ formatPercent(performance.winRate) }}</div>
+            </div>
+          </div>
+
+          <div class="surface-card">
+            <div class="surface-card__header">
+              <div class="surface-card__title">策略绩效</div>
+            </div>
+            <el-table
+              :data="strategies"
+              style="width: 100%"
+              :header-cell-style="{ background: 'transparent' }"
+              size="small"
+              empty-text="暂无策略数据"
+            >
+              <el-table-column prop="strategyName" label="策略" min-width="100">
+                <template #default="{ row }">
+                  <span class="strategy-link">{{ row.strategyName }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column prop="totalPnl" label="总盈亏" width="110" align="right" sortable :sort-method="(a,b) => a.totalPnl - b.totalPnl">
+                <template #default="{ row }">
+                  <span class="mono-cell" :class="pnlClass(row.totalPnl)">{{ formatPnl(row.totalPnl) }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column prop="totalPnlRate" label="盈亏率" width="90" align="right">
+                <template #default="{ row }">
+                  <span class="mono-cell" :class="pnlClass(row.totalPnlRate)">{{ formatPercent(row.totalPnlRate) }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column prop="maxDrawdown" label="回撤" width="90" align="right">
+                <template #default="{ row }">
+                  <span class="mono-cell pnl-negative">{{ formatPercent(row.maxDrawdown) }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column prop="tradeCount" label="交易数" width="70" align="center">
+                <template #default="{ row }">
+                  <span class="mono-cell">{{ row.tradeCount }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column prop="winRate" label="胜率" width="70" align="right">
+                <template #default="{ row }">
+                  <span class="mono-cell" :class="winRateClass(row.winRate)">{{ formatPercent(row.winRate) }}</span>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Page 2: Positions -->
+    <div v-if="activeTab === 'positions'" class="page-section">
+      <div class="surface-card">
+        <div class="surface-card__header" style="flex-wrap: wrap; gap: 12px">
+          <div class="surface-card__title">持仓汇总 <el-badge :value="positions.length" type="info" /></div>
+          <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap">
+            <el-segmented v-model="sideFilter" :options="sideFilterOptions" size="small" />
+            <el-input v-model="positionSearch" placeholder="搜索交易对" :prefix-icon="Search" size="small" style="width: 180px" clearable />
+            <el-select v-model="positionSort" size="small" style="width: 160px">
+              <el-option label="浮动盈亏 ↓" value="pnl-desc" />
+              <el-option label="浮动盈亏 ↑" value="pnl-asc" />
+              <el-option label="数量 ↓" value="qty-desc" />
+              <el-option label="交易对 A-Z" value="symbol-asc" />
+            </el-select>
+          </div>
+        </div>
+        <el-table
+          :data="detailedPositions"
+          :row-class-name="positionRowClass"
+          style="width: 100%"
+          :header-cell-style="{ background: 'transparent' }"
+          size="small"
+          empty-text="暂无持仓"
+        >
+          <el-table-column prop="symbol" label="交易对" min-width="120">
+            <template #default="{ row }">
+              <span style="font-weight: 600">{{ row.symbol }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="side" label="方向" width="80" align="center">
+            <template #default="{ row }">
+              <span :class="row.side === 'long' ? 'side-tag--long' : 'side-tag--short'">
+                {{ row.side === 'long' ? '多' : '空' }}
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="quantity" label="数量" width="110" align="right">
+            <template #default="{ row }"><span class="mono-cell">{{ row.quantity }}</span></template>
+          </el-table-column>
+          <el-table-column prop="avgPrice" label="均价" width="120" align="right">
+            <template #default="{ row }"><span class="mono-cell">{{ formatMoney(row.avgPrice) }}</span></template>
+          </el-table-column>
+          <el-table-column prop="currentPrice" label="现价" width="120" align="right">
+            <template #default="{ row }"><span class="mono-cell">{{ formatMoney(row.currentPrice) }}</span></template>
+          </el-table-column>
+          <el-table-column label="浮动盈亏" width="160" align="right">
+            <template #default="{ row }">
+              <div class="pnl-cell">
+                <span class="pnl-cell__amount" :class="pnlClass(row.unrealizedPnl)">{{ formatPnl(row.unrealizedPnl) }}</span>
+                <span class="pnl-cell__percent" :class="pnlClass(row.unrealizedPnl)">{{ formatPercent(row.unrealizedPnlRate) }}</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="占比" width="120" align="right">
+            <template #default="{ row }">
+              <div class="progress-mini">
+                <span class="mono-cell" :class="pnlClass(row.unrealizedPnl)">{{ row.share.toFixed(1) }}%</span>
+                <div class="progress-mini__bar">
+                  <div class="progress-mini__fill" :style="{ width: row.share + '%', backgroundColor: row.side === 'long' ? 'var(--color-buy)' : 'var(--color-sell)' }"></div>
+                </div>
+              </div>
+            </template>
+          </el-table-column>
+        </el-table>
+        <div style="display: flex; justify-content: flex-end; margin-top: 12px">
+          <el-pagination :page-size="10" :total="detailedPositions.length" layout="total, prev, pager, next" small />
+        </div>
+      </div>
+    </div>
+
+    <!-- Page 3: Performance -->
+    <div v-if="activeTab === 'performance'" class="page-section">
+      <div class="metric-cards-row" style="grid-template-columns: repeat(3, 1fr)">
+        <div class="metric-card">
+          <el-icon class="metric-card__icon" style="color: var(--color-negative)"><Bottom /></el-icon>
+          <div class="metric-card__label">最大回撤</div>
+          <div class="metric-card__value pnl-negative">{{ formatPercent(performance.maxDrawdown) }}</div>
+        </div>
+        <div class="metric-card">
+          <el-icon class="metric-card__icon" :style="{ color: sharpeColor(performance.sharpe) }"><DataAnalysis /></el-icon>
+          <div class="metric-card__label">夏普率</div>
+          <div class="metric-card__value" :class="sharpeClass(performance.sharpe)">{{ performance.sharpe.toFixed(2) }}</div>
+        </div>
+        <div class="metric-card">
+          <el-icon class="metric-card__icon" :style="{ color: winRateColor(performance.winRate) }"><SuccessFilled /></el-icon>
+          <div class="metric-card__label">胜率</div>
+          <div class="metric-card__value" :class="winRateClass(performance.winRate)">{{ formatPercent(performance.winRate) }}</div>
+        </div>
+      </div>
+
+      <div class="equity-curve-section">
+        <div class="equity-curve__header">
+          <div class="equity-curve__title">策略权益对比</div>
+        </div>
+        <div id="strategy-chart" style="width: 100%; height: 320px"></div>
+      </div>
+
+      <div class="surface-card">
+        <div class="surface-card__header">
+          <div class="surface-card__title">策略绩效对比</div>
+        </div>
+        <el-table
+          :data="strategies"
+          style="width: 100%"
+          :header-cell-style="{ background: 'transparent' }"
+          size="small"
+        >
+          <el-table-column prop="strategyName" label="策略" min-width="120">
+            <template #default="{ row }">
+              <span class="strategy-link">{{ row.strategyName }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="totalPnl" label="总盈亏" width="120" align="right" sortable :sort-method="(a,b) => a.totalPnl - b.totalPnl">
+            <template #default="{ row }"><span class="mono-cell" :class="pnlClass(row.totalPnl)">{{ formatPnl(row.totalPnl) }}</span></template>
+          </el-table-column>
+          <el-table-column prop="totalPnlRate" label="盈亏率" width="100" align="right">
+            <template #default="{ row }"><span class="mono-cell" :class="pnlClass(row.totalPnlRate)">{{ formatPercent(row.totalPnlRate) }}</span></template>
+          </el-table-column>
+          <el-table-column prop="maxDrawdown" label="最大回撤" width="100" align="right">
+            <template #default="{ row }"><span class="mono-cell pnl-negative">{{ formatPercent(row.maxDrawdown) }}</span></template>
+          </el-table-column>
+          <el-table-column prop="sharpe" label="Sharpe" width="80" align="right">
+            <template #default="{ row }"><span class="mono-cell" :class="sharpeClass(row.sharpe)">{{ row.sharpe.toFixed(2) }}</span></template>
+          </el-table-column>
+          <el-table-column prop="tradeCount" label="交易数" width="80" align="center">
+            <template #default="{ row }"><span class="mono-cell">{{ row.tradeCount }}</span></template>
+          </el-table-column>
+          <el-table-column prop="winRate" label="胜率" width="80" align="right">
+            <template #default="{ row }"><span class="mono-cell" :class="winRateClass(row.winRate)">{{ formatPercent(row.winRate) }}</span></template>
+          </el-table-column>
+        </el-table>
+      </div>
+    </div>
+
+    <!-- Empty state (toggle for demo) -->
+    <div v-if="activeTab === 'empty'" class="page-section">
+      <div class="empty-state">
+        <el-icon class="empty-state__icon"><PieChart /></el-icon>
+        <div class="empty-state__title">还没有组合数据</div>
+        <div class="empty-state__desc">开始交易后，这里会显示您的持仓和收益</div>
+        <el-button type="primary" style="margin-top: 20px">前往交易</el-button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const { createApp, ref, reactive, computed, onMounted, watch, nextTick } = Vue;
+
+const app = createApp({
+  setup() {
+    // --- Tabs ---
+    const tabs = [
+      { key: 'dashboard', label: '组合总览' },
+      { key: 'positions', label: '持仓汇总' },
+      { key: 'performance', label: '策略绩效' },
+      { key: 'empty', label: '空状态' },
+    ];
+    const activeTab = ref('dashboard');
+
+    // --- Header ---
+    const dateRange = ref(['2026-04-14', '2026-05-14']);
+    const granularity = ref('日');
+    const granularityOptions = ['小时', '日', '周'];
+    const isRefreshing = ref(false);
+
+    function handleRefresh() {
+      isRefreshing.value = true;
+      setTimeout(() => { isRefreshing.value = false; }, 600);
+      triggerFlash('totalEquity');
+    }
+
+    // --- Icons ---
+    const RefreshIcon = ElementPlusIconsVue.Refresh;
+    const Search = ElementPlusIconsVue.Search;
+
+    // --- Summary data ---
+    const summary = reactive({
+      totalEquity: 100000.00,
+      cumulativePnl: 15000.00,
+      cumulativePnlRate: 17.65,
+      dailyPnl: 1234.56,
+      dailyPnlRate: 1.25,
+      totalPositions: 7,
+      returnRate: 17.65,
+      updatedAt: new Date().toISOString(),
+    });
+
+    // --- Positions ---
+    const positions = ref([
+      { symbol: 'BTC/USDT', side: 'long', quantity: '0.5000', avgPrice: 60000, currentPrice: 65000, unrealizedPnl: 2500, unrealizedPnlRate: 8.33, share: 32.5 },
+      { symbol: 'ETH/USDT', side: 'short', quantity: '10.00', avgPrice: 3200, currentPrice: 3000, unrealizedPnl: 2000, unrealizedPnlRate: 6.25, share: 28.0 },
+      { symbol: 'SOL/USDT', side: 'long', quantity: '50.00', avgPrice: 150, currentPrice: 140, unrealizedPnl: -500, unrealizedPnlRate: -6.67, share: 8.5 },
+      { symbol: 'DOGE/USDT', side: 'long', quantity: '10000', avgPrice: 0.12, currentPrice: 0.15, unrealizedPnl: 300, unrealizedPnlRate: 25.0, share: 5.2 },
+      { symbol: 'XRP/USDT', side: 'short', quantity: '2000', avgPrice: 0.55, currentPrice: 0.50, unrealizedPnl: 100, unrealizedPnlRate: 9.09, share: 3.8 },
+      { symbol: 'ADA/USDT', side: 'long', quantity: '5000', avgPrice: 0.45, currentPrice: 0.40, unrealizedPnl: -250, unrealizedPnlRate: -11.11, share: 4.0 },
+      { symbol: 'AVAX/USDT', side: 'long', quantity: '20.00', avgPrice: 35, currentPrice: 38, unrealizedPnl: 60, unrealizedPnlRate: 8.57, share: 7.6 },
+    ]);
+
+    const positionSearch = ref('');
+    const positionPage = ref(1);
+    const sideFilter = ref('全部');
+    const sideFilterOptions = ['全部', '多头', '空头'];
+    const positionSort = ref('pnl-desc');
+
+    const filteredPositions = computed(() => {
+      let list = positions.value;
+      if (positionSearch.value) {
+        const q = positionSearch.value.toLowerCase();
+        list = list.filter(p => p.symbol.toLowerCase().includes(q));
+      }
+      return list;
+    });
+
+    const detailedPositions = computed(() => {
+      let list = [...positions.value];
+      if (sideFilter.value === '多头') list = list.filter(p => p.side === 'long');
+      if (sideFilter.value === '空头') list = list.filter(p => p.side === 'short');
+      if (positionSearch.value) {
+        const q = positionSearch.value.toLowerCase();
+        list = list.filter(p => p.symbol.toLowerCase().includes(q));
+      }
+      if (positionSort.value === 'pnl-desc') list.sort((a, b) => Math.abs(b.unrealizedPnl) - Math.abs(a.unrealizedPnl));
+      if (positionSort.value === 'pnl-asc') list.sort((a, b) => Math.abs(a.unrealizedPnl) - Math.abs(b.unrealizedPnl));
+      if (positionSort.value === 'qty-desc') list.sort((a, b) => parseFloat(b.quantity) - parseFloat(a.quantity));
+      if (positionSort.value === 'symbol-asc') list.sort((a, b) => a.symbol.localeCompare(b.symbol));
+      return list;
+    });
+
+    // --- Performance ---
+    const performance = reactive({
+      maxDrawdown: -12.34,
+      sharpe: 1.85,
+      winRate: 62.5,
+    });
+
+    const strategies = ref([
+      { strategyName: '趋势跟踪-MA', totalPnl: 8500, totalPnlRate: 28.33, maxDrawdown: -8.5, sharpe: 2.1, tradeCount: 45, winRate: 68.9 },
+      { strategyName: '网格交易-BTC', totalPnl: 4200, totalPnlRate: 14.0, maxDrawdown: -5.2, sharpe: 1.6, tradeCount: 120, winRate: 55.8 },
+      { strategyName: '均值回归-ETH', totalPnl: 2800, totalPnlRate: 9.33, maxDrawdown: -12.34, sharpe: 1.2, tradeCount: 78, winRate: 58.9 },
+      { strategyName: '动量突破-SOL', totalPnl: -500, totalPnlRate: -3.33, maxDrawdown: -15.6, sharpe: 0.8, tradeCount: 32, winRate: 37.5 },
+    ]);
+
+    // --- Sparkline ---
+    const sparklineData = [15.2, 16.1, 14.8, 17.5, 16.9, 18.2, 17.1, 17.65];
+    const sparklinePoints = computed(() => {
+      const min = Math.min(...sparklineData);
+      const max = Math.max(...sparklineData);
+      const range = max - min || 1;
+      return sparklineData.map((v, i) => {
+        const x = (i / (sparklineData.length - 1)) * 60;
+        const y = 18 - ((v - min) / range) * 16;
+        return `${x},${y}`;
+      }).join(' ');
+    });
+
+    // --- Flash state ---
+    const flashState = reactive({
+      totalEquity: false,
+      cumulativePnl: false,
+      dailyPnl: false,
+      returnRate: false,
+    });
+
+    function triggerFlash(key) {
+      flashState[key] = true;
+      setTimeout(() => { flashState[key] = false; }, 2000);
+    }
+
+    // --- Simulate WS updates ---
+    let wsInterval = null;
+    function startWsSimulation() {
+      wsInterval = setInterval(() => {
+        // Randomly update summary values
+        const delta = (Math.random() - 0.45) * 200;
+        summary.totalEquity += delta;
+        summary.dailyPnl += delta * 0.3;
+        summary.dailyPnlRate = (summary.dailyPnl / 100000) * 100;
+        summary.cumulativePnl += delta * 0.1;
+        summary.returnRate = (summary.cumulativePnl / 85000) * 100;
+
+        // Flash
+        const keys = ['totalEquity', 'dailyPnl', 'cumulativePnl', 'returnRate'];
+        const key = keys[Math.floor(Math.random() * keys.length)];
+        triggerFlash(key);
+      }, 8000);
+    }
+
+    // --- Formatters ---
+    function formatMoney(val) {
+      const num = typeof val === 'string' ? parseFloat(val) : val;
+      return '¥' + num.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function formatPnl(val) {
+      const num = typeof val === 'string' ? parseFloat(val) : val;
+      const prefix = num > 0 ? '+' : '';
+      return prefix + '¥' + num.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function formatPercent(val) {
+      const num = typeof val === 'string' ? parseFloat(val) : val;
+      const prefix = num > 0 ? '+' : '';
+      return prefix + num.toFixed(2) + '%';
+    }
+
+    function pnlClass(val) {
+      const num = typeof val === 'string' ? parseFloat(val) : val;
+      if (num > 0) return 'pnl-positive';
+      if (num < 0) return 'pnl-negative';
+      return 'pnl-neutral';
+    }
+
+    function pnlColor(val) {
+      const num = typeof val === 'string' ? parseFloat(val) : val;
+      if (num > 0) return 'var(--color-positive)';
+      if (num < 0) return 'var(--color-negative)';
+      return 'var(--color-neutral)';
+    }
+
+    function flashClass(val, key) {
+      const num = typeof val === 'string' ? parseFloat(val) : val;
+      if (!flashState[key]) return '';
+      return num >= 0 ? 'flash-positive' : 'flash-negative';
+    }
+
+    function sharpeClass(val) {
+      if (val >= 2) return 'pnl-positive';
+      if (val >= 1) return '';
+      return 'pnl-negative';
+    }
+    function sharpeColor(val) {
+      if (val >= 2) return 'var(--color-positive)';
+      if (val >= 1) return 'var(--color-warning)';
+      return 'var(--color-negative)';
+    }
+
+    function winRateClass(val) {
+      if (val >= 60) return 'pnl-positive';
+      if (val >= 40) return '';
+      return 'pnl-negative';
+    }
+    function winRateColor(val) {
+      if (val >= 60) return 'var(--color-positive)';
+      if (val >= 40) return 'var(--color-warning)';
+      return 'var(--color-negative)';
+    }
+
+    function positionRowClass({ row }) {
+      return row.side === 'long' ? 'row-long' : 'row-short';
+    }
+
+    function sortByPnl(a, b) {
+      return a.unrealizedPnl - b.unrealizedPnl;
+    }
+
+    // --- Equity Curve Chart ---
+    let equityChart = null;
+    function initEquityChart() {
+      const dom = document.getElementById('equity-chart');
+      if (!dom) return;
+      equityChart = echarts.init(dom, null, { renderer: 'canvas' });
+
+      // Generate mock data
+      const data = [];
+      const baseDate = new Date('2026-04-14');
+      let equity = 85000;
+      for (let i = 0; i < 30; i++) {
+        const date = new Date(baseDate);
+        date.setDate(date.getDate() + i);
+        equity += (Math.random() - 0.42) * 800;
+        equity = Math.max(82000, equity);
+        data.push([date.getTime(), Math.round(equity * 100) / 100]);
+      }
+
+      equityChart.setOption({
+        backgroundColor: 'transparent',
+        grid: { left: 64, right: 24, top: 16, bottom: 32 },
+        xAxis: {
+          type: 'time',
+          axisLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } },
+          axisLabel: { color: '#8a8f98', fontSize: 11, fontFamily: 'JetBrains Mono' },
+          splitLine: { show: false },
+        },
+        yAxis: {
+          type: 'value',
+          axisLine: { show: false },
+          axisLabel: {
+            color: '#8a8f98',
+            fontSize: 11,
+            fontFamily: 'JetBrains Mono',
+            formatter: v => '¥' + (v / 1000).toFixed(0) + 'k'
+          },
+          splitLine: { lineStyle: { color: 'rgba(255,255,255,0.04)' } },
+        },
+        tooltip: {
+          trigger: 'axis',
+          backgroundColor: '#212223',
+          borderColor: 'rgba(255,255,255,0.08)',
+          textStyle: { color: '#f7f8f8', fontFamily: 'JetBrains Mono', fontSize: 12 },
+          formatter: params => {
+            const p = params[0];
+            const date = new Date(p.value[0]);
+            const ds = date.toLocaleDateString('zh-CN');
+            return `${ds}<br/>权益: ¥${p.value[1].toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`;
+          }
+        },
+        series: [{
+          type: 'line',
+          data: data,
+          smooth: 0.3,
+          showSymbol: false,
+          lineStyle: { color: '#7170ff', width: 2 },
+          areaStyle: {
+            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+              { offset: 0, color: 'rgba(113,112,255,0.20)' },
+              { offset: 1, color: 'rgba(113,112,255,0.00)' }
+            ])
+          },
+          itemStyle: { color: '#7170ff' },
+        }]
+      });
+
+      // Append new data points periodically
+      setInterval(() => {
+        if (!equityChart) return;
+        const lastVal = data[data.length - 1][1];
+        const newVal = lastVal + (Math.random() - 0.42) * 500;
+        const newTime = data[data.length - 1][0] + 86400000;
+        data.push([newTime, Math.round(newVal * 100) / 100]);
+        equityChart.setOption({ series: [{ data }] });
+      }, 15000);
+    }
+
+    // --- Strategy Comparison Chart ---
+    let strategyChart = null;
+    const strategyColors = ['#7170ff', '#10b981', '#f5a623', '#60a5fa', '#e5484d'];
+
+    function initStrategyChart() {
+      const dom = document.getElementById('strategy-chart');
+      if (!dom) return;
+      strategyChart = echarts.init(dom, null, { renderer: 'canvas' });
+
+      const baseDate = new Date('2026-04-14');
+      const seriesData = strategies.value.map((s, idx) => {
+        const points = [];
+        let val = 10000;
+        for (let i = 0; i < 30; i++) {
+          const date = new Date(baseDate);
+          date.setDate(date.getDate() + i);
+          const drift = s.totalPnlRate / 30 / 100;
+          val *= (1 + drift + (Math.random() - 0.5) * 0.02);
+          points.push([date.getTime(), Math.round(val * 100) / 100]);
+        }
+        return { name: s.strategyName, data: points };
+      });
+
+      strategyChart.setOption({
+        backgroundColor: 'transparent',
+        grid: { left: 64, right: 24, top: 40, bottom: 32 },
+        legend: {
+          top: 0,
+          textStyle: { color: '#8a8f98', fontSize: 12 },
+          itemWidth: 16, itemHeight: 2,
+        },
+        xAxis: {
+          type: 'time',
+          axisLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } },
+          axisLabel: { color: '#8a8f98', fontSize: 11, fontFamily: 'JetBrains Mono' },
+          splitLine: { show: false },
+        },
+        yAxis: {
+          type: 'value',
+          axisLine: { show: false },
+          axisLabel: {
+            color: '#8a8f98', fontSize: 11, fontFamily: 'JetBrains Mono',
+            formatter: v => '¥' + (v / 1000).toFixed(0) + 'k'
+          },
+          splitLine: { lineStyle: { color: 'rgba(255,255,255,0.04)' } },
+        },
+        tooltip: {
+          trigger: 'axis',
+          backgroundColor: '#212223',
+          borderColor: 'rgba(255,255,255,0.08)',
+          textStyle: { color: '#f7f8f8', fontFamily: 'JetBrains Mono', fontSize: 12 },
+        },
+        series: seriesData.map((s, idx) => ({
+          name: s.name,
+          type: 'line',
+          data: s.data,
+          smooth: 0.3,
+          showSymbol: false,
+          lineStyle: { color: strategyColors[idx], width: 2 },
+          itemStyle: { color: strategyColors[idx] },
+        }))
+      });
+    }
+
+    // --- Init charts on tab switch ---
+    watch(activeTab, (val) => {
+      nextTick(() => {
+        if (val === 'dashboard') initEquityChart();
+        if (val === 'performance') initStrategyChart();
+      });
+    });
+
+    onMounted(() => {
+      nextTick(() => {
+        initEquityChart();
+        startWsSimulation();
+      });
+      // Resize
+      window.addEventListener('resize', () => {
+        if (equityChart) equityChart.resize();
+        if (strategyChart) strategyChart.resize();
+      });
+    });
+
+    return {
+      tabs, activeTab,
+      dateRange, granularity, granularityOptions, isRefreshing, handleRefresh,
+      RefreshIcon, Search,
+      summary,
+      positions, positionSearch, positionPage, filteredPositions, detailedPositions,
+      sideFilter, sideFilterOptions, positionSort,
+      performance, strategies,
+      sparklinePoints, flashState,
+      formatMoney, formatPnl, formatPercent,
+      pnlClass, pnlColor, flashClass,
+      sharpeClass, sharpeColor, winRateClass, winRateColor,
+      positionRowClass, sortByPnl,
+    };
+  }
+});
+
+// Register Element Plus
+app.use(ElementPlus);
+// Register icons
+for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
+  app.component(key, component);
+}
+app.mount('#app');
+</script>
+</body>
+</html>

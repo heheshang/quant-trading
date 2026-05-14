@@ -660,8 +660,8 @@ mod tests {
         assert!((pnl - 200.0).abs() < 1e-6);
     }
 
-    #[test]
-    fn test_insert_and_remove_limit_order() {
+    #[tokio::test]
+    async fn test_insert_and_remove_limit_order() {
         let db = Arc::new(sea_orm::DatabaseConnection::Disconnected);
         let engine = MatchingEngine::new(db, 0, 0.001);
 
@@ -699,8 +699,8 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_order_book_bids_descending() {
+    #[tokio::test]
+    async fn test_order_book_bids_descending() {
         let db = Arc::new(sea_orm::DatabaseConnection::Disconnected);
         let engine = MatchingEngine::new(db, 0, 0.001);
         let user_id = uuid::Uuid::new_v4();
@@ -726,8 +726,8 @@ mod tests {
         assert_eq!(prices, vec![51000.0, 50000.0, 49000.0]);
     }
 
-    #[test]
-    fn test_order_book_asks_ascending() {
+    #[tokio::test]
+    async fn test_order_book_asks_ascending() {
         let db = Arc::new(sea_orm::DatabaseConnection::Disconnected);
         let engine = MatchingEngine::new(db, 0, 0.001);
         let user_id = uuid::Uuid::new_v4();
@@ -751,8 +751,8 @@ mod tests {
         assert_eq!(prices, vec![49000.0, 50000.0, 51000.0]);
     }
 
-    #[test]
-    fn test_update_and_get_depth() {
+    #[tokio::test]
+    async fn test_update_and_get_depth() {
         let db = Arc::new(sea_orm::DatabaseConnection::Disconnected);
         let engine = MatchingEngine::new(db, 0, 0.001);
 

@@ -6,13 +6,13 @@ services:
       dockerfile: Dockerfile.backend
     container_name: quant-backend
     restart: unless-stopped
-    ports:
-      - "8083:8080"
+    expose:
+      - "8080"
     env_file:
       - .env
     environment:
-      - DATABASE_URL=postgres://quant:***@postgres:5432/quant_trading
-      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgres://quant:${POSTGRES_PASSWORD}@postgres:5432/quant_trading
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - SERVER_HOST=0.0.0.0
       - SERVER_PORT=8080
       - CORS_ORIGINS=http://localhost:80,http://localhost:8081,http://localhost:5173
@@ -27,7 +27,7 @@ services:
     networks:
       - quant-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v1/health"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/api/v1/health && curl -sf -o /dev/null -w '%{http_code}' http://localhost:8080/api/v1/portfolio/summary | grep -qE '401|200'"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -64,7 +64,7 @@ services:
       - ./docker-init/postgres:/docker-entrypoint-initdb.d:ro
     environment:
       POSTGRES_USER: quant
-      POSTGRES_PASSWORD: changeme
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: quant_trading
     # ports removed for security (internal network only)
     networks:
@@ -81,13 +81,16 @@ services:
     image: redis:7-alpine
     container_name: quant-redis
     restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD}
     volumes:
       - redis-data:/data
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
     # ports removed for security (internal network only)
     networks:
       - quant-network
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a $REDIS_PASSWORD ping | grep PONG"]
       interval: 10s
       timeout: 5s
       retries: 5

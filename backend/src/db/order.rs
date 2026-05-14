@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 // ─── 枚举 ───────────────────────────────────────────────────────
 
-#[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize)]
 #[sea_orm(rs_type = "String", db_type = "String(StringLen::N(4))")]
 pub enum OrderSide {
     #[sea_orm(string_value = "buy")]
@@ -17,13 +17,27 @@ pub enum OrderSide {
     Sell,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+impl Serialize for OrderSide {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where S: serde::Serializer {
+        serializer.serialize_str(match self { OrderSide::Buy => "buy", OrderSide::Sell => "sell" })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize)]
 #[sea_orm(rs_type = "String", db_type = "String(StringLen::N(10))")]
 pub enum OrderType {
     #[sea_orm(string_value = "limit")]
     Limit,
     #[sea_orm(string_value = "market")]
     Market,
+}
+
+impl Serialize for OrderType {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where S: serde::Serializer {
+        serializer.serialize_str(match self { OrderType::Limit => "limit", OrderType::Market => "market" })
+    }
 }
 
 /// 订单状态机 (ADR D2)
@@ -33,7 +47,7 @@ pub enum OrderType {
 /// pending → expired
 /// partial_filled → filled
 /// partial_filled → cancelled (保留已成交部分)
-#[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize)]
 #[sea_orm(rs_type = "String", db_type = "String(StringLen::N(20))")]
 pub enum OrderStatus {
     #[sea_orm(string_value = "pending")]
@@ -48,6 +62,21 @@ pub enum OrderStatus {
     Expired,
     #[sea_orm(string_value = "rejected")]
     Rejected,
+}
+
+impl Serialize for OrderStatus {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where S: serde::Serializer {
+        let s = match self {
+            OrderStatus::Pending => "pending",
+            OrderStatus::PartialFilled => "partial_filled",
+            OrderStatus::Filled => "filled",
+            OrderStatus::Cancelled => "cancelled",
+            OrderStatus::Expired => "expired",
+            OrderStatus::Rejected => "rejected",
+        };
+        serializer.serialize_str(s)
+    }
 }
 
 impl OrderStatus {
@@ -82,13 +111,20 @@ impl OrderStatus {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize)]
 #[sea_orm(rs_type = "String", db_type = "String(StringLen::N(10))")]
 pub enum TradeMode {
     #[sea_orm(string_value = "paper")]
     Paper,
     #[sea_orm(string_value = "live")]
     Live,
+}
+
+impl Serialize for TradeMode {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where S: serde::Serializer {
+        serializer.serialize_str(match self { TradeMode::Paper => "paper", TradeMode::Live => "live" })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
@@ -102,13 +138,20 @@ pub enum TimeInForce {
     FOK,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize)]
 #[sea_orm(rs_type = "String", db_type = "String(StringLen::N(5))")]
 pub enum PositionSide {
     #[sea_orm(string_value = "long")]
     Long,
     #[sea_orm(string_value = "short")]
     Short,
+}
+
+impl Serialize for PositionSide {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where S: serde::Serializer {
+        serializer.serialize_str(match self { PositionSide::Long => "long", PositionSide::Short => "short" })
+    }
 }
 
 // ─── Orders Entity ──────────────────────────────────────────────

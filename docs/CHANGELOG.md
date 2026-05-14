@@ -6,6 +6,63 @@
 
 ---
 
+## [0.7.0] — 2026-05-14
+
+### 新增
+
+#### Portfolio 组合权益模块
+
+- **组合权益 API** (`/api/v1/portfolio`)
+  - `GET /api/v1/portfolio/summary` — 获取组合权益汇总（总资产/当日盈亏/累计盈亏/持仓数）
+  - `GET /api/v1/portfolio/positions` — 获取持仓列表（分页/按交易对筛选）
+  - `GET /api/v1/portfolio/performance` — 获取多策略绩效对比数据
+  - `GET /api/v1/portfolio/equity_curve` — 获取权益曲线时序数据（支持粒度/日期范围）
+
+- **组合权益汇总** (`/portfolio/summary`)
+  - 从 `paper_accounts` 聚合总资产和累计盈亏
+  - 从当日已成交订单计算当日盈亏
+  - 支持普通用户查看自己、管理员查看任意用户
+
+- **持仓列表** (`/portfolio/positions`)
+  - 分页查询，支持按 `symbol` 筛选
+  - 返回持仓方向（long/short）、数量、均价、现价、浮动盈亏
+  - 分页参数 `page`（默认 1）和 `size`（默认 20，范围 1–100）
+
+- **策略绩效对比** (`/portfolio/performance`)
+  - 从 `backtest_results.metrics` 提取策略绩效指标
+  - 统计各策略已成交订单数（`trade_count`）
+  - 返回策略级别的总盈亏、盈亏率、最大回撤、胜率
+
+- **权益曲线** (`/portfolio/equity_curve`)
+  - 从 `portfolio_equity_history` 查询时序数据
+  - 支持日期范围筛选（`start_date`/`end_date`，格式 `YYYY-MM-DD`）
+  - 支持 `hour`/`day` 粒度聚合（同粒度取最后一条快照）
+
+- **权益快照服务**
+  - `record_equity_snapshot` 函数：写入权益快照到 `portfolio_equity_history`
+
+#### 权限模型
+
+- 统一访问控制：普通用户仅可查看自己，管理员可通过 `user_id` 查看他人
+- `check_access` 辅助函数：越权访问返回 `40301` 错误
+
+#### 数据库模型
+
+| 表 | 说明 |
+|---|------|
+| `portfolio_equity_history` | 权益历史快照（`user_id` + `equity` + `timestamp`） |
+
+### 已知限制
+
+| 编号 | 限制 | 计划 |
+|------|------|------|
+| BA-03 | `/performance` 缺少组合整体 `max_drawdown`/`sharpe_ratio`/`win_rate` 指标 | v0.8.0 补充 |
+| BA-04 | `week` 粒度聚合逻辑与 `day` 相同 | v0.8.0 补充 |
+| BA-05 | `/positions` 不支持 `side` 筛选参数 | v0.8.0 补充 |
+| BA-08 | `current_price` 使用 `avg_entry_price` 占位 | 接入行情服务后修复 |
+
+---
+
 ## [0.4.0] — 2026-05-13
 
 ### 新增

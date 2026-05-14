@@ -176,6 +176,28 @@ fn create_router(db: DbPool, cors: CorsLayer, matching_engine: Arc<MatchingEngin
             quant_trading_backend::middleware::auth::auth_middleware,
         ));
 
+    // Portfolio routes (authenticated)
+    let portfolio_routes = Router::new()
+        .route(
+            "/portfolio/summary",
+            get(handlers::portfolio::get_portfolio_summary),
+        )
+        .route(
+            "/portfolio/positions",
+            get(handlers::portfolio::list_portfolio_positions),
+        )
+        .route(
+            "/portfolio/performance",
+            get(handlers::portfolio::get_portfolio_performance),
+        )
+        .route(
+            "/portfolio/equity_curve",
+            get(handlers::portfolio::get_equity_curve),
+        )
+        .layer(middleware::from_fn(
+            quant_trading_backend::middleware::auth::auth_middleware,
+        ));
+
     // Backtest routes (authenticated)
     let backtest_routes = Router::new()
         .route("/backtest", post(handlers::backtest::run_backtest))
@@ -223,6 +245,7 @@ fn create_router(db: DbPool, cors: CorsLayer, matching_engine: Arc<MatchingEngin
         .nest("/api/v1", kline_routes)
         .nest("/api/v1", market_routes)
         .nest("/api/v1", order_routes)
+        .nest("/api/v1", portfolio_routes)
         .nest("/api/v1", backtest_routes)
         .nest("/api/v1", cancel_routes)
         .nest("/api/v1", public_routes)
