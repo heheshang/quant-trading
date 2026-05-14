@@ -21,6 +21,7 @@ import {
   getSymbols,
   getPositions,
   closePosition,
+  getTrades,
 } from '@/api/order'
 import type { Order, OrderListResponse, PaperAccount, SymbolConfig, Position } from '@/types/order'
 
@@ -44,6 +45,7 @@ describe('order API', () => {
         side: 'buy',
         order_type: 'limit',
         price: '49500.00',
+        stop_price: null,
         quantity: '0.1000',
         filled_quantity: '0.0000',
         avg_fill_price: null,
@@ -52,6 +54,7 @@ describe('order API', () => {
         fee: '0',
         reject_reason: null,
         time_in_force: 'GTC',
+        strategy_id: null,
         created_at: '2026-05-14T06:00:00Z',
         updated_at: '2026-05-14T06:00:00Z',
         cancelled_at: null,
@@ -226,6 +229,33 @@ describe('order API', () => {
       await closePosition(42)
 
       expect(mockClient.post).toHaveBeenCalledWith('/positions/42/close')
+    })
+  })
+
+  describe('getTrades', () => {
+    it('should GET /trades without params', async () => {
+      const mockResponse = {
+        items: [],
+        total: 0,
+        page: 1,
+        size: 20,
+      }
+      mockClient.get.mockResolvedValue(mockResponse)
+
+      const result = await getTrades()
+
+      expect(mockClient.get).toHaveBeenCalledWith('/trades', { params: undefined })
+      expect(result).toEqual(mockResponse)
+    })
+
+    it('should GET /trades with query params', async () => {
+      mockClient.get.mockResolvedValue({ items: [], total: 0, page: 1, size: 20 })
+
+      await getTrades({ symbol: 'BTC/USDT', side: 'buy', page: 1, size: 50 })
+
+      expect(mockClient.get).toHaveBeenCalledWith('/trades', {
+        params: { symbol: 'BTC/USDT', side: 'buy', page: 1, size: 50 },
+      })
     })
   })
 })

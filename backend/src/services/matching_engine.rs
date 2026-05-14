@@ -45,14 +45,12 @@ pub struct OrderedFloat(f64);
 impl Eq for OrderedFloat {}
 
 impl PartialOrd for OrderedFloat {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.0.partial_cmp(&other.0).unwrap_or(std::cmp::Ordering::Equal))
-    }
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> { Some(self.cmp(other)) }
 }
 
 impl Ord for OrderedFloat {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.partial_cmp(other).unwrap_or(std::cmp::Ordering::Equal)
+        self.0.partial_cmp(&other.0).unwrap_or(std::cmp::Ordering::Equal)
     }
 }
 
@@ -370,7 +368,7 @@ impl MatchingEngine {
         drop(books);
 
         // 4. 逐笔撮合买盘订单（买入吃卖）
-        for (price, remaining_qty, entry) in matched_bids {
+        for (_price, remaining_qty, entry) in matched_bids {
             let fill_qty = remaining_qty.min(depth.asks[0].quantity);
             let fill_price = depth.asks[0].price;
             let trade_fee = fill_qty * fill_price * self.fee_rate;
@@ -390,7 +388,7 @@ impl MatchingEngine {
         }
 
         // 逐笔撮合卖盘订单（卖出吃买）
-        for (price, remaining_qty, entry) in matched_asks {
+        for (_price, remaining_qty, entry) in matched_asks {
             let fill_qty = remaining_qty.min(depth.bids[0].quantity);
             let fill_price = depth.bids[0].price;
             let trade_fee = fill_qty * fill_price * self.fee_rate;

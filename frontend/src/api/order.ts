@@ -9,6 +9,9 @@ import type {
   PaperAccount,
   SymbolConfig,
   Position,
+  Trade,
+  TradeQueryParams,
+  TradeListResponse,
 } from '@/types/order'
 
 /** Create order: POST /api/v1/orders */
@@ -54,4 +57,9 @@ export function getPositions(): Promise<Position[]> {
 /** Close position: POST /api/v1/positions/:id/close */
 export function closePosition(id: number): Promise<void> {
   return client.post(`/positions/${id}/close`)
+}
+
+/** Get trades: GET /api/v1/trades */
+export function getTrades(params?: TradeQueryParams): Promise<TradeListResponse> {
+  return client.get('/trades', { params })
 }

@@ -595,14 +595,8 @@ pub async fn clean_klines(
                 || close_p.is_err()
             {
                 should_delete = true;
-            } else {
-                let (o, h, l, c) = (
-                    open_p.unwrap(),
-                    high_p.unwrap(),
-                    low_p.unwrap(),
-                    close_p.unwrap(),
-                );
-                if h < o || h < l || h < c || l > o || l > c || h < l || c <= 0.0 || o <= 0.0 {
+            } else if let (Ok(o), Ok(h), Ok(l), Ok(c)) = (open_p, high_p, low_p, close_p) {
+                if h < o || h < l || h < c || l > o || l > c || c <= 0.0 || o <= 0.0 {
                     should_delete = true;
                 }
             }

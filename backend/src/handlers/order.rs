@@ -1,7 +1,9 @@
 //! handlers/order.rs — 交易执行 REST API handlers
 //!
-//! 对应 PRD: US-TE-01~06, US-TE-10
-//! ADR: ADR-TRADING-EXECUTION D6 (API路由)
+//! 对应 PRD: US-TE-01~06, US-TE-08~10
+//! ADR: ADR-010 D2 (PG行锁), D3 (保证金冻结/解冻), D6 (API路由), D7 (加权平均均价), D8 (风控前置)
+
+#![allow(clippy::explicit_auto_deref)]
 
 use axum::{
     extract::{Path, Query, State},
@@ -11,12 +13,15 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::db::order::{OrderSide, OrderStatus, OrderType, TimeInForce, TradeMode};
+use crate::db::order::{OrderSide, OrderStatus, OrderType, PositionSide, TimeInForce, TradeMode};
 use crate::middleware::auth::AuthenticatedUser;
 use crate::services::matching_engine::MatchingEngine;
 use crate::utils::error::AppError;
 use crate::utils::response::ApiResponse;
-use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, Set};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait,
+    QueryFilter, QueryOrder, QuerySelect, Set,
+};
 use std::sync::Arc;
 
 // ─── Request Types ──────────────────────────────────────────────
@@ -28,7 +33,7 @@ pub struct CreateOrderRequest {
     pub order_type: String, // "limit" | "market"
     pub price: Option<String>,
     pub quantity: String,
-    pub time_in_force: Option<String>, // "GTC" | "IOC" | "FOK", 默认 GTC
+    pub time_in_force: Option<String>, // "GTC" | "IOC" | "FOK", default GTC
 }
 
 #[derive(Debug, Deserialize)]
@@ -173,7 +178,7 @@ fn parse_side(s: &str) -> Result<OrderSide, AppError> {
         "buy" => Ok(OrderSide::Buy),
         "sell" => Ok(OrderSide::Sell),
         _ => Err(AppError::BadRequest(format!(
-            "无效的 side: {}, 支持 buy/sell",
+            "Invalid side: {}, expected buy/sell",
             s
         ))),
     }
@@ -184,7 +189,7 @@ fn parse_order_type(s: &str) -> Result<OrderType, AppError> {
         "limit" => Ok(OrderType::Limit),
         "market" => Ok(OrderType::Market),
         _ => Err(AppError::BadRequest(format!(
-            "无效的 order_type: {}, 支持 limit/market",
+            "Invalid order_type: {}, expected limit/market",
             s
         ))),
     }
@@ -232,6 +237,62 @@ fn order_to_response(order: &crate::db::order::Model) -> OrderResponse {
     }
 }
 
+/// D3: 撤单时解冻保证金和持仓
+///
+/// 买单: frozen_balance -= unfilled_notional, balance += unfilled_notional
+/// 卖单: position.available_quantity += unfilled_qty
+async fn unfreeze_on_cancel(
+    db: &DatabaseConnection,
+    user_id: Uuid,
+    order: &crate::db::order::Model,
+) -> Result<(), AppError> {
+    // D3: 买单解冻保证金
+    if order.side == OrderSide::Buy && order.order_type == OrderType::Limit {
+        let unfilled_qty = order.quantity - order.filled_quantity;
+        let unfilled_notional = order.price.unwrap_or(0.0) * unfilled_qty;
+        if unfilled_notional > 1e-12 {
+            let account = crate::db::order::paper_accounts::Entity::find()
+                .filter(crate::db::order::paper_accounts::Column::UserId.eq(user_id))
+                .one(db)
+                .await
+                .map_err(|e| AppError::Database(e.to_string()))?
+                .ok_or_else(|| AppError::NotFound("Paper account not found".to_string()))?;
+            let mut acc_active: crate::db::order::paper_accounts::ActiveModel = account.into();
+            acc_active.frozen_balance =
+                Set(acc_active.frozen_balance.unwrap() - unfilled_notional);
+            acc_active.balance = Set(acc_active.balance.unwrap() + unfilled_notional);
+            acc_active.updated_at = Set(chrono::Utc::now());
+            acc_active.update(db).await.map_err(|e| {
+                tracing::error!("Failed to unfreeze margin on cancel: {:?}", e);
+                AppError::Database(e.to_string())
+            })?;
+        }
+    }
+    // D3: 卖单解冻持仓
+    if order.side == OrderSide::Sell {
+        let unfilled_qty = order.quantity - order.filled_quantity;
+        if unfilled_qty > 1e-12 {
+            let position = crate::db::order::positions::Entity::find()
+                .filter(crate::db::order::positions::Column::UserId.eq(user_id))
+                .filter(crate::db::order::positions::Column::Symbol.eq(&order.symbol))
+                .one(db)
+                .await
+                .map_err(|e| AppError::Database(e.to_string()))?;
+            if let Some(pos) = position {
+                let new_available = pos.available_quantity + unfilled_qty;
+                let mut pos_active: crate::db::order::positions::ActiveModel = pos.into();
+                pos_active.available_quantity = Set(new_available);
+                pos_active.updated_at = Set(chrono::Utc::now());
+                pos_active.update(db).await.map_err(|e| {
+                    tracing::error!("Failed to unfreeze position on cancel: {:?}", e);
+                    AppError::Database(e.to_string())
+                })?;
+            }
+        }
+    }
+    Ok(())
+}
+
 // ─── Handlers ───────────────────────────────────────────────────
 
 /// POST /api/v1/orders — 创建委托
@@ -252,10 +313,10 @@ pub async fn create_order(
     let quantity: f64 = req
         .quantity
         .parse()
-        .map_err(|_| AppError::BadRequest("数量格式错误".to_string()))?;
+        .map_err(|_| AppError::BadRequest("Invalid quantity format".to_string()))?;
 
     if quantity <= 0.0 {
-        return Err(AppError::BadRequest("数量必须大于 0".to_string()));
+        return Err(AppError::BadRequest("Quantity must be positive".to_string()));
     }
 
     let price: Option<f64> = match order_type {
@@ -263,16 +324,106 @@ pub async fn create_order(
             let p = req
                 .price
                 .as_deref()
-                .ok_or_else(|| AppError::BadRequest("限价单必须指定价格".to_string()))?
+                .ok_or_else(|| AppError::BadRequest("Limit order requires price".to_string()))?
                 .parse::<f64>()
-                .map_err(|_| AppError::BadRequest("价格格式错误".to_string()))?;
+                .map_err(|_| AppError::BadRequest("Invalid price format".to_string()))?;
             if p <= 0.0 {
-                return Err(AppError::BadRequest("价格必须大于 0".to_string()));
+                return Err(AppError::BadRequest("Price must be positive".to_string()));
             }
             Some(p)
         }
         OrderType::Market => None,
     };
+
+    // ── D8: 风控前置 — 交易对校验 ──
+    let symbol_config = crate::db::order::symbol_configs::Entity::find()
+        .filter(crate::db::order::symbol_configs::Column::Symbol.eq(&req.symbol))
+        .one(&*db)
+        .await
+        .map_err(|e| AppError::Database(e.to_string()))?
+        .ok_or_else(|| {
+            AppError::SymbolNotTradable(format!("Symbol not found: {}", req.symbol))
+        })?;
+
+    if !symbol_config.enabled {
+        return Err(AppError::SymbolNotTradable(format!(
+            "Symbol disabled: {}",
+            req.symbol
+        )));
+    }
+
+    // ── D8: 余额检查 (限价买单) ──
+    let account = crate::db::order::paper_accounts::Entity::find()
+        .filter(crate::db::order::paper_accounts::Column::UserId.eq(user.user_id))
+        .one(&*db)
+        .await
+        .map_err(|e| AppError::Database(e.to_string()))?
+        .ok_or_else(|| {
+            AppError::NotFound("Paper account not found, please init account first".to_string())
+        })?;
+
+    if side == OrderSide::Buy && order_type == OrderType::Limit {
+        let notional = price.unwrap() * quantity;
+        if account.balance < notional - 1e-12 {
+            return Err(AppError::InsufficientBalance(format!(
+                "Insufficient balance: available {:.8}, required {:.8}",
+                account.balance, notional
+            )));
+        }
+    }
+
+    // ── D8: 卖出检查持仓 ──
+    let sell_position: Option<crate::db::order::positions::Model> = if side == OrderSide::Sell {
+        let position = crate::db::order::positions::Entity::find()
+            .filter(crate::db::order::positions::Column::UserId.eq(user.user_id))
+            .filter(crate::db::order::positions::Column::Symbol.eq(&req.symbol))
+            .one(&*db)
+            .await
+            .map_err(|e| AppError::Database(e.to_string()))?;
+
+        if let Some(ref pos) = position {
+            if pos.available_quantity < quantity - 1e-12 {
+                return Err(AppError::InsufficientPosition(format!(
+                    "Insufficient position: available {:.8}, required {:.8}",
+                    pos.available_quantity, quantity
+                )));
+            }
+        } else {
+            return Err(AppError::InsufficientPosition(format!(
+                "No position: {}",
+                req.symbol
+            )));
+        }
+        position
+    } else {
+        None
+    };
+
+    // ── D3: 保证金冻结 (限价买单) ──
+    if side == OrderSide::Buy && order_type == OrderType::Limit {
+        let notional = price.unwrap() * quantity;
+        let mut account_active: crate::db::order::paper_accounts::ActiveModel = account.into();
+        let new_balance = account_active.balance.unwrap() - notional;
+        let new_frozen = account_active.frozen_balance.unwrap() + notional;
+        account_active.balance = Set(new_balance);
+        account_active.frozen_balance = Set(new_frozen);
+        account_active.updated_at = Set(chrono::Utc::now());
+        account_active.update(&*db).await.map_err(|e| {
+            tracing::error!("Failed to freeze margin: {:?}", e);
+            AppError::Database(e.to_string())
+        })?;
+    }
+
+    // ── D3: 卖出冻结持仓 ──
+    if let Some(ref pos) = sell_position {
+        let mut pos_active: crate::db::order::positions::ActiveModel = pos.clone().into();
+        pos_active.available_quantity = Set(pos.available_quantity - quantity);
+        pos_active.updated_at = Set(chrono::Utc::now());
+        pos_active.update(&*db).await.map_err(|e| {
+            tracing::error!("Failed to freeze position: {:?}", e);
+            AppError::Database(e.to_string())
+        })?;
+    }
 
     // 2. Create order in DB
     let now = chrono::Utc::now();
@@ -305,6 +456,14 @@ pub async fn create_order(
         tracing::error!("Failed to create order: {:?}", e);
         AppError::Database(e.to_string())
     })?;
+
+    tracing::info!(
+        order_id = %order_id,
+        user_id = %user.user_id,
+        symbol = %req.symbol,
+        side = %serde_json::to_value(&side).unwrap_or_default(),
+        "Order created"
+    );
 
     // 3. For market orders, try immediate matching
     if order_type == OrderType::Market {
@@ -387,7 +546,7 @@ pub async fn list_orders(
     if let Some(ref status) = query.status {
         let status_enum: OrderStatus =
             serde_json::from_value(serde_json::Value::String(status.clone()))
-                .map_err(|_| AppError::BadRequest(format!("无效的 status: {}", status)))?;
+                .map_err(|_| AppError::BadRequest(format!("Invalid status: {}", status)))?;
         find_query = find_query.filter(crate::db::order::Column::Status.eq(status_enum));
     }
 
@@ -404,7 +563,7 @@ pub async fn list_orders(
         .await
         .map_err(|e| AppError::Database(e.to_string()))?;
     let pages = paginator
-        .fetch_page((page - 1) as u64)
+        .fetch_page(page - 1)
         .await
         .map_err(|e| AppError::Database(e.to_string()))?;
 
@@ -428,10 +587,10 @@ pub async fn get_order(
         .one(&*db)
         .await
         .map_err(|e| AppError::Database(e.to_string()))?
-        .ok_or_else(|| AppError::NotFound(format!("委托不存在: {}", order_id)))?;
+        .ok_or_else(|| AppError::NotFound(format!("Order not found: {}", order_id)))?;
 
     if order.user_id != user.user_id {
-        return Err(AppError::Forbidden("无权访问此委托".to_string()));
+        return Err(AppError::Forbidden("No permission to access this order".to_string()));
     }
 
     Ok(Json(ApiResponse::success(order_to_response(&order))))
@@ -440,35 +599,41 @@ pub async fn get_order(
 /// POST /api/v1/orders/:id/cancel — 撤单
 ///
 /// PRD: US-TE-05 (撤单)
-/// ADR: D2 (PG行锁保证状态一致性)
+/// ADR: D2 (PG行锁保证状态一致性), D3 (保证金解冻)
 pub async fn cancel_order(
     user: AuthenticatedUser,
     State(db): State<Arc<DatabaseConnection>>,
     Extension(engine): Extension<Arc<MatchingEngine>>,
     Path(order_id): Path<Uuid>,
 ) -> Result<Json<ApiResponse<CancelResult>>, AppError> {
+    // D2: PG行锁 — SELECT ... FOR UPDATE 防止并发状态冲突
     let order = crate::db::order::Entity::find_by_id(order_id)
+        .lock_exclusive()
         .one(&*db)
         .await
         .map_err(|e| AppError::Database(e.to_string()))?
-        .ok_or_else(|| AppError::NotFound(format!("委托不存在: {}", order_id)))?;
+        .ok_or_else(|| AppError::NotFound(format!("Order not found: {}", order_id)))?;
 
     if order.user_id != user.user_id {
-        return Err(AppError::Forbidden("无权操作此委托".to_string()));
+        return Err(AppError::Forbidden("No permission to cancel this order".to_string()));
     }
 
     if order.status.is_terminal() {
         return Err(AppError::Conflict(format!(
-            "委托状态为 {:?}, 无法撤单",
+            "Order status is {:?}, cannot cancel",
             order.status
         )));
     }
+
+    // D3: 解冻保证金和持仓
+    unfreeze_on_cancel(&*db, user.user_id, &order).await?;
 
     // Remove from order book
     engine.remove_from_book(order_id);
 
     // Update order status
     let now = chrono::Utc::now();
+    let unfilled_qty = order.quantity - order.filled_quantity;
     let mut active: crate::db::order::ActiveModel = order.into();
     active.status = Set(OrderStatus::Cancelled);
     active.updated_at = Set(now);
@@ -479,19 +644,20 @@ pub async fn cancel_order(
         AppError::Database(e.to_string())
     })?;
 
-    let released = updated.quantity - updated.filled_quantity;
+    tracing::info!(order_id = %order_id, "Order cancelled");
 
     Ok(Json(ApiResponse::success(CancelResult {
         order_id: updated.id.to_string(),
         status: "cancelled".to_string(),
         filled_quantity: format!("{:.8}", updated.filled_quantity),
-        released_amount: format!("{:.8}", released),
+        released_amount: format!("{:.8}", unfilled_qty),
     })))
 }
 
 /// POST /api/v1/orders/cancel-all — 批量撤单
 ///
 /// PRD: US-TE-05 (批量撤单, P1)
+/// ADR: D3 (保证金解冻)
 pub async fn cancel_all_orders(
     user: AuthenticatedUser,
     State(db): State<Arc<DatabaseConnection>>,
@@ -519,6 +685,17 @@ pub async fn cancel_all_orders(
 
     for order in orders {
         let oid = order.id;
+
+        // D3: 解冻保证金和持仓
+        if let Err(e) = unfreeze_on_cancel(&*db, user.user_id, &order).await {
+            tracing::warn!("Failed to unfreeze on cancel for order {}: {:?}", oid, e);
+            failed_orders.push(FailedOrder {
+                order_id: oid.to_string(),
+                reason: e.to_string(),
+            });
+            continue;
+        }
+
         engine.remove_from_book(order.id);
 
         let now = chrono::Utc::now();
@@ -538,6 +715,8 @@ pub async fn cancel_all_orders(
             }
         }
     }
+
+    tracing::info!(cancelled_count, "Batch cancel completed");
 
     Ok(Json(ApiResponse::success(CancelAllResult {
         cancelled_count,
@@ -574,7 +753,7 @@ pub async fn list_trades(
         .await
         .map_err(|e| AppError::Database(e.to_string()))?;
     let pages = paginator
-        .fetch_page((page - 1) as u64)
+        .fetch_page(page - 1)
         .await
         .map_err(|e| AppError::Database(e.to_string()))?;
 
@@ -643,6 +822,189 @@ pub async fn list_positions(
     Ok(Json(ApiResponse::success(items)))
 }
 
+/// POST /api/v1/positions/:symbol/close — 平仓操作
+///
+/// PRD: US-TE-05 (平仓操作)
+/// ADR: D3 (保证金解冻), D7 (加权平均均价)
+pub async fn close_position(
+    user: AuthenticatedUser,
+    State(db): State<Arc<DatabaseConnection>>,
+    Extension(engine): Extension<Arc<MatchingEngine>>,
+    Path(symbol): Path<String>,
+    Json(req): Json<ClosePositionRequest>,
+) -> Result<(StatusCode, Json<ApiResponse<OrderResponse>>), AppError> {
+    // 1. 查找持仓
+    let position = crate::db::order::positions::Entity::find()
+        .filter(crate::db::order::positions::Column::UserId.eq(user.user_id))
+        .filter(crate::db::order::positions::Column::Symbol.eq(&symbol))
+        .one(&*db)
+        .await
+        .map_err(|e| AppError::Database(e.to_string()))?
+        .ok_or_else(|| AppError::NotFound(format!("Position not found: {}", symbol)))?;
+
+    // 2. 解析平仓数量 (默认全部平仓)
+    let close_qty: f64 = req
+        .quantity
+        .as_deref()
+        .unwrap_or(&format!("{:.8}", position.quantity))
+        .parse()
+        .map_err(|_| AppError::BadRequest("Invalid quantity format".to_string()))?;
+
+    if close_qty <= 0.0 {
+        return Err(AppError::BadRequest(
+            "Close quantity must be positive".to_string(),
+        ));
+    }
+
+    // 3. 校验可用持仓
+    if close_qty > position.available_quantity + 1e-12 {
+        return Err(AppError::InsufficientPosition(format!(
+            "Insufficient position: available {:.8}, required {:.8}",
+            position.available_quantity, close_qty
+        )));
+    }
+
+    // 4. 生成反向市价委托
+    let reverse_side = match position.side {
+        PositionSide::Long => OrderSide::Sell,
+        PositionSide::Short => OrderSide::Buy,
+    };
+
+    let now = chrono::Utc::now();
+    let order_id = Uuid::new_v4();
+
+    // 先创建订单记录
+    let order_model = crate::db::order::ActiveModel {
+        id: Set(order_id),
+        user_id: Set(user.user_id),
+        strategy_id: Set(None),
+        symbol: Set(symbol.clone()),
+        side: Set(reverse_side.clone()),
+        order_type: Set(OrderType::Market),
+        price: Set(None),
+        quantity: Set(close_qty),
+        filled_quantity: Set(0.0),
+        avg_fill_price: Set(None),
+        status: Set(OrderStatus::Pending),
+        mode: Set(TradeMode::Paper),
+        fee: Set(0.0),
+        reject_reason: Set(None),
+        time_in_force: Set(TimeInForce::IOC),
+        expire_at: Set(None),
+        created_at: Set(now),
+        updated_at: Set(now),
+        cancelled_at: Set(None),
+        filled_at: Set(None),
+    };
+
+    let inserted = order_model.insert(&*db).await.map_err(|e| {
+        tracing::error!("Failed to create close-position order: {:?}", e);
+        AppError::Database(e.to_string())
+    })?;
+
+    // 5. 提交撮合引擎
+    match engine
+        .match_market(order_id, user.user_id, &symbol, &reverse_side, close_qty)
+        .await
+    {
+        Ok(result) => {
+            let new_status = if result.is_fully_filled {
+                OrderStatus::Filled
+            } else {
+                OrderStatus::PartialFilled
+            };
+
+            let mut active: crate::db::order::ActiveModel = inserted.into();
+            active.filled_quantity = Set(result.filled_quantity);
+            active.avg_fill_price = Set(result.avg_fill_price);
+            active.fee = Set(result.total_fee);
+            active.status = Set(new_status);
+            active.updated_at = Set(chrono::Utc::now());
+            if result.is_fully_filled {
+                active.filled_at = Set(Some(chrono::Utc::now()));
+            }
+
+            let updated = active.update(&*db).await.map_err(|e| {
+                tracing::error!("Failed to update close-position order: {:?}", e);
+                AppError::Database(e.to_string())
+            })?;
+
+            // D7: 计算已实现盈亏
+            let filled_qty = result.filled_quantity;
+            let fill_price = result.avg_fill_price.unwrap_or(0.0);
+            let is_long = position.side == PositionSide::Long;
+            let realized_pnl =
+                MatchingEngine::calculate_realized_pnl(position.avg_entry_price, fill_price, filled_qty, is_long);
+
+            // D3: 更新持仓 — 减少数量
+            let position_id = position.id;
+            let old_realized_pnl = position.realized_pnl;
+            let new_qty = position.quantity - filled_qty;
+            if new_qty < 1e-12 {
+                // 持仓清零，删除记录
+                crate::db::order::positions::Entity::delete_by_id(position_id)
+                    .exec(&*db)
+                    .await
+                    .map_err(|e| AppError::Database(e.to_string()))?;
+            } else {
+                // 累加 realized_pnl
+                let mut pos_active: crate::db::order::positions::ActiveModel = position.into();
+                pos_active.quantity = Set(new_qty);
+                // 平仓后可用=总持仓(不再冻结)
+                pos_active.available_quantity = Set(new_qty);
+                pos_active.realized_pnl = Set(old_realized_pnl + realized_pnl);
+                pos_active.updated_at = Set(chrono::Utc::now());
+                pos_active.update(&*db).await.map_err(|e| {
+                    tracing::error!("Failed to update position after close: {:?}", e);
+                    AppError::Database(e.to_string())
+                })?;
+            }
+
+            // D3: 更新账户总 PnL
+            let account = crate::db::order::paper_accounts::Entity::find()
+                .filter(crate::db::order::paper_accounts::Column::UserId.eq(user.user_id))
+                .one(&*db)
+                .await
+                .map_err(|e| AppError::Database(e.to_string()))?
+                .ok_or_else(|| AppError::NotFound("Paper account not found".to_string()))?;
+            let mut acc_active: crate::db::order::paper_accounts::ActiveModel = account.into();
+            acc_active.total_pnl = Set(acc_active.total_pnl.unwrap() + realized_pnl);
+            acc_active.balance = Set(acc_active.balance.unwrap() + realized_pnl);
+            acc_active.updated_at = Set(chrono::Utc::now());
+            acc_active.update(&*db).await.map_err(|e| {
+                tracing::error!("Failed to update account PnL: {:?}", e);
+                AppError::Database(e.to_string())
+            })?;
+
+            tracing::info!(
+                order_id = %order_id,
+                symbol = %symbol,
+                filled_qty = filled_qty,
+                realized_pnl = realized_pnl,
+                "Position closed"
+            );
+
+            Ok((
+                StatusCode::CREATED,
+                Json(ApiResponse::success(order_to_response(&updated))),
+            ))
+        }
+        Err(e) => {
+            tracing::warn!("Close-position market order matching failed: {:?}", e);
+            // Order stays in pending status
+            let order = crate::db::order::Entity::find_by_id(order_id)
+                .one(&*db)
+                .await
+                .map_err(|err| AppError::Database(err.to_string()))?
+                .ok_or_else(|| AppError::Internal("Order created but not found".to_string()))?;
+            Ok((
+                StatusCode::CREATED,
+                Json(ApiResponse::success(order_to_response(&order))),
+            ))
+        }
+    }
+}
+
 /// GET /api/v1/account — 查询模拟账户
 ///
 /// PRD: US-TE-03 (风控余额校验), US-TE-08 (下单区余额显示)
@@ -655,7 +1017,7 @@ pub async fn get_account(
         .one(&*db)
         .await
         .map_err(|e| AppError::Database(e.to_string()))?
-        .ok_or_else(|| AppError::NotFound("模拟账户不存在".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("Paper account not found".to_string()))?;
 
     let active_orders = crate::db::order::Entity::find()
         .filter(crate::db::order::Column::UserId.eq(user.user_id))
@@ -685,6 +1047,57 @@ pub async fn get_account(
         positions_count: positions_count as i32,
         active_orders_count: active_orders as i32,
     })))
+}
+
+/// POST /api/v1/account/init — 初始化模拟账户
+///
+/// PRD: US-TE-09 (模拟账户初始化)
+/// ADR: D3 (保证金冻结)
+pub async fn init_account(
+    user: AuthenticatedUser,
+    State(db): State<Arc<DatabaseConnection>>,
+) -> Result<Json<ApiResponse<AccountResponse>>, AppError> {
+    // 1. 检查是否已有账户
+    let existing = crate::db::order::paper_accounts::Entity::find()
+        .filter(crate::db::order::paper_accounts::Column::UserId.eq(user.user_id))
+        .one(&*db)
+        .await
+        .map_err(|e| AppError::Database(e.to_string()))?;
+
+    if existing.is_some() {
+        // 已有账户，直接返回
+        return get_account(user, State(db)).await;
+    }
+
+    // 2. 创建新账户
+    let now = chrono::Utc::now();
+    let account_id = Uuid::new_v4();
+    let initial_balance = 100000.0_f64;
+
+    let model = crate::db::order::paper_accounts::ActiveModel {
+        id: Set(account_id),
+        user_id: Set(user.user_id),
+        balance: Set(initial_balance),
+        frozen_balance: Set(0.0),
+        initial_balance: Set(initial_balance),
+        total_pnl: Set(0.0),
+        created_at: Set(now),
+        updated_at: Set(now),
+    };
+
+    model.insert(&*db).await.map_err(|e| {
+        tracing::error!("Failed to create paper account: {:?}", e);
+        AppError::Database(e.to_string())
+    })?;
+
+    tracing::info!(
+        user_id = %user.user_id,
+        initial_balance = initial_balance,
+        "Paper account initialized"
+    );
+
+    // 3. 返回账户信息
+    get_account(user, State(db)).await
 }
 
 /// GET /api/v1/symbols — 查询交易对配置
@@ -815,5 +1228,46 @@ mod tests {
         assert_eq!(json["total"], 2);
         assert_eq!(json["page"], 1);
         assert_eq!(json["size"], 20);
+    }
+
+    #[test]
+    fn test_insufficient_balance_error_code() {
+        let err = AppError::InsufficientBalance("need 100".to_string());
+        assert_eq!(err.code(), 40002);
+    }
+
+    #[test]
+    fn test_risk_rejected_error_code() {
+        let err = AppError::RiskRejected("max position".to_string());
+        assert_eq!(err.code(), 40003);
+    }
+
+    #[test]
+    fn test_symbol_not_tradable_error_code() {
+        let err = AppError::SymbolNotTradable("DISABLED".to_string());
+        assert_eq!(err.code(), 40004);
+    }
+
+    #[test]
+    fn test_insufficient_position_error_code() {
+        let err = AppError::InsufficientPosition("no BTC".to_string());
+        assert_eq!(err.code(), 40005);
+    }
+
+    #[test]
+    fn test_service_unavailable_error_code() {
+        let err = AppError::ServiceUnavailable("engine down".to_string());
+        assert_eq!(err.code(), 50301);
+    }
+
+    #[test]
+    fn test_close_position_request_deserialization() {
+        let json = r#"{"quantity": "0.5"}"#;
+        let req: ClosePositionRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.quantity.as_deref(), Some("0.5"));
+
+        let json_empty = r#"{}"#;
+        let req_empty: ClosePositionRequest = serde_json::from_str(json_empty).unwrap();
+        assert!(req_empty.quantity.is_none());
     }
 }

@@ -335,6 +335,41 @@ jobs:
 
           echo "Portfolio API verification complete"
 
+          # ── Order API verification ──
+          # Test unauthenticated access returns 401 (proves route exists)
+          HTTP_CODE=$(docker exec quant-backend-ci curl -sf -o /dev/null -w '%{http_code}' \
+            http://localhost:8080/api/v1/orders)
+          if [ "$HTTP_CODE" = "401" ]; then echo "Orders unauth → 401 OK"; else echo "WARNING: Orders unauth → $HTTP_CODE (expected 401)"; fi
+
+          HTTP_CODE=$(docker exec quant-backend-ci curl -sf -o /dev/null -w '%{http_code}' \
+            http://localhost:8080/api/v1/positions)
+          if [ "$HTTP_CODE" = "401" ]; then echo "Positions unauth → 401 OK"; else echo "WARNING: Positions unauth → $HTTP_CODE (expected 401)"; fi
+
+          HTTP_CODE=$(docker exec quant-backend-ci curl -sf -o /dev/null -w '%{http_code}' \
+            http://localhost:8080/api/v1/account)
+          if [ "$HTTP_CODE" = "401" ]; then echo "Account unauth → 401 OK"; else echo "WARNING: Account unauth → $HTTP_CODE (expected 401)"; fi
+
+          # Test authenticated access
+          docker exec quant-backend-ci curl -sf -H "Authorization: Bearer $TOKEN" \
+            http://localhost:8080/api/v1/orders
+          echo "Orders (auth) endpoint OK"
+
+          docker exec quant-backend-ci curl -sf -H "Authorization: Bearer $TOKEN" \
+            http://localhost:8080/api/v1/account
+          echo "Account (auth) endpoint OK"
+
+          # Init paper account for order testing
+          docker exec quant-backend-ci curl -sf -X POST -H "Authorization: Bearer $TOKEN" \
+            -H 'Content-Type: application/json' \
+            http://localhost:8080/api/v1/account/init
+          echo "Account init endpoint OK"
+
+          docker exec quant-backend-ci curl -sf -H "Authorization: Bearer $TOKEN" \
+            http://localhost:8080/api/v1/symbols
+          echo "Symbols endpoint OK"
+
+          echo "Order API verification complete"
+
       - name: Cleanup CI containers
         if: always()
         run: |

@@ -169,7 +169,9 @@ fn create_router(db: DbPool, cors: CorsLayer, matching_engine: Arc<MatchingEngin
         .route("/orders/cancel-all", post(handlers::order::cancel_all_orders))
         .route("/trades", get(handlers::order::list_trades))
         .route("/positions", get(handlers::order::list_positions))
+        .route("/positions/{symbol}/close", post(handlers::order::close_position))
         .route("/account", get(handlers::order::get_account))
+        .route("/account/init", post(handlers::order::init_account))
         .route("/symbols", get(handlers::order::list_symbols))
         .layer(axum::Extension(matching_engine))
         .layer(middleware::from_fn(

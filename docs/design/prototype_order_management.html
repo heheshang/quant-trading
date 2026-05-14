@@ -1,0 +1,1739 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>订单管理模块 UI 原型 - Quant Trading</title>
+<link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
+<link rel="stylesheet" href="https://unpkg.com/element-plus/theme-chalk/dark/css-vars.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --color-bg: #08090a;
+  --color-surface: #191a1b;
+  --color-surface-elevated: #212223;
+  --color-deep-bg: #050607;
+  --color-text-primary: #f7f8f8;
+  --color-text-secondary: #d0d6e0;
+  --color-text-tertiary: #8a8f98;
+  --color-accent: #7170ff;
+  --color-accent-hover: #8b8aff;
+  --color-border: rgba(255,255,255,0.08);
+  --color-border-hover: rgba(255,255,255,0.16);
+  --color-error: #e5484d;
+  --color-success: #10b981;
+  --color-warning: #f5a623;
+  --color-info: #60a5fa;
+  --color-buy: #67C23A;
+  --color-sell: #F56C6C;
+  --color-buy-bg: rgba(103,194,58,0.12);
+  --color-sell-bg: rgba(245,108,108,0.12);
+  --color-frozen: #f5a623;
+  --color-pending: #f5a623;
+  --color-partial: #60a5fa;
+  --color-filled: #67C23A;
+  --color-cancelled: #8a8f98;
+  --color-expired: #8a8f98;
+  --color-rejected: #e5484d;
+  --color-paper-mode: #60a5fa;
+  --color-live-mode: #e5484d;
+  --color-neutral: #8a8f98;
+  --color-positive: #67C23A;
+  --color-negative: #F56C6C;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.mono { font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace; }
+
+/* ===== Header ===== */
+.app-header {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.header-left { display: flex; align-items: center; gap: 12px; }
+.header-right { display: flex; align-items: center; gap: 12px; }
+.mode-badge {
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.mode-paper { background: rgba(96,165,250,0.12); color: var(--color-paper-mode); }
+.mode-live { background: rgba(229,72,77,0.12); color: var(--color-live-mode); }
+.page-title { font-size: 18px; font-weight: 600; color: var(--color-text-primary); }
+.ws-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+.ws-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-success);
+}
+.ws-dot.reconnecting {
+  background: var(--color-warning);
+  animation: blink 0.5s infinite;
+}
+.ws-dot.disconnected { background: var(--color-text-tertiary); }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+.btn-create {
+  background: var(--color-accent);
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s;
+}
+.btn-create:hover { background: var(--color-accent-hover); transform: scale(1.02); }
+
+/* ===== Summary Cards ===== */
+.summary-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  padding: 16px 20px;
+}
+.summary-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 20px;
+  position: relative;
+  transition: all 0.2s;
+  cursor: default;
+}
+.summary-card:hover {
+  border-color: var(--color-border-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+.card-icon {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  font-size: 24px;
+  opacity: 0.4;
+}
+.card-label { font-size: 13px; color: var(--color-text-tertiary); margin-bottom: 8px; }
+.card-value { font-size: 28px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+.card-sub { font-size: 12px; margin-top: 4px; }
+.card-sub.frozen { color: var(--color-frozen); }
+.card-sub.filled { color: var(--color-filled); }
+.card-sub.secondary { color: var(--color-text-secondary); }
+.card-sub.tertiary { color: var(--color-text-tertiary); }
+.card-value.accent { color: var(--color-accent); }
+.card-value.frozen { color: var(--color-frozen); }
+.card-value.filled { color: var(--color-filled); }
+.card-value.positive { color: var(--color-positive); }
+.card-value.negative { color: var(--color-negative); }
+
+/* ===== Tab Bar ===== */
+.tab-bar {
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--color-border);
+  gap: 0;
+}
+.tab-item {
+  height: 40px;
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+  user-select: none;
+}
+.tab-item:hover { color: var(--color-text-primary); }
+.tab-item.active {
+  color: var(--color-text-primary);
+  border-bottom-color: var(--color-accent);
+}
+.tab-badge {
+  height: 16px;
+  min-width: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--color-error);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ===== Filter Bar ===== */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 20px;
+  flex-wrap: wrap;
+}
+.filter-bar .el-select,
+.filter-bar .el-input {
+  --el-fill-color-blank: var(--color-surface-elevated);
+}
+.filter-bar .el-date-editor {
+  --el-fill-color-blank: var(--color-surface-elevated);
+}
+.btn-cancel-all {
+  margin-left: auto;
+  color: var(--color-error);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-cancel-all:hover {
+  background: var(--color-error);
+  color: #fff;
+  border-color: var(--color-error);
+}
+.btn-clear-filter {
+  color: var(--color-text-tertiary);
+  background: transparent;
+  border: none;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.btn-clear-filter:hover { color: var(--color-text-secondary); }
+
+/* ===== Table ===== */
+.table-container {
+  padding: 0 20px 16px;
+}
+.order-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--color-surface);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.order-table thead th {
+  background: rgba(255,255,255,0.02);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-tertiary);
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+.order-table tbody tr {
+  transition: background 0.15s;
+  cursor: pointer;
+}
+.order-table tbody tr:hover { background: rgba(255,255,255,0.04); }
+.order-table tbody tr.flash-buy { animation: flash-buy 0.3s; }
+.order-table tbody tr.flash-sell { animation: flash-sell 0.3s; }
+@keyframes flash-buy { 0%{background:var(--color-buy-bg)} 100%{background:transparent} }
+@keyframes flash-sell { 0%{background:var(--color-sell-bg)} 100%{background:transparent} }
+.order-table tbody td {
+  padding: 12px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+.td-time { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--color-text-secondary); }
+.td-symbol { font-weight: 600; font-size: 14px; }
+.td-price, .td-qty, .td-filled { font-family: 'JetBrains Mono', monospace; font-size: 13px; text-align: right; }
+.td-center { text-align: center; }
+
+/* Side Tag */
+.side-tag {
+  display: inline-block;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 20px;
+}
+.side-buy { background: var(--color-buy-bg); color: var(--color-buy); }
+.side-sell { background: var(--color-sell-bg); color: var(--color-sell); }
+.side-long { background: var(--color-buy-bg); color: var(--color-buy); }
+.side-short { background: var(--color-sell-bg); color: var(--color-sell); }
+
+/* Status Pill */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 11px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.status-pending { background: rgba(245,166,35,0.12); color: var(--color-pending); }
+.status-partial { background: rgba(96,165,250,0.12); color: var(--color-partial); }
+.status-filled { background: rgba(103,194,58,0.12); color: var(--color-filled); }
+.status-cancelled { background: rgba(138,143,152,0.08); color: var(--color-cancelled); }
+.status-expired { background: rgba(138,143,152,0.08); color: var(--color-expired); }
+.status-rejected { background: rgba(229,72,77,0.12); color: var(--color-rejected); }
+
+/* Fill Progress */
+.fill-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.fill-progress .numbers {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+}
+.fill-bar {
+  width: 60px;
+  height: 3px;
+  background: var(--color-border);
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+.fill-bar-inner {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s;
+}
+.fill-bar-inner.buy { background: var(--color-buy); }
+.fill-bar-inner.sell { background: var(--color-sell); }
+
+/* Cancel Button */
+.btn-cancel {
+  padding: 4px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-cancel:hover { border-color: var(--color-error); color: var(--color-error); }
+.btn-detail {
+  padding: 4px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-accent);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-detail:hover { border-color: var(--color-accent); background: rgba(113,112,255,0.08); }
+
+/* ===== Pagination ===== */
+.pagination {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 12px 20px;
+  gap: 8px;
+}
+.pagination button {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.pagination button:hover { border-color: var(--color-accent); color: var(--color-accent); }
+.pagination button.active { background: var(--color-accent); color: #fff; border-color: var(--color-accent); }
+.pagination .page-info { font-size: 12px; color: var(--color-text-tertiary); margin-left: 8px; }
+
+/* ===== Dialog / Drawer Overlay ===== */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 200;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+.overlay.active { display: flex; }
+
+/* ===== Create Dialog ===== */
+.create-dialog {
+  width: 440px;
+  max-height: 90vh;
+  background: var(--color-surface-elevated);
+  border-radius: 12px;
+  overflow-y: auto;
+  animation: slideUp 0.3s ease-out;
+}
+@keyframes slideUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+.dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 0;
+}
+.dialog-header h3 { font-size: 16px; font-weight: 600; }
+.dialog-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  font-size: 18px;
+  cursor: pointer;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dialog-close:hover { background: rgba(255,255,255,0.08); color: var(--color-text-primary); }
+.dialog-body { padding: 16px 24px 24px; }
+
+/* Side Toggle */
+.side-toggle {
+  display: flex;
+  gap: 0;
+  margin-bottom: 16px;
+  background: var(--color-surface);
+  border-radius: 8px;
+  padding: 3px;
+}
+.side-toggle button {
+  flex: 1;
+  height: 40px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.side-toggle .btn-buy-off {
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+.side-toggle .btn-buy-off:hover { background: rgba(103,194,58,0.08); }
+.side-toggle .btn-buy-on {
+  background: var(--color-buy);
+  color: #fff;
+}
+.side-toggle .btn-sell-off {
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+.side-toggle .btn-sell-off:hover { background: rgba(245,108,108,0.08); }
+.side-toggle .btn-sell-on {
+  background: var(--color-sell);
+  color: #fff;
+}
+
+/* Order Type Select */
+.order-type-select {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 0;
+}
+.type-tab {
+  height: 32px;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+  background: none;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  padding: 0 4px 8px;
+}
+.type-tab:hover { color: var(--color-text-primary); }
+.type-tab.active { color: var(--color-text-primary); border-bottom-color: var(--color-accent); }
+.type-tab.disabled { color: var(--color-text-tertiary); cursor: not-allowed; font-size: 12px; }
+
+/* Form Fields */
+.form-group { margin-bottom: 14px; }
+.form-label { font-size: 12px; color: var(--color-text-tertiary); margin-bottom: 6px; display: block; }
+.form-input-wrap {
+  display: flex;
+  align-items: center;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all 0.15s;
+}
+.form-input-wrap:focus-within { border-color: var(--color-accent); box-shadow: 0 0 0 3px rgba(113,112,255,0.15); }
+.form-input-wrap.error { border-color: var(--color-error); }
+.form-input {
+  flex: 1;
+  height: 40px;
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 0 12px;
+  color: var(--color-text-primary);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+}
+.form-input::placeholder { color: var(--color-text-tertiary); }
+.form-suffix {
+  padding: 0 12px;
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+}
+.form-step-btns {
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--color-border);
+}
+.form-step-btns button {
+  width: 24px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  font-size: 10px;
+}
+.form-step-btns button:hover { background: rgba(255,255,255,0.05); color: var(--color-text-secondary); }
+.form-hint { font-size: 12px; color: var(--color-text-tertiary); margin-top: 4px; padding-left: 2px; }
+.form-hint.error { color: var(--color-error); }
+.form-est {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  margin-top: 4px;
+}
+
+/* Quantity Slider */
+.qty-slider {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.qty-slider button {
+  flex: 1;
+  height: 28px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-surface-elevated);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.qty-slider button:hover { border-color: var(--color-border-hover); }
+.qty-slider button.active { background: var(--color-accent); color: #fff; border-color: var(--color-accent); }
+
+/* Account Info */
+.account-info {
+  background: var(--color-surface);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+.account-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  padding: 2px 0;
+}
+.account-info-row .label { color: var(--color-text-tertiary); font-size: 12px; }
+.account-info-row .value { font-family: 'JetBrains Mono', monospace; font-size: 14px; }
+.account-info-row .value.frozen { color: var(--color-frozen); }
+
+/* Order Summary */
+.order-summary {
+  background: var(--color-surface-elevated);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+.order-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  padding: 3px 0;
+}
+.order-summary-row .label { color: var(--color-text-tertiary); }
+.order-summary-row .value { font-family: 'JetBrains Mono', monospace; font-size: 14px; }
+
+/* Dialog Footer */
+.dialog-footer {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  padding: 0 24px 20px;
+}
+.btn-ghost {
+  padding: 8px 20px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-ghost:hover { border-color: var(--color-border-hover); color: var(--color-text-primary); }
+.btn-submit-buy {
+  padding: 8px 24px;
+  border: none;
+  border-radius: 8px;
+  background: var(--color-buy);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-submit-buy:hover { background: #5daf34; transform: scale(1.02); }
+.btn-submit-sell {
+  padding: 8px 24px;
+  border: none;
+  border-radius: 8px;
+  background: var(--color-sell);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-submit-sell:hover { background: #dd4f4f; transform: scale(1.02); }
+
+/* ===== Detail Drawer ===== */
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 200;
+  display: none;
+}
+.drawer-overlay.active { display: block; }
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 420px;
+  height: 100vh;
+  background: var(--color-surface-elevated);
+  z-index: 201;
+  transform: translateX(100%);
+  transition: transform 0.3s ease-out;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+.drawer.active { transform: translateX(0); }
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+.drawer-header h3 { font-size: 16px; font-weight: 600; }
+.drawer-body { padding: 24px; flex: 1; overflow-y: auto; }
+.drawer-header-area {
+  margin-bottom: 20px;
+}
+.drawer-symbol { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+.drawer-tags { display: flex; gap: 8px; align-items: center; }
+.drawer-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 20px 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+.drawer-field {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  font-size: 13px;
+}
+.drawer-field .label { color: var(--color-text-tertiary); }
+.drawer-field .value { font-family: 'JetBrains Mono', monospace; text-align: right; }
+.drawer-field .value.frozen { color: var(--color-frozen); }
+.drawer-field .value.success { color: var(--color-success); }
+.drawer-btn-cancel {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--color-error);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-error);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-top: 20px;
+}
+.drawer-btn-cancel:hover { background: var(--color-error); color: #fff; }
+
+/* Fill records mini table */
+.fill-mini-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.fill-mini-table th {
+  text-align: right;
+  padding: 6px 4px;
+  color: var(--color-text-tertiary);
+  font-weight: 600;
+  border-bottom: 1px solid var(--color-border);
+}
+.fill-mini-table th:first-child { text-align: left; }
+.fill-mini-table td {
+  padding: 6px 4px;
+  font-family: 'JetBrains Mono', monospace;
+  text-align: right;
+  border-bottom: 1px solid var(--color-border);
+}
+.fill-mini-table td:first-child { text-align: left; }
+
+/* ===== Position Panel ===== */
+.position-summary-bar {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  padding: 16px 20px;
+  background: var(--color-surface);
+  margin: 0 20px;
+  border-radius: 12px;
+}
+.pos-field { display: flex; flex-direction: column; gap: 2px; }
+.pos-field .label { font-size: 12px; color: var(--color-text-tertiary); }
+.pos-field .value { font-family: 'JetBrains Mono', monospace; font-size: 14px; }
+.pos-field .value.frozen { color: var(--color-frozen); font-size: 12px; }
+.pos-field .value.positive { color: var(--color-positive); }
+.pos-field .value.negative { color: var(--color-negative); }
+
+/* ===== Risk Alert Bar ===== */
+.risk-alert-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  font-size: 14px;
+  border-left: 3px solid var(--color-warning);
+  background: rgba(245,166,35,0.12);
+  color: var(--color-warning);
+  margin: 0 20px 8px;
+  border-radius: 0 8px 8px 0;
+}
+.risk-alert-bar.block {
+  border-left-color: var(--color-error);
+  background: rgba(229,72,77,0.12);
+  color: var(--color-error);
+}
+
+/* ===== Trade Record Table ===== */
+.trade-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--color-surface);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.trade-table thead th {
+  background: rgba(255,255,255,0.02);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-tertiary);
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+}
+.trade-table tbody td {
+  padding: 10px 12px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--color-border);
+  font-family: 'JetBrains Mono', monospace;
+}
+.maker-taker {
+  display: inline-block;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+}
+.maker-tag { background: rgba(96,165,250,0.12); color: var(--color-info); }
+.taker-tag { background: rgba(245,166,35,0.12); color: var(--color-warning); }
+
+/* ===== Empty State ===== */
+.empty-state {
+  text-align: center;
+  padding: 48px 20px;
+}
+.empty-icon { font-size: 48px; margin-bottom: 12px; }
+.empty-title { font-size: 16px; color: var(--color-text-secondary); margin-bottom: 4px; }
+.empty-desc { font-size: 13px; color: var(--color-text-tertiary); margin-bottom: 16px; }
+.empty-actions { display: flex; gap: 12px; justify-content: center; }
+
+/* ===== Close Position Dialog ===== */
+.confirm-dialog {
+  width: 380px;
+  background: var(--color-surface-elevated);
+  border-radius: 12px;
+  animation: slideUp 0.3s ease-out;
+}
+.confirm-dialog .dialog-header { padding: 20px 24px 0; }
+.confirm-dialog .dialog-body { padding: 16px 24px; }
+.confirm-info { font-size: 14px; color: var(--color-text-secondary); line-height: 1.6; }
+.confirm-info strong { color: var(--color-text-primary); font-weight: 600; }
+.confirm-detail {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--color-surface);
+  border-radius: 8px;
+}
+.confirm-detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 0;
+  font-size: 13px;
+}
+.confirm-detail-row .label { color: var(--color-text-tertiary); }
+.confirm-detail-row .value { font-family: 'JetBrains Mono', monospace; }
+.confirm-detail-row .value.frozen { color: var(--color-frozen); }
+.btn-confirm-danger {
+  padding: 8px 20px;
+  border: none;
+  border-radius: 8px;
+  background: var(--color-error);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-confirm-danger:hover { opacity: 0.9; transform: scale(1.02); }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+/* Tab content visibility */
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* WS flash simulation */
+@keyframes numFlash {
+  0% { background: transparent; }
+  30% { background: rgba(103,194,58,0.15); }
+  100% { background: transparent; }
+}
+.num-flash { animation: numFlash 0.3s ease-out; }
+</style>
+</head>
+<body>
+
+<!-- ===== HEADER ===== -->
+<header class="app-header">
+  <div class="header-left">
+    <span class="mode-badge mode-paper">🧪 模拟交易</span>
+    <h1 class="page-title">订单管理</h1>
+  </div>
+  <div class="header-right">
+    <div class="ws-status">
+      <span class="ws-dot"></span>
+      <span>已连接</span>
+    </div>
+    <button class="btn-create" onclick="openCreateDialog()">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      新建委托
+    </button>
+  </div>
+</header>
+
+<!-- ===== RISK ALERT (conditional) ===== -->
+<div id="riskAlert" style="display:none">
+  <div class="risk-alert-bar" style="margin-top:12px">
+    ⚠ 风控预警: 当日亏损已达 80%，请注意风险
+  </div>
+</div>
+
+<!-- ===== SUMMARY CARDS ===== -->
+<div class="summary-cards">
+  <div class="summary-card">
+    <div class="card-icon" style="color:var(--color-accent)">📋</div>
+    <div class="card-label">活跃委托</div>
+    <div class="card-value" id="activeOrders">3</div>
+    <div class="card-sub frozen">保证金 ¥4,950.00</div>
+  </div>
+  <div class="summary-card">
+    <div class="card-icon" style="color:var(--color-filled)">✓</div>
+    <div class="card-label">今日成交</div>
+    <div class="card-value filled" id="todayFills">12</div>
+    <div class="card-sub secondary">成交额 ¥58,400.00</div>
+  </div>
+  <div class="summary-card">
+    <div class="card-icon" style="color:var(--color-frozen)">🔒</div>
+    <div class="card-label">冻结保证金</div>
+    <div class="card-value frozen">¥4,950.00</div>
+    <div class="card-sub tertiary">占总权益 8.2%</div>
+  </div>
+  <div class="summary-card">
+    <div class="card-icon" style="color:var(--color-accent)">💰</div>
+    <div class="card-label">可用余额</div>
+    <div class="card-value">¥55,050.00</div>
+    <div class="card-sub secondary">权益 ¥60,000.00</div>
+  </div>
+</div>
+
+<!-- ===== TAB BAR ===== -->
+<div class="tab-bar">
+  <div class="tab-item active" data-tab="orders" onclick="switchTab('orders')">
+    委托管理 <span class="tab-badge">24</span>
+  </div>
+  <div class="tab-item" data-tab="positions" onclick="switchTab('positions')">
+    持仓管理 <span class="tab-badge">3</span>
+  </div>
+  <div class="tab-item" data-tab="trades" onclick="switchTab('trades')">
+    成交记录 <span class="tab-badge">156</span>
+  </div>
+</div>
+
+<!-- ===== ORDERS TAB ===== -->
+<div class="tab-content active" id="tab-orders">
+  <!-- Filter Bar -->
+  <div class="filter-bar">
+    <select style="background:var(--color-surface-elevated);border:1px solid var(--color-border);color:var(--color-text-primary);padding:6px 10px;border-radius:6px;font-size:13px;min-width:140px">
+      <option>全部状态</option>
+      <option>待成交</option>
+      <option>部分成交</option>
+      <option>已成交</option>
+      <option>已撤销</option>
+      <option>已过期</option>
+      <option>已拒绝</option>
+    </select>
+    <select style="background:var(--color-surface-elevated);border:1px solid var(--color-border);color:var(--color-text-primary);padding:6px 10px;border-radius:6px;font-size:13px;min-width:100px">
+      <option>全部方向</option>
+      <option>买入</option>
+      <option>卖出</option>
+    </select>
+    <select style="background:var(--color-surface-elevated);border:1px solid var(--color-border);color:var(--color-text-primary);padding:6px 10px;border-radius:6px;font-size:13px;min-width:100px">
+      <option>全部类型</option>
+      <option>限价</option>
+      <option>市价</option>
+      <option disabled>🔒 止损 (下版本)</option>
+      <option disabled>🔒 止损限价 (下版本)</option>
+    </select>
+    <input type="text" placeholder="搜索交易对" style="background:var(--color-surface-elevated);border:1px solid var(--color-border);color:var(--color-text-primary);padding:6px 10px;border-radius:6px;font-size:13px;width:160px;outline:none">
+    <input type="text" placeholder="2026-05-07 ~ 2026-05-14" style="background:var(--color-surface-elevated);border:1px solid var(--color-border);color:var(--color-text-primary);padding:6px 10px;border-radius:6px;font-size:13px;width:220px;outline:none">
+    <button class="btn-clear-filter" onclick="this.style.display='none'">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M5 5l4 4M9 5l-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      清空筛选
+    </button>
+    <button class="btn-cancel-all" onclick="openCancelAllDialog()">全部撤单</button>
+  </div>
+
+  <!-- Order Table -->
+  <div class="table-container">
+    <table class="order-table">
+      <thead>
+        <tr>
+          <th>时间</th>
+          <th>交易对</th>
+          <th style="text-align:center">方向</th>
+          <th style="text-align:center">类型</th>
+          <th style="text-align:right">价格</th>
+          <th style="text-align:right">数量</th>
+          <th style="text-align:right">已成交</th>
+          <th style="text-align:center">状态</th>
+          <th style="text-align:center">操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr onclick="openDetailDrawer()">
+          <td class="td-time">05-14 06:05</td>
+          <td class="td-symbol">BTC/USDT</td>
+          <td class="td-center"><span class="side-tag side-buy">买</span></td>
+          <td class="td-center">限价</td>
+          <td class="td-price">49,500.00</td>
+          <td class="td-qty">0.1000</td>
+          <td>
+            <div class="fill-progress">
+              <span class="numbers">0.0500 / 0.1000</span>
+              <div class="fill-bar"><div class="fill-bar-inner buy" style="width:50%"></div></div>
+            </div>
+          </td>
+          <td class="td-center"><span class="status-pill status-partial">⟳ 部分成交</span></td>
+          <td class="td-center"><button class="btn-cancel" onclick="event.stopPropagation();openCancelDialog()">撤单</button></td>
+        </tr>
+        <tr onclick="openDetailDrawer()">
+          <td class="td-time">05-14 06:03</td>
+          <td class="td-symbol">ETH/USDT</td>
+          <td class="td-center"><span class="side-tag side-sell">卖</span></td>
+          <td class="td-center">限价</td>
+          <td class="td-price">3,200.00</td>
+          <td class="td-qty">1.0000</td>
+          <td>
+            <div class="fill-progress">
+              <span class="numbers">0 / 1.0000</span>
+              <div class="fill-bar"><div class="fill-bar-inner sell" style="width:0%"></div></div>
+            </div>
+          </td>
+          <td class="td-center"><span class="status-pill status-pending">⏱ 待成交</span></td>
+          <td class="td-center"><button class="btn-cancel" onclick="event.stopPropagation();openCancelDialog()">撤单</button></td>
+        </tr>
+        <tr onclick="openDetailDrawer()">
+          <td class="td-time">05-14 06:01</td>
+          <td class="td-symbol">BTC/USDT</td>
+          <td class="td-center"><span class="side-tag side-buy">买</span></td>
+          <td class="td-center">市价</td>
+          <td class="td-price" style="color:var(--color-text-tertiary)">市价</td>
+          <td class="td-qty">0.2000</td>
+          <td>
+            <div class="fill-progress">
+              <span class="numbers">0.2000 / 0.2000</span>
+              <div class="fill-bar"><div class="fill-bar-inner buy" style="width:100%"></div></div>
+            </div>
+          </td>
+          <td class="td-center"><span class="status-pill status-filled">✓ 已成交</span></td>
+          <td class="td-center"><button class="btn-detail" onclick="event.stopPropagation();openDetailDrawer()">详情</button></td>
+        </tr>
+        <tr onclick="openDetailDrawer()">
+          <td class="td-time">05-14 05:58</td>
+          <td class="td-symbol">SOL/USDT</td>
+          <td class="td-center"><span class="side-tag side-buy">买</span></td>
+          <td class="td-center">限价</td>
+          <td class="td-price">150.00</td>
+          <td class="td-qty">10.0000</td>
+          <td>
+            <div class="fill-progress">
+              <span class="numbers">10.0000 / 10.0000</span>
+              <div class="fill-bar"><div class="fill-bar-inner buy" style="width:100%"></div></div>
+            </div>
+          </td>
+          <td class="td-center"><span class="status-pill status-filled">✓ 已成交</span></td>
+          <td class="td-center"><button class="btn-detail" onclick="event.stopPropagation();openDetailDrawer()">详情</button></td>
+        </tr>
+        <tr onclick="openDetailDrawer()">
+          <td class="td-time">05-14 05:45</td>
+          <td class="td-symbol">BTC/USDT</td>
+          <td class="td-center"><span class="side-tag side-sell">卖</span></td>
+          <td class="td-center">限价</td>
+          <td class="td-price">52,000.00</td>
+          <td class="td-qty">0.5000</td>
+          <td>
+            <div class="fill-progress">
+              <span class="numbers">0 / 0.5000</span>
+              <div class="fill-bar"><div class="fill-bar-inner sell" style="width:0%"></div></div>
+            </div>
+          </td>
+          <td class="td-center"><span class="status-pill status-pending">⏱ 待成交</span></td>
+          <td class="td-center"><button class="btn-cancel" onclick="event.stopPropagation();openCancelDialog()">撤单</button></td>
+        </tr>
+        <tr onclick="openDetailDrawer()">
+          <td class="td-time">05-13 22:30</td>
+          <td class="td-symbol">ETH/USDT</td>
+          <td class="td-center"><span class="side-tag side-buy">买</span></td>
+          <td class="td-center">限价</td>
+          <td class="td-price">3,100.00</td>
+          <td class="td-qty">2.0000</td>
+          <td>
+            <div class="fill-progress">
+              <span class="numbers">2.0000 / 2.0000</span>
+              <div class="fill-bar"><div class="fill-bar-inner buy" style="width:100%"></div></div>
+            </div>
+          </td>
+          <td class="td-center"><span class="status-pill status-cancelled">✕ 已撤销</span></td>
+          <td class="td-center"><button class="btn-detail" onclick="event.stopPropagation();openDetailDrawer()">详情</button></td>
+        </tr>
+        <tr onclick="openDetailDrawer()">
+          <td class="td-time">05-13 18:15</td>
+          <td class="td-symbol">SOL/USDT</td>
+          <td class="td-center"><span class="side-tag side-buy">买</span></td>
+          <td class="td-center">限价</td>
+          <td class="td-price">148.50</td>
+          <td class="td-qty">5.0000</td>
+          <td>
+            <div class="fill-progress">
+              <span class="numbers">5.0000 / 5.0000</span>
+              <div class="fill-bar"><div class="fill-bar-inner buy" style="width:100%"></div></div>
+            </div>
+          </td>
+          <td class="td-center"><span class="status-pill status-rejected">✕ 已拒绝</span></td>
+          <td class="td-center"><button class="btn-detail" onclick="event.stopPropagation();openDetailDrawer()">详情</button></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  <div class="pagination">
+    <button>&lt;</button>
+    <button class="active">1</button>
+    <button>2</button>
+    <button>3</button>
+    <button>&gt;</button>
+    <span class="page-info">共 24 条</span>
+  </div>
+</div>
+
+<!-- ===== POSITIONS TAB ===== -->
+<div class="tab-content" id="tab-positions">
+  <!-- Position Summary -->
+  <div class="position-summary-bar" style="margin-top:16px">
+    <div class="pos-field">
+      <span class="label">可用余额</span>
+      <span class="value">55,000.00 USDT</span>
+    </div>
+    <div class="pos-field">
+      <span class="label">冻结余额</span>
+      <span class="value frozen">4,950.00 USDT</span>
+    </div>
+    <div class="pos-field">
+      <span class="label">权益</span>
+      <span class="value">60,050.00 USDT</span>
+    </div>
+    <div class="pos-field">
+      <span class="label">初始资金</span>
+      <span class="value" style="color:var(--color-text-secondary)">100,000.00</span>
+    </div>
+    <div class="pos-field">
+      <span class="label">累计盈亏</span>
+      <span class="value negative">-40,450.00</span>
+    </div>
+    <div class="pos-field">
+      <span class="label">持仓数</span>
+      <span class="value" style="color:var(--color-text-secondary)">3</span>
+    </div>
+  </div>
+
+  <!-- Filter -->
+  <div class="filter-bar">
+    <select style="background:var(--color-surface-elevated);border:1px solid var(--color-border);color:var(--color-text-primary);padding:6px 10px;border-radius:6px;font-size:13px">
+      <option>全部方向</option>
+      <option>多头</option>
+      <option>空头</option>
+    </select>
+    <input type="text" placeholder="搜索交易对" style="background:var(--color-surface-elevated);border:1px solid var(--color-border);color:var(--color-text-primary);padding:6px 10px;border-radius:6px;font-size:13px;width:160px;outline:none">
+  </div>
+
+  <!-- Positions Table -->
+  <div class="table-container">
+    <table class="order-table">
+      <thead>
+        <tr>
+          <th>交易对</th>
+          <th style="text-align:center">方向</th>
+          <th style="text-align:right">数量</th>
+          <th style="text-align:right">可用</th>
+          <th style="text-align:right">均价</th>
+          <th style="text-align:right">现价</th>
+          <th style="text-align:right">浮动盈亏</th>
+          <th style="text-align:right">盈亏率</th>
+          <th style="text-align:center">操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="td-symbol">BTC/USDT</td>
+          <td class="td-center"><span class="side-tag side-long">多</span></td>
+          <td class="td-qty">0.3000</td>
+          <td class="td-qty" style="color:var(--color-text-secondary)">0.2000</td>
+          <td class="td-price">49,000.00</td>
+          <td class="td-price" style="color:var(--color-buy)">50,000.00</td>
+          <td class="td-price" style="color:var(--color-positive)">+¥300.00</td>
+          <td class="td-qty" style="color:var(--color-positive)">+2.04%</td>
+          <td class="td-center" style="display:flex;gap:6px;justify-content:center">
+            <button class="btn-detail" onclick="openClosePositionDialog('partial')">部分平仓</button>
+            <button class="btn-cancel" style="border-color:var(--color-sell);color:var(--color-sell)" onclick="openClosePositionDialog('full')">全部平仓</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="td-symbol">ETH/USDT</td>
+          <td class="td-center"><span class="side-tag side-long">多</span></td>
+          <td class="td-qty">1.0000</td>
+          <td class="td-qty" style="color:var(--color-text-secondary)">0.5000</td>
+          <td class="td-price">3,200.00</td>
+          <td class="td-price" style="color:var(--color-sell)">3,100.00</td>
+          <td class="td-price" style="color:var(--color-negative)">-¥100.00</td>
+          <td class="td-qty" style="color:var(--color-negative)">-3.13%</td>
+          <td class="td-center" style="display:flex;gap:6px;justify-content:center">
+            <button class="btn-detail" onclick="openClosePositionDialog('partial')">部分平仓</button>
+            <button class="btn-cancel" style="border-color:var(--color-sell);color:var(--color-sell)" onclick="openClosePositionDialog('full')">全部平仓</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="td-symbol">SOL/USDT</td>
+          <td class="td-center"><span class="side-tag side-short">空</span></td>
+          <td class="td-qty">20.0000</td>
+          <td class="td-qty" style="color:var(--color-text-secondary)">20.0000</td>
+          <td class="td-price">155.00</td>
+          <td class="td-price" style="color:var(--color-sell)">148.00</td>
+          <td class="td-price" style="color:var(--color-positive)">+¥140.00</td>
+          <td class="td-qty" style="color:var(--color-positive)">+4.52%</td>
+          <td class="td-center" style="display:flex;gap:6px;justify-content:center">
+            <button class="btn-detail" onclick="openClosePositionDialog('partial')">部分平仓</button>
+            <button class="btn-cancel" style="border-color:var(--color-sell);color:var(--color-sell)" onclick="openClosePositionDialog('full')">全部平仓</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ===== TRADES TAB ===== -->
+<div class="tab-content" id="tab-trades">
+  <!-- Filter -->
+  <div class="filter-bar" style="margin-top:0">
+    <input type="text" placeholder="搜索交易对" style="background:var(--color-surface-elevated);border:1px solid var(--color-border);color:var(--color-text-primary);padding:6px 10px;border-radius:6px;font-size:13px;width:160px;outline:none">
+    <select style="background:var(--color-surface-elevated);border:1px solid var(--color-border);color:var(--color-text-primary);padding:6px 10px;border-radius:6px;font-size:13px">
+      <option>全部方向</option>
+      <option>买入</option>
+      <option>卖出</option>
+    </select>
+    <input type="text" placeholder="2026-05-07 ~ 2026-05-14" style="background:var(--color-surface-elevated);border:1px solid var(--color-border);color:var(--color-text-primary);padding:6px 10px;border-radius:6px;font-size:13px;width:220px;outline:none">
+  </div>
+
+  <!-- Trade Table -->
+  <div class="table-container">
+    <table class="trade-table">
+      <thead>
+        <tr>
+          <th>成交时间</th>
+          <th>交易对</th>
+          <th style="text-align:center">方向</th>
+          <th style="text-align:right">成交价</th>
+          <th style="text-align:right">数量</th>
+          <th style="text-align:right">成交额</th>
+          <th style="text-align:right">手续费</th>
+          <th style="text-align:center">类型</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="cursor:pointer" onclick="openDetailDrawer()">
+          <td style="color:var(--color-text-secondary)">06:05:12</td>
+          <td style="font-weight:600;font-family:Inter">BTC/USDT</td>
+          <td style="text-align:center"><span class="side-tag side-buy">买</span></td>
+          <td style="text-align:right">49,500.00</td>
+          <td style="text-align:right">0.0500</td>
+          <td style="text-align:right">2,475.00</td>
+          <td style="text-align:right;color:var(--color-frozen)">2.48</td>
+          <td style="text-align:center"><span class="maker-taker taker-tag">T</span></td>
+        </tr>
+        <tr style="cursor:pointer" onclick="openDetailDrawer()">
+          <td style="color:var(--color-text-secondary)">06:01:45</td>
+          <td style="font-weight:600;font-family:Inter">BTC/USDT</td>
+          <td style="text-align:center"><span class="side-tag side-buy">买</span></td>
+          <td style="text-align:right">49,000.00</td>
+          <td style="text-align:right">0.2000</td>
+          <td style="text-align:right">9,800.00</td>
+          <td style="text-align:right;color:var(--color-frozen)">9.80</td>
+          <td style="text-align:center"><span class="maker-taker maker-tag">M</span></td>
+        </tr>
+        <tr style="cursor:pointer" onclick="openDetailDrawer()">
+          <td style="color:var(--color-text-secondary)">05:58:30</td>
+          <td style="font-weight:600;font-family:Inter">SOL/USDT</td>
+          <td style="text-align:center"><span class="side-tag side-buy">买</span></td>
+          <td style="text-align:right">150.00</td>
+          <td style="text-align:right">10.0000</td>
+          <td style="text-align:right">1,500.00</td>
+          <td style="text-align:right;color:var(--color-frozen)">1.50</td>
+          <td style="text-align:center"><span class="maker-taker taker-tag">T</span></td>
+        </tr>
+        <tr style="cursor:pointer" onclick="openDetailDrawer()">
+          <td style="color:var(--color-text-secondary)">05:30:15</td>
+          <td style="font-weight:600;font-family:Inter">ETH/USDT</td>
+          <td style="text-align:center"><span class="side-tag side-sell">卖</span></td>
+          <td style="text-align:right">3,250.00</td>
+          <td style="text-align:right">0.5000</td>
+          <td style="text-align:right">1,625.00</td>
+          <td style="text-align:right;color:var(--color-frozen)">1.63</td>
+          <td style="text-align:center"><span class="maker-taker maker-tag">M</span></td>
+        </tr>
+        <tr style="cursor:pointer" onclick="openDetailDrawer()">
+          <td style="color:var(--color-text-secondary)">05-13 22:15:08</td>
+          <td style="font-weight:600;font-family:Inter">BTC/USDT</td>
+          <td style="text-align:center"><span class="side-tag side-sell">卖</span></td>
+          <td style="text-align:right">51,200.00</td>
+          <td style="text-align:right">0.1000</td>
+          <td style="text-align:right">5,120.00</td>
+          <td style="text-align:right;color:var(--color-frozen)">5.12</td>
+          <td style="text-align:center"><span class="maker-taker taker-tag">T</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pagination">
+    <button>&lt;</button>
+    <button class="active">1</button>
+    <button>2</button>
+    <button>3</button>
+    <button>...</button>
+    <button>8</button>
+    <button>&gt;</button>
+    <span class="page-info">共 156 条</span>
+  </div>
+</div>
+
+<!-- ===== CREATE ORDER DIALOG ===== -->
+<div class="overlay" id="createDialogOverlay" onclick="if(event.target===this)closeCreateDialog()">
+  <div class="create-dialog">
+    <div class="dialog-header">
+      <h3>新建委托</h3>
+      <button class="dialog-close" onclick="closeCreateDialog()">✕</button>
+    </div>
+    <div class="dialog-body">
+      <!-- Side Toggle -->
+      <div class="side-toggle" id="sideToggle">
+        <button class="btn-buy-on" onclick="setSide('buy')">买入</button>
+        <button class="btn-sell-off" onclick="setSide('sell')">卖出</button>
+      </div>
+
+      <!-- Order Type Select -->
+      <div class="order-type-select">
+        <button class="type-tab active" onclick="setType(this,'limit')">限价</button>
+        <button class="type-tab" onclick="setType(this,'market')">市价</button>
+        <button class="type-tab disabled" title="下个版本上线" onclick="alert('止损单功能将在下个版本上线')">🔒 止损</button>
+        <button class="type-tab disabled" title="下个版本上线" onclick="alert('止损限价功能将在下个版本上线')">🔒 止损限价</button>
+      </div>
+
+      <!-- Symbol -->
+      <div class="form-group">
+        <label class="form-label">交易对</label>
+        <div class="form-input-wrap">
+          <select style="width:100%;height:40px;background:transparent;border:none;color:var(--color-text-primary);padding:0 12px;font-size:14px;outline:none;appearance:none;cursor:pointer">
+            <option>BTC/USDT</option>
+            <option>ETH/USDT</option>
+            <option>SOL/USDT</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Price (limit) -->
+      <div class="form-group" id="priceGroup">
+        <label class="form-label">价格</label>
+        <div class="form-input-wrap">
+          <input class="form-input" type="text" placeholder="0.00" value="49,500.00" id="priceInput">
+          <div class="form-step-btns">
+            <button onclick="stepPrice(1)">▲</button>
+            <button onclick="stepPrice(-1)">▼</button>
+          </div>
+          <span class="form-suffix">USDT</span>
+        </div>
+      </div>
+
+      <!-- Quantity -->
+      <div class="form-group">
+        <label class="form-label">数量</label>
+        <div class="form-input-wrap">
+          <input class="form-input" type="text" placeholder="0.00" value="0.1000" id="qtyInput">
+          <span class="form-suffix">BTC</span>
+        </div>
+        <div class="form-est">≈ 4,950.00 USDT</div>
+        <div class="qty-slider">
+          <button onclick="setQtyPercent(this,25)">25%</button>
+          <button onclick="setQtyPercent(this,50)">50%</button>
+          <button class="active" onclick="setQtyPercent(this,75)">75%</button>
+          <button onclick="setQtyPercent(this,100)">100%</button>
+        </div>
+      </div>
+
+      <!-- Account Info -->
+      <div class="account-info">
+        <div class="account-info-row">
+          <span class="label">可用余额</span>
+          <span class="value" id="availBalance">55,050.00 USDT</span>
+        </div>
+        <div class="account-info-row">
+          <span class="label">冻结保证金</span>
+          <span class="value frozen">4,950.00 USDT</span>
+        </div>
+      </div>
+
+      <!-- Order Summary -->
+      <div class="order-summary">
+        <div class="order-summary-row">
+          <span class="label">预估金额</span>
+          <span class="value">≈ 4,950.00 USDT</span>
+        </div>
+        <div class="order-summary-row">
+          <span class="label">手续费(≈)</span>
+          <span class="value">4.95 USDT</span>
+        </div>
+        <div class="order-summary-row">
+          <span class="label">合计冻结</span>
+          <span class="value" style="color:var(--color-frozen)">≈ 4,954.95 USDT</span>
+        </div>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn-ghost" onclick="closeCreateDialog()">取消</button>
+      <button class="btn-submit-buy" id="submitBtn" onclick="openConfirmDialog()">确认提交</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== CONFIRM DIALOG ===== -->
+<div class="overlay" id="confirmDialogOverlay" onclick="if(event.target===this)closeConfirmDialog()">
+  <div class="confirm-dialog">
+    <div class="dialog-header">
+      <h3>确认提交委托</h3>
+      <button class="dialog-close" onclick="closeConfirmDialog()">✕</button>
+    </div>
+    <div class="dialog-body">
+      <div class="confirm-info">
+        <div style="margin-bottom:8px"><strong>交易对:</strong> BTC/USDT</div>
+        <div style="margin-bottom:8px"><strong>方向:</strong> 买入</div>
+        <div style="margin-bottom:8px"><strong>类型:</strong> 限价</div>
+        <div style="margin-bottom:8px"><strong>价格:</strong> 49,500.00 USDT</div>
+        <div style="margin-bottom:8px"><strong>数量:</strong> 0.1000 BTC</div>
+      </div>
+      <div class="confirm-detail">
+        <div class="confirm-detail-row">
+          <span class="label">预估金额</span>
+          <span class="value">≈ 4,950.00 USDT</span>
+        </div>
+        <div class="confirm-detail-row">
+          <span class="label">手续费(≈)</span>
+          <span class="value">≈ 4.95 USDT</span>
+        </div>
+      </div>
+      <div style="margin-top:12px;font-size:12px;color:var(--color-paper-mode)">🧪 模拟交易</div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn-ghost" onclick="closeConfirmDialog()">取消</button>
+      <button class="btn-submit-buy" onclick="submitOrder()">确认提交</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== CANCEL DIALOG ===== -->
+<div class="overlay" id="cancelDialogOverlay" onclick="if(event.target===this)closeCancelDialog()">
+  <div class="confirm-dialog">
+    <div class="dialog-header">
+      <h3>确认撤单</h3>
+      <button class="dialog-close" onclick="closeCancelDialog()">✕</button>
+    </div>
+    <div class="dialog-body">
+      <div class="confirm-info">
+        确认撤销委托 <strong>#123456</strong>？<br>
+        BTC/USDT 买入 限价 49,500.00<br>
+        数量: 0.1000 BTC
+      </div>
+      <div class="confirm-detail" style="margin-top:12px">
+        <div class="confirm-detail-row">
+          <span class="label">将释放保证金</span>
+          <span class="value frozen">≈ 4,950.00 USDT</span>
+        </div>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn-ghost" onclick="closeCancelDialog()">取消</button>
+      <button class="btn-confirm-danger" onclick="doCancel()">确认撤单</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== CANCEL ALL DIALOG ===== -->
+<div class="overlay" id="cancelAllDialogOverlay" onclick="if(event.target===this)closeCancelAllDialog()">
+  <div class="confirm-dialog">
+    <div class="dialog-header">
+      <h3>全部撤单</h3>
+      <button class="dialog-close" onclick="closeCancelAllDialog()">✕</button>
+    </div>
+    <div class="dialog-body">
+      <div class="confirm-info">
+        确认撤销全部 <strong>3</strong> 个未成交委托？<br><br>
+        将释放保证金 ≈ <strong>¥9,150.00</strong>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn-ghost" onclick="closeCancelAllDialog()">取消</button>
+      <button class="btn-confirm-danger" onclick="closeCancelAllDialog()">确认全部撤单</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== CLOSE POSITION DIALOG ===== -->
+<div class="overlay" id="closePosDialogOverlay" onclick="if(event.target===this)closeClosePositionDialog()">
+  <div class="confirm-dialog">
+    <div class="dialog-header">
+      <h3>平仓确认</h3>
+      <button class="dialog-close" onclick="closeClosePositionDialog()">✕</button>
+    </div>
+    <div class="dialog-body">
+      <div class="confirm-info">
+        确认平仓 <strong>BTC/USDT 0.3 BTC</strong>？<br>
+        将以市价卖出
+      </div>
+      <div class="confirm-detail" style="margin-top:12px">
+        <div class="confirm-detail-row">
+          <span class="label">预估金额</span>
+          <span class="value">≈ 15,000.00 USDT</span>
+        </div>
+        <div class="confirm-detail-row">
+          <span class="label">将释放保证金</span>
+          <span class="value frozen">≈ 14,700.00 USDT</span>
+        </div>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn-ghost" onclick="closeClosePositionDialog()">取消</button>
+      <button class="btn-confirm-danger" onclick="closeClosePositionDialog()">确认平仓</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== DETAIL DRAWER ===== -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeDetailDrawer()"></div>
+<div class="drawer" id="detailDrawer">
+  <div class="drawer-header">
+    <h3>委托详情 #123456</h3>
+    <button class="dialog-close" onclick="closeDetailDrawer()">✕</button>
+  </div>
+  <div class="drawer-body">
+    <!-- Header Area -->
+    <div class="drawer-header-area">
+      <div class="drawer-symbol">BTC/USDT</div>
+      <div class="drawer-tags">
+        <span class="side-tag side-buy">买</span>
+        <span style="font-size:13px;color:var(--color-text-secondary)">限价</span>
+        <span class="status-pill status-partial">⟳ 部分成交</span>
+      </div>
+    </div>
+
+    <!-- Order Info -->
+    <div class="drawer-section-title">委托信息</div>
+    <div class="drawer-field"><span class="label">委托价格</span><span class="value">49,500.00 USDT</span></div>
+    <div class="drawer-field"><span class="label">委托数量</span><span class="value">0.1000 BTC</span></div>
+    <div class="drawer-field"><span class="label">已成交</span><span class="value" style="color:var(--color-partial)">0.0500 BTC</span></div>
+    <div class="drawer-field"><span class="label">成交均价</span><span class="value">49,500.00 USDT</span></div>
+    <div class="drawer-field"><span class="label">有效期</span><span class="value" style="font-family:Inter">GTC</span></div>
+    <div class="drawer-field"><span class="label">手续费</span><span class="value frozen">2.4750 USDT</span></div>
+    <div class="drawer-field"><span class="label">创建时间</span><span class="value" style="color:var(--color-text-secondary);font-size:12px">2026-05-14 06:00:00</span></div>
+    <div class="drawer-field"><span class="label">更新时间</span><span class="value" style="color:var(--color-text-secondary);font-size:12px">2026-05-14 06:05:00</span></div>
+
+    <!-- Margin Info (D3) -->
+    <div class="drawer-section-title">保证金信息</div>
+    <div class="drawer-field"><span class="label">冻结金额</span><span class="value frozen">4,950.00 USDT</span></div>
+    <div class="drawer-field"><span class="label">已释放</span><span class="value success">2,475.00 USDT</span></div>
+    <div class="drawer-field"><span class="label">仍冻结</span><span class="value frozen">2,475.00 USDT</span></div>
+
+    <!-- Fill Records -->
+    <div class="drawer-section-title">成交明细</div>
+    <table class="fill-mini-table">
+      <thead>
+        <tr>
+          <th style="text-align:left">成交价</th>
+          <th>数量</th>
+          <th>手续费</th>
+          <th>时间</th>
+          <th>类型</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>49,500.00</td>
+          <td>0.0500</td>
+          <td style="color:var(--color-frozen)">2.48</td>
+          <td style="color:var(--color-text-secondary)">06:05</td>
+          <td><span class="maker-taker taker-tag">T</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Cancel Button -->
+    <button class="drawer-btn-cancel" onclick="closeDetailDrawer();openCancelDialog()">撤销委托</button>
+  </div>
+</div>
+
+<script>
+// Tab switching
+function switchTab(tab) {
+  document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+  document.getElementById(`tab-${tab}`).classList.add('active');
+}
+
+// Create Dialog
+function openCreateDialog() {
+  document.getElementById('createDialogOverlay').classList.add('active');
+}
+function closeCreateDialog() {
+  document.getElementById('createDialogOverlay').classList.remove('active');
+}
+
+// Side Toggle
+let currentSide = 'buy';
+function setSide(side) {
+  currentSide = side;
+  const toggle = document.getElementById('sideToggle');
+  if (side === 'buy') {
+    toggle.innerHTML = '<button class="btn-buy-on">买入</button><button class="btn-sell-off" onclick="setSide(\'sell\')">卖出</button>';
+    document.getElementById('submitBtn').className = 'btn-submit-buy';
+    document.getElementById('submitBtn').textContent = '确认提交';
+    document.getElementById('availBalance').textContent = '55,050.00 USDT';
+  } else {
+    toggle.innerHTML = '<button class="btn-buy-off" onclick="setSide(\'buy\')">买入</button><button class="btn-sell-on">卖出</button>';
+    document.getElementById('submitBtn').className = 'btn-submit-sell';
+    document.getElementById('submitBtn').textContent = '确认提交';
+    document.getElementById('availBalance').textContent = '0.3000 BTC 可用';
+  }
+}
+
+// Order Type
+let currentType = 'limit';
+function setType(el, type) {
+  if (el.classList.contains('disabled')) return;
+  currentType = type;
+  document.querySelectorAll('.order-type-select .type-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  const priceGroup = document.getElementById('priceGroup');
+  if (type === 'market') {
+    priceGroup.style.display = 'none';
+  } else {
+    priceGroup.style.display = 'block';
+  }
+}
+
+// Price step
+function stepPrice(dir) {
+  const input = document.getElementById('priceInput');
+  let val = parseFloat(input.value.replace(/,/g, '')) || 0;
+  val += dir * 0.01;
+  input.value = val.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+}
+
+// Quantity percent
+function setQtyPercent(el, pct) {
+  document.querySelectorAll('.qty-slider button').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+}
+
+// Confirm Dialog
+function openConfirmDialog() {
+  document.getElementById('confirmDialogOverlay').classList.add('active');
+}
+function closeConfirmDialog() {
+  document.getElementById('confirmDialogOverlay').classList.remove('active');
+}
+function submitOrder() {
+  closeConfirmDialog();
+  closeCreateDialog();
+  // Flash effect
+  const card = document.getElementById('activeOrders');
+  card.classList.add('num-flash');
+  card.textContent = '4';
+  setTimeout(() => card.classList.remove('num-flash'), 300);
+}
+
+// Cancel Dialog
+function openCancelDialog() {
+  document.getElementById('cancelDialogOverlay').classList.add('active');
+}
+function closeCancelDialog() {
+  document.getElementById('cancelDialogOverlay').classList.remove('active');
+}
+function doCancel() {
+  closeCancelDialog();
+  const card = document.getElementById('activeOrders');
+  card.classList.add('num-flash');
+  card.textContent = '2';
+  setTimeout(() => card.classList.remove('num-flash'), 300);
+}
+
+// Cancel All Dialog
+function openCancelAllDialog() {
+  document.getElementById('cancelAllDialogOverlay').classList.add('active');
+}
+function closeCancelAllDialog() {
+  document.getElementById('cancelAllDialogOverlay').classList.remove('active');
+}
+
+// Close Position Dialog
+function openClosePositionDialog(mode) {
+  document.getElementById('closePosDialogOverlay').classList.add('active');
+}
+function closeClosePositionDialog() {
+  document.getElementById('closePosDialogOverlay').classList.remove('active');
+}
+
+// Detail Drawer
+function openDetailDrawer() {
+  document.getElementById('drawerOverlay').classList.add('active');
+  setTimeout(() => document.getElementById('detailDrawer').classList.add('active'), 10);
+}
+function closeDetailDrawer() {
+  document.getElementById('detailDrawer').classList.remove('active');
+  setTimeout(() => document.getElementById('drawerOverlay').classList.remove('active'), 200);
+}
+
+// Risk alert toggle (demo)
+setTimeout(() => {
+  document.getElementById('riskAlert').style.display = 'block';
+}, 2000);
+</script>
+
+</body>
+</html>
