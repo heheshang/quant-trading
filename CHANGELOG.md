@@ -1,3 +1,35 @@
+## [0.7.0] — 2026-05-15
+
+### 新增
+
+#### 交易执行模块
+
+- **交易执行主页面** (`frontend/src/views/trade/TradingView.vue`)
+  - 三栏布局：K线图区（flex:2）+ 下单表单 + 委托管理Tab
+  - 响应式：≤1200px 右侧面板320px，≤900px 切换两栏
+  - WebSocket模拟 + 实时买卖盘口显示
+  - 设计token：深色背景 #08090a + 主色 #7170ff
+
+- **组件更新**
+  - `OrderList.vue`：买入/卖出颜色区分，空状态骨架屏
+  - `OrderSummaryCards.vue`：去除骨架屏CSS动画
+  - `PositionPanel.vue`：去除骨架屏CSS动画
+
+- **API契约修复**
+  - `closePosition`：`:id` → `:symbol`（路由 `/positions/:symbol/close`）
+  - `Position.id/user_id`：number → string（UUID）
+  - `PaperAccount.user_id`：number → string（UUID）
+
+- **设计文档** (`docs/design/`)
+  - `Design_TradingExecution.md`：1100行完整规格（US-TE-01~10全覆盖）
+  - `TradingExecution_Checklist.md`：180项UI/UX走查清单
+  - `prototype_trading_execution.html`：57KB交互原型
+
+- **后端MVP完整实现** (ADR-010)
+  - `close_position` handler：`POST /positions/:symbol/close`
+  - 风控前置：交易对校验、余额检查、卖出持仓检查、保证金冻结
+  - 11个API端点全部就绪
+
 ## [0.5.0] — 2026-05-13
 ## [0.6.0] — 2026-05-14
 
