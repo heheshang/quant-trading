@@ -3,6 +3,7 @@ import { mount, flushPromises } from '@vue/test-utils'
 import ElementPlus from 'element-plus'
 import { createRouter, createWebHistory } from 'vue-router'
 import StrategyTemplateView from '@/views/strategy/StrategyTemplateView.vue'
+import type { StrategyTemplate } from '@/types'
 import * as strategiesApi from '@/api/strategies'
 
 vi.mock('@/api/strategies', () => ({
@@ -18,9 +19,10 @@ const router = createRouter({
   ],
 })
 
-const mockTemplates = [
+const mockTemplates: StrategyTemplate[] = [
   {
     id: 'trend_following',
+    template_id: '550e8400-e29b-41d4-a716-446655420001',
     name: '趋势跟踪',
     description: '基于移动平均线交叉的趋势跟踪策略',
     category: '趋势跟踪',
@@ -32,6 +34,7 @@ const mockTemplates = [
   },
   {
     id: 'grid_trading',
+    template_id: '550e8400-e29b-41d4-a716-446655420002',
     name: '网格交易',
     description: '震荡行情网格交易策略',
     category: '网格交易',
@@ -42,6 +45,7 @@ const mockTemplates = [
   },
   {
     id: 'mean_reversion',
+    template_id: '550e8400-e29b-41d4-a716-446655420003',
     name: '均值回归',
     description: '价格围绕均值波动的均值回归策略',
     category: '均值回归',

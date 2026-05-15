@@ -93,8 +93,8 @@ const lastPrice = ref<number>(0)
 const tickerChange = ref(0)
 const tickerChangePercent = ref(0)
 
-const symbolRef = computed(() => selectedSymbol)
-const levelsRef = computed(() => selectedLevels)
+const symbolRef = computed(() => selectedSymbol.value as string)
+const levelsRef = computed(() => selectedLevels.value as number)
 
 const { depth, loading: depthLoading, error: depthError, fetchDepth, handleSnapshot, handleUpdate } = useDepth(symbolRef, levelsRef)
 

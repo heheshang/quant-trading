@@ -197,7 +197,7 @@ function formatMoney(value: string | number | undefined | null): string {
 async function loadSymbolConfigs() {
   try {
     const res = await getSymbols()
-    symbolConfigs.value = res.items
+    symbolConfigs.value = (res as any)?.items ?? res ?? []
   } catch {
     // Use defaults
   }

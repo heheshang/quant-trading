@@ -316,7 +316,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Cpu, MoreFilled, Edit, Delete, VideoPlay, VideoPause, CircleClose, CopyDocument, Shop, Upload, Download } from '@element-plus/icons-vue'
 import { listStrategies, getStrategy, createStrategy, deleteStrategy, toggleStrategy, bulkUpdateStatus, bulkDeleteStrategies, importStrategies, exportStrategies } from '@/api/strategies'
-import type { StrategyFull, CreateStrategyPayload } from '@/types'
+import type { StrategyFull, CreateStrategyPayload, StrategyType } from '@/types'
 
 // StrategyStatusBadge inline component
 import { defineComponent, h } from 'vue'
@@ -433,8 +433,9 @@ async function fetchStrategies() {
       sort_by: sortField,
       sort_order: sortOrder,
     })
-    strategies.value = result?.data ?? []
-    totalCount.value = result?.meta?.total ?? 0
+    const r = result as any
+    strategies.value = r?.items ?? r ?? []
+    totalCount.value = r?.total ?? 0
   } catch {
     error.value = true
   } finally {
@@ -573,11 +574,10 @@ async function handleActionCommand(cmd: string, row: StrategyFull) {
           description: original.description,
           symbol: original.symbol,
           timeframe: original.timeframe,
-          strategy_type: original.strategy_type,
+          strategy_type: (original.strategy_type ?? 'ma_crossover') as StrategyType,
           template_id: original.template_id,
           template_type: original.template_type,
           parameters: original.parameters,
-          status: 'draft',
         }
         await createStrategy(cloneData)
         ElMessage.success(`策略「${original.name}」已克隆为草稿`)

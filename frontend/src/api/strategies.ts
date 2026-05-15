@@ -1,5 +1,6 @@
 import client from './client'
 import type {
+  PaginatedResponse,
   StrategyFull,
   StrategyTemplate,
   CreateStrategyPayload,
@@ -7,7 +8,7 @@ import type {
   StrategyQueryParams,
 } from '@/types'
 
-export function listStrategies(params?: StrategyQueryParams): Promise<{ data: StrategyFull[]; meta: { page: number; size: number; total: number } }> {
+export function listStrategies(params?: StrategyQueryParams): Promise<PaginatedResponse<StrategyFull>> {
   return client.get('/strategies', { params })
 }
 

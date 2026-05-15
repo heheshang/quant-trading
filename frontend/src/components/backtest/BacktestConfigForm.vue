@@ -297,7 +297,8 @@ async function loadStrategies() {
   loadingStrategies.value = true
   try {
     const res = await listStrategies()
-    strategies.value = res?.data ?? []
+    const r = res as any
+    strategies.value = r?.items ?? r ?? []
   } catch {
     strategies.value = []
   } finally {
@@ -309,7 +310,7 @@ async function loadTemplates() {
   loadingTemplates.value = true
   try {
     const res = await listTemplates()
-    templates.value = res?.data ?? []
+    templates.value = res ?? []
   } catch {
     templates.value = []
   } finally {

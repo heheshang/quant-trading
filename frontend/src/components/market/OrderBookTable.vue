@@ -29,7 +29,7 @@
       </div>
       <div class="price-change" :class="priceDirection">
         {{ formatChange(change) }} ({{ formatPercent(changePercent) }})
-        <span class="change-arrow">{{ change > 0 ? '▲' : change < 0 ? '▼' : '' }}</span>
+        <span class="change-arrow">{{ (change ?? 0) > 0 ? '▲' : (change ?? 0) < 0 ? '▼' : '' }}</span>
       </div>
       <div class="spread-row">
         <span class="spread-label">买一</span>

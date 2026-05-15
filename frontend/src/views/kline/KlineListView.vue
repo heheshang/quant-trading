@@ -280,7 +280,7 @@ async function confirmDelete(row: KlineSymbolOverview) {
 // 打开标签编辑弹窗
 function openTagDialog(row: KlineSymbolOverview) {
   tagRow.value = row
-  tagForm.value = { source: row.source }
+  tagForm.value = { source: row.source ?? '' }
   tagDialogVisible.value = true
 }
 

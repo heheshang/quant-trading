@@ -400,7 +400,7 @@ function onOrderCreated() {
   loadPositionQty()
 }
 
-function onClosePositionSuccess(_positionId: number) {
+function onClosePositionSuccess(symbol: string) {
   loadPositions()
   loadAccount()
 }
