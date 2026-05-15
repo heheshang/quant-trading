@@ -179,6 +179,7 @@ pub struct StrategyResponse {
     pub symbol: String,
     pub timeframe: String,
     pub strategy_type: String,
+    pub template_id: Uuid,
     pub template_type: String,
     pub parameters: serde_json::Value,
     pub status: String,
@@ -193,7 +194,9 @@ pub struct CreateStrategyRequest {
     pub symbol: String,
     pub timeframe: String,
     pub strategy_type: String,
-    pub template_type: String,
+    pub template_id: Uuid,
+    #[serde(alias = "template_type")]
+    pub template_type: Option<String>,
     pub parameters: serde_json::Value,
 }
 
@@ -229,7 +232,9 @@ pub struct ImportStrategyRequest {
     pub symbol: String,
     pub timeframe: String,
     pub strategy_type: String,
-    pub template_type: String,
+    pub template_id: Uuid,
+    #[serde(alias = "template_type")]
+    pub template_type: Option<String>,
     pub parameters: serde_json::Value,
     /// Optional: override status on import (default: "draft")
     pub status: Option<String>,

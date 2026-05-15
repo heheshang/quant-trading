@@ -1159,6 +1159,31 @@ fn validate_status_transition(current: &str, next: &str) -> Result<(), AppError>
     Ok(())
 }
 
+// Mapping from template_type string to a consistent UUID for ADR D6 compliance.
+// In production this could come from a database templates table.
+fn template_type_to_uuid(template_type: &str) -> Uuid {
+    // Use a simple FNV-style hash to derive octets, then build v4-style UUID
+    let bytes = template_type.as_bytes();
+    let mut hash: u64 = 0xcbf29ce84222374fu64;
+    for &b in bytes {
+        hash = hash.wrapping_mul(0x100000001b3);
+        hash ^= b as u64;
+    }
+    let (d1, d2) = ((hash >> 48) as u32, (hash >> 32) as u16);
+    let d3 = (hash >> 16) as u16;
+    let d4: [u8; 8] = [
+        (hash >> 8) as u8,
+        hash as u8,
+        ((hash >> 56) ^ 0x40) as u8,  // set version = 4
+        ((hash >> 48) ^ 0x80) as u8, // set variant
+        ((hash >> 40) & 0xff) as u8,
+        ((hash >> 32) & 0xff) as u8,
+        ((hash >> 24) & 0xff) as u8,
+        ((hash >> 16) & 0xff) as u8,
+    ];
+    Uuid::from_fields(d1, d2, d3, &d4)
+}
+
 fn model_to_response(m: strategy::Model) -> StrategyResponse {
     StrategyResponse {
         id: m.id,
@@ -1168,6 +1193,7 @@ fn model_to_response(m: strategy::Model) -> StrategyResponse {
         symbol: m.symbol,
         timeframe: m.timeframe,
         strategy_type: m.strategy_type,
+        template_id: template_type_to_uuid(&m.template_type),
         template_type: m.template_type,
         parameters: m.parameters,
         status: m.status,
@@ -1185,14 +1211,50 @@ pub async fn list_templates() -> Result<Vec<TemplateInfo>, AppError> {
         .collect())
 }
 
+// Resolve template_type from template_id UUID.
+// Since templates are currently in-memory with string IDs, we use a deterministic
+// UUID mapping. In production, this would query a templates database table.
+fn resolve_template_type_from_id(template_id: &Uuid) -> Option<String> {
+    // Check if template_id matches any known template's UUID
+    let all_templates = get_all_templates();
+    for t in all_templates {
+        if template_id == &template_type_to_uuid(t.id()) {
+            return Some(t.id().to_string());
+        }
+    }
+    None
+}
+
 pub async fn create_strategy(
     db: &DatabaseConnection,
     user_id: Uuid,
     req: CreateStrategyRequest,
 ) -> Result<StrategyResponse, AppError> {
+    // Resolve template_type from template_id
+    let template_type = if let Some(ref tt) = req.template_type {
+        // Backward compatibility: if template_type is provided, use it directly
+        tt.clone()
+    } else {
+        // Otherwise resolve from template_id
+        resolve_template_type_from_id(&req.template_id)
+            .ok_or_else(|| {
+                AppError::Validation(format!(
+                    "Invalid template_id: {}. Could not resolve to a valid template_type",
+                    req.template_id
+                ))
+            })?
+    };
+
+    // Log the template_id being used
+    tracing::info!(
+        "Creating strategy with template_id: {}, resolved template_type: {}",
+        req.template_id,
+        template_type
+    );
+
     // Validate template exists
-    let template = get_template(&req.template_type).ok_or_else(|| {
-        AppError::Validation(format!("Unknown template type: {}", req.template_type))
+    let template = get_template(&template_type).ok_or_else(|| {
+        AppError::Validation(format!("Unknown template type: {}", template_type))
     })?;
 
     // Validate parameters
@@ -1246,7 +1308,7 @@ pub async fn create_strategy(
         symbol: Set(req.symbol),
         timeframe: Set(req.timeframe),
         strategy_type: Set(req.strategy_type),
-        template_type: Set(req.template_type),
+        template_type: Set(template_type),
         parameters: Set(req.parameters),
         status: Set("draft".to_string()),
         created_at: Set(now),
@@ -1469,9 +1531,31 @@ pub async fn import_strategy(
     user_id: Uuid,
     req: crate::models::schemas::ImportStrategyRequest,
 ) -> Result<StrategyResponse, AppError> {
+    // Resolve template_type from template_id or fallback to provided template_type
+    let template_type = if let Some(ref tt) = req.template_type {
+        // Backward compatibility: if template_type is provided, use it directly
+        tt.clone()
+    } else {
+        // Otherwise resolve from template_id
+        resolve_template_type_from_id(&req.template_id)
+            .ok_or_else(|| {
+                AppError::Validation(format!(
+                    "Invalid template_id: {}. Could not resolve to a valid template_type",
+                    req.template_id
+                ))
+            })?
+    };
+
+    // Log the template_id being used
+    tracing::info!(
+        "Importing strategy with template_id: {}, resolved template_type: {}",
+        req.template_id,
+        template_type
+    );
+
     // Validate template exists
-    let template = get_template(&req.template_type).ok_or_else(|| {
-        AppError::Validation(format!("Unknown template type: {}", req.template_type))
+    let template = get_template(&template_type).ok_or_else(|| {
+        AppError::Validation(format!("Unknown template type: {}", template_type))
     })?;
 
     // Validate parameters
@@ -1549,7 +1633,7 @@ pub async fn import_strategy(
         symbol: Set(req.symbol),
         timeframe: Set(req.timeframe),
         strategy_type: Set(req.strategy_type),
-        template_type: Set(req.template_type),
+        template_type: Set(template_type),
         parameters: Set(req.parameters),
         status: Set(status),
         created_at: Set(now),
@@ -1592,9 +1676,24 @@ async fn import_single_strategy(
     user_id: Uuid,
     req: &ImportStrategyRequest,
 ) -> Result<(), AppError> {
+    // Resolve template_type from template_id or fallback to provided template_type
+    let template_type = if let Some(ref tt) = req.template_type {
+        // Backward compatibility: if template_type is provided, use it directly
+        tt.clone()
+    } else {
+        // Otherwise resolve from template_id
+        resolve_template_type_from_id(&req.template_id)
+            .ok_or_else(|| {
+                AppError::Validation(format!(
+                    "Invalid template_id: {}. Could not resolve to a valid template_type",
+                    req.template_id
+                ))
+            })?
+    };
+
     // Validate template exists
-    let template = get_template(&req.template_type)
-        .ok_or_else(|| AppError::Validation(format!("Unknown template type: {}", req.template_type)))?;
+    let template = get_template(&template_type)
+        .ok_or_else(|| AppError::Validation(format!("Unknown template type: {}", template_type)))?;
 
     // Validate parameters
     template
@@ -1677,7 +1776,7 @@ async fn import_single_strategy(
         symbol: Set(req.symbol.clone()),
         timeframe: Set(req.timeframe.clone()),
         strategy_type: Set(req.strategy_type.clone()),
-        template_type: Set(req.template_type.clone()),
+        template_type: Set(template_type.clone()),
         parameters: Set(req.parameters.clone()),
         status: Set(status),
         created_at: Set(now),

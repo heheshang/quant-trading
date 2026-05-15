@@ -315,7 +315,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Cpu, MoreFilled, Edit, Delete, VideoPlay, VideoPause, CircleClose, CopyDocument, Shop, Upload, Download } from '@element-plus/icons-vue'
-import { listStrategies, deleteStrategy, toggleStrategy, bulkUpdateStatus, bulkDeleteStrategies, importStrategies, exportStrategies } from '@/api/strategies'
+import { listStrategies, getStrategy, createStrategy, deleteStrategy, toggleStrategy, bulkUpdateStatus, bulkDeleteStrategies, importStrategies, exportStrategies } from '@/api/strategies'
 import type { StrategyFull, CreateStrategyPayload } from '@/types'
 
 // StrategyStatusBadge inline component
@@ -565,8 +565,26 @@ async function handleActionCommand(cmd: string, row: StrategyFull) {
       router.push({ name: 'StrategyEdit', params: { id: row.id } })
       break
     case 'clone':
-      // Clone by creating a new strategy with same params but new name
-      ElMessage.info('克隆功能开发中')
+      // Clone by creating a new strategy with same params but new name (draft status)
+      try {
+        const original = await getStrategy(row.id)
+        const cloneData: CreateStrategyPayload = {
+          name: `${original.name}_clone`,
+          description: original.description,
+          symbol: original.symbol,
+          timeframe: original.timeframe,
+          strategy_type: original.strategy_type,
+          template_id: original.template_id,
+          template_type: original.template_type,
+          parameters: original.parameters,
+          status: 'draft',
+        }
+        await createStrategy(cloneData)
+        ElMessage.success(`策略「${original.name}」已克隆为草稿`)
+        await fetchStrategies()
+      } catch {
+        ElMessage.error('克隆失败，请重试')
+      }
       break
     case 'export':
       try {

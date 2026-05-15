@@ -31,12 +31,12 @@ export function listTemplates(params?: { category?: string; search?: string }): 
   return client.get('/strategies/templates', { params })
 }
 
-export function toggleStrategy(id: string, status: 'active' | 'paused' | 'stopped' | 'archived'): Promise<StrategyFull> {
+export function toggleStrategy(id: string, status: 'active' | 'paused' | 'stopped'): Promise<StrategyFull> {
   return client.post(`/strategies/${id}/status`, { status })
 }
 
-/** Bulk update strategy status (ADR D2) */
-export function bulkUpdateStatus(ids: string[], status: 'active' | 'paused' | 'stopped' | 'archived'): Promise<{ updated: number }> {
+/** Bulk update strategy status */
+export function bulkUpdateStatus(ids: string[], status: 'active' | 'paused' | 'stopped'): Promise<{ updated: number }> {
   return client.post('/strategies/bulk/status', { ids, status })
 }
 

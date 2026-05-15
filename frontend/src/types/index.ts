@@ -38,7 +38,7 @@ export interface Strategy {
   description: string
   pnl: number
   sharpe: number
-  status: 'running' | 'paused' | 'draft' | 'archived'
+  status: 'active' | 'paused' | 'stopped' | 'draft'
 }
 
 // ===== Auth Types =====
@@ -120,7 +120,7 @@ export interface StrategySummary {
   template_id?: string
   pnl: number
   sharpe: number
-  status: 'active' | 'paused' | 'stopped' | 'draft' | 'archived',
+  status: 'active' | 'paused' | 'stopped' | 'draft',
   template_type?: string
   param_summary?: string
   created_at: string
@@ -151,13 +151,13 @@ export interface StrategyFull {
     max_drawdown_pct?: number    // 最大回撤 %
     total_trades?: number        // 交易次数
   }
-  status: 'active' | 'paused' | 'stopped' | 'draft' | 'archived'
+  status: 'active' | 'paused' | 'stopped' | 'draft'
   created_at: string
   updated_at: string
   strategy_code?: string  // T4.5: 上传的策略代码文件路径
 }
 
-/** Strategy parameter definition schema (aligned with backend) */
+/** Strategy parameter definition schema */
 export interface StrategyParamDef {
   name: string
   label: string
