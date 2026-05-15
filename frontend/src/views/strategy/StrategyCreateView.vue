@@ -788,6 +788,16 @@ function formatFileSize(bytes: number): string {
 onMounted(() => {
   loadData()
 })
+
+// Expose internals for testing
+defineExpose({
+  formData,
+  strategyCodeFile,
+  strategyCodePath,
+  handleFileChange,
+  removeStrategyFile,
+  doSave,
+})
 </script>
 
 <style scoped lang="scss">

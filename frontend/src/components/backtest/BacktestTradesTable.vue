@@ -298,6 +298,21 @@ function handleExport() {
 
   ElMessage.success(`已导出 ${trades.length} 条交易记录`)
 }
+
+// Expose internal functions for testing via defineExpose
+defineExpose({
+  exitReasonLabel,
+  exitReasonTagType,
+  formatDateCol,
+  formatPriceCol,
+  formatQtyCol,
+  formatFeeCol,
+  formatHoldingPeriod,
+  handleExport,
+  paginatedTrades,
+  currentPage,
+  pageSize,
+})
 </script>
 
 <script lang="ts">

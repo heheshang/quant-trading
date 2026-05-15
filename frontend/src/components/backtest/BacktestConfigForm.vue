@@ -412,6 +412,21 @@ onMounted(() => {
   loadStrategies()
   loadTemplates()
 })
+
+// Expose for testing
+defineExpose({
+  form,
+  isFormValid,
+  strategies,
+  templates,
+  selectedTemplate,
+  loadingStrategies,
+  timeframes,
+  handleRun,
+  handleReset,
+  loadTemplateParams,
+  getParamRule,
+})
 </script>
 
 <style scoped lang="scss">

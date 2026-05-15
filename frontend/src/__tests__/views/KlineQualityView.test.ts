@@ -50,6 +50,7 @@ function mountComponent() {
   })
 }
 
+// loadReport — uses defineExpose to call internal state directly
 async function loadReport(wrapper: ReturnType<typeof mountComponent>, reportData = mockReport) {
   vi.mocked(klineApi.getQualityReport).mockResolvedValue(reportData as any)
   const vm = wrapper.vm as any
@@ -95,7 +96,6 @@ describe('KlineQualityView', () => {
     expect(totalIdx).toBeGreaterThanOrEqual(0)
     expect(validIdx).toBeGreaterThanOrEqual(0)
 
-    // Total rows and valid rows cards use .metric-value (non-coverage cards)
     const totalValue = metricCards[totalIdx].find('.metric-value').text()
     const validValue = metricCards[validIdx].find('.metric-value').text()
     expect(totalValue).toContain('50,000')
@@ -180,18 +180,18 @@ describe('KlineQualityView', () => {
     expect(svg.attributes('height')).toBe('80')
   })
 
-  // P1-08: Ring chart dash offset math
+  // P1-08: Ring chart dash offset — verify via SVG attribute (vm.ringDashOffset is exposed)
   it('calculates ring dash offset correctly for 50% coverage', async () => {
     const wrapper = mountComponent()
     await loadReport(wrapper, { ...mockReport, coverage_rate: 50 })
 
     const vm = wrapper.vm as any
-    const circumference = 2 * Math.PI * 34 // ≈ 213.63
+    const circumference = 2 * Math.PI * 34
     const expectedOffset = circumference * 0.5
     expect(vm.ringDashOffset).toBeCloseTo(expectedOffset, 1)
   })
 
-  // P1-08: Ring chart dash offset at 100%
+  // P1-08: Ring chart dash offset at 100% = 0
   it('calculates ring dash offset as 0 for 100% coverage', async () => {
     const wrapper = mountComponent()
     await loadReport(wrapper, { ...mockReport, coverage_rate: 100 })
@@ -200,7 +200,7 @@ describe('KlineQualityView', () => {
     expect(vm.ringDashOffset).toBeCloseTo(0, 1)
   })
 
-  // P1-08: Ring chart dash offset at 0%
+  // P1-08: Ring chart dash offset at 0% = full circumference
   it('calculates ring dash offset as full circumference for 0% coverage', async () => {
     const wrapper = mountComponent()
     await loadReport(wrapper, { ...mockReport, coverage_rate: 0 })
@@ -231,12 +231,10 @@ describe('KlineQualityView', () => {
     const vm = wrapper.vm as any
     expect(vm.cleanDialogVisible).toBe(false)
 
-    // Open dialog
     vm.showCleanDialog()
     await flushPromises()
 
     expect(vm.cleanDialogVisible).toBe(true)
-    // Check dialog content
     expect(wrapper.find('.clean-dialog-content').exists()).toBe(true)
     expect(wrapper.find('.clean-type-list').exists()).toBe(true)
   })
@@ -248,12 +246,10 @@ describe('KlineQualityView', () => {
 
     expect(klineApi.cleanKlines).not.toHaveBeenCalled()
 
-    // Open dialog
     const vm = wrapper.vm as any
     vm.showCleanDialog()
     await flushPromises()
 
-    // Still not called
     expect(klineApi.cleanKlines).not.toHaveBeenCalled()
   })
 
@@ -272,7 +268,6 @@ describe('KlineQualityView', () => {
     vm.showCleanDialog()
     await flushPromises()
 
-    // Confirm
     await vm.confirmCleanAll()
     await flushPromises()
 
@@ -292,14 +287,13 @@ describe('KlineQualityView', () => {
     expect(vm.cleanDialogVisible).toBe(false)
     expect(klineApi.cleanKlines).not.toHaveBeenCalled()
 
-    // Find and click auto-clean button
+    // Find auto-clean button by class/text
     const allButtons = wrapper.findAll('button')
     const autoCleanBtn = allButtons.find(b => b.text().includes('自动清洗'))
     expect(autoCleanBtn).toBeTruthy()
     await autoCleanBtn!.trigger('click')
     await flushPromises()
 
-    // Dialog should be visible, API not called
     expect(vm.cleanDialogVisible).toBe(true)
     expect(klineApi.cleanKlines).not.toHaveBeenCalled()
   })
@@ -310,13 +304,16 @@ describe('KlineQualityView', () => {
     await loadReport(wrapper)
 
     const vm = wrapper.vm as any
-    // Check computed property directly instead of rendering dialog (avoids timeout)
-    expect(vm.otherAnomalyCount).toBe(3) // 28 - 15 - 10 = 3
-    expect(vm.report.suspicious_count).toBe(15)
-    expect(vm.report.corrupted_count).toBe(10)
-  }, 10000)
+    vm.showCleanDialog()
+    await flushPromises()
 
-  // P0-05: otherAnomalyCount computed property
+    expect(wrapper.find('.clean-type-list').text()).toContain('可疑')
+    expect(wrapper.find('.clean-type-list').text()).toContain('15')
+    expect(wrapper.find('.clean-type-list').text()).toContain('损坏')
+    expect(wrapper.find('.clean-type-list').text()).toContain('10')
+  })
+
+  // P0-05: otherAnomalyCount computed — verify via vm (exposed via defineExpose)
   it('computes otherAnomalyCount correctly', async () => {
     const wrapper = mountComponent()
     await loadReport(wrapper)
@@ -331,10 +328,10 @@ describe('KlineQualityView', () => {
     const wrapper = mountComponent()
     await loadReport(wrapper)
 
-    const vm = wrapper.vm as any
-    // Mock URL.createObjectURL (already mocked in setup)
     const createObjectURLSpy = vi.spyOn(URL, 'createObjectURL')
+    createObjectURLSpy.mockReturnValue('blob:http://localhost/abc')
 
+    const vm = wrapper.vm as any
     vm.handleExportAnomalies()
 
     expect(createObjectURLSpy).toHaveBeenCalled()

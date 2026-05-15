@@ -12,6 +12,7 @@ import StrategyEditView from '@/views/strategy/StrategyEditView.vue'
 import StrategyTemplateView from '@/views/strategy/StrategyTemplateView.vue'
 import BacktestView from '@/views/backtest/BacktestView.vue'
 import TradingView from '@/views/trade/TradingView.vue'
+import OrderManagementView from '@/views/order/OrderManagementView.vue'
 import PortfolioView from '@/views/portfolio/PortfolioView.vue'
 import SystemAdminView from '@/views/system/SystemAdminView.vue'
 import LoginView from '@/views/dashboard/LoginView.vue'
@@ -105,6 +106,12 @@ const routes: RouteRecordRaw[] = [
         name: 'Trading',
         component: TradingView,
         meta: { requiresAuth: true, title: '交易' },
+      },
+      {
+        path: 'orders',
+        name: 'Orders',
+        component: OrderManagementView,
+        meta: { requiresAuth: true, title: '订单管理' },
       },
       {
         path: 'portfolio',

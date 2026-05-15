@@ -77,6 +77,18 @@
       </el-card>
     </div>
 
+    <!-- History List - shown when idle -->
+    <div v-if="backtestState === 'idle' && historyItems.length > 0" class="history-section">
+      <BacktestHistoryList
+        :items="historyItems"
+        :loading="historyLoading"
+        :current-id="result?.id ?? ''"
+        @select="handleHistorySelect"
+        @delete="handleHistoryDelete"
+        @refresh="loadHistory"
+      />
+    </div>
+
     <!-- Results Section - shown when completed -->
     <div v-if="backtestState === 'completed' && result" class="results-section">
       <!-- Top action bar -->
@@ -116,6 +128,9 @@
         <el-tab-pane label="交易明细" :name="1">
           <BacktestTradesTable :trades="result.trades" />
         </el-tab-pane>
+        <el-tab-pane label="绩效报告" :name="2">
+          <BacktestPerformanceReport :result="result" />
+        </el-tab-pane>
       </el-tabs>
     </div>
       </div><!-- /results-panel -->
@@ -124,15 +139,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessageBox } from 'element-plus'
 import { Odometer } from '@element-plus/icons-vue'
 import BacktestConfigForm from '@/components/backtest/BacktestConfigForm.vue'
 import BacktestMetricsCards from '@/components/backtest/BacktestMetricsCards.vue'
 import BacktestEquityChart from '@/components/backtest/BacktestEquityChart.vue'
 import BacktestTradesTable from '@/components/backtest/BacktestTradesTable.vue'
+import BacktestHistoryList from '@/components/backtest/BacktestHistoryList.vue'
+import BacktestPerformanceReport from '@/components/backtest/BacktestPerformanceReport.vue'
 import * as backtestApi from '@/api/backtest'
-import type { BacktestResultResponse, BacktestParams } from '@/types/backtest'
+import type { BacktestResultResponse, BacktestParams, BacktestSummary } from '@/types/backtest'
 
 const result = ref<BacktestResultResponse | null>(null)
 const error = ref('')
@@ -148,6 +165,10 @@ const lastParams = ref<{
   end_date?: string
 } | null>(null)
 
+// History state
+const historyItems = ref<BacktestSummary[]>([])
+const historyLoading = ref(false)
+
 const MAX_POLL_ATTEMPTS = 60
 const POLL_INTERVAL = 2000
 let pollTimer: ReturnType<typeof setInterval> | null = null
@@ -159,6 +180,59 @@ onUnmounted(() => {
     pollTimer = null
   }
 })
+
+async function loadHistory() {
+  historyLoading.value = true
+  try {
+    const res = await backtestApi.listBacktestHistory({ page: 1, size: 50 })
+    historyItems.value = res.items
+  } catch {
+    historyItems.value = []
+  } finally {
+    historyLoading.value = false
+  }
+}
+
+async function handleHistorySelect(item: BacktestSummary) {
+  try {
+    const data = await backtestApi.getBacktestResult(item.id)
+    if (data.status === 'completed') {
+      result.value = data
+      backtestState.value = 'completed'
+      activeTab.value = 0
+    } else if (data.status === 'failed') {
+      error.value = data.error || '回测执行失败'
+      backtestState.value = 'failed'
+      activeTab.value = 0
+    }
+  } catch (err: any) {
+    error.value = err?.message || '加载回测结果失败'
+    backtestState.value = 'failed'
+    activeTab.value = 0
+  }
+}
+
+async function handleHistoryDelete(id: string) {
+  try {
+    await ElMessageBox.confirm(
+      '确定要删除该回测记录吗？删除后不可恢复。',
+      '确认删除',
+      {
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    )
+    await backtestApi.deleteBacktestResult(id)
+    historyItems.value = historyItems.value.filter((h) => h.id !== id)
+    // If currently viewing this result, return to idle
+    if (result.value?.id === id) {
+      cleanupState()
+    }
+  } catch {
+    // User cancelled or delete failed
+  }
+}
 
 async function handleRun(params: BacktestParams) {
   // Reset all state
@@ -312,6 +386,34 @@ function pollJob(id: string): Promise<BacktestResultResponse | null> {
     }, POLL_INTERVAL)
   })
 }
+
+onMounted(() => {
+  loadHistory()
+})
+
+// Expose internal state and methods for testing
+defineExpose({
+  result,
+  error,
+  isRunning,
+  backtestState,
+  activeTab,
+  pollProgress,
+  currentJobId,
+  lastParams,
+  historyItems,
+  historyLoading,
+  handleRun,
+  handleCancel,
+  handleReturnToIdle,
+  handleRerun,
+  handleDelete,
+  handleHistorySelect,
+  handleHistoryDelete,
+  cleanupState,
+  pollJob,
+  loadHistory,
+})
 </script>
 
 <style scoped lang="scss">
@@ -422,6 +524,11 @@ function pollJob(id: string): Promise<BacktestResultResponse | null> {
     border-radius: 8px;
     padding: 40px;
   }
+}
+
+// History Section
+.history-section {
+  margin-top: 20px;
 }
 
 // Results Section

@@ -142,11 +142,11 @@ const mountView = async () => {
 describe('BacktestView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(backtestApi.listBacktestHistory).mockResolvedValue(mockHistory)
   })
 
   it('renders the page header', async () => {
     vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockStrategies as any)
-    vi.mocked(backtestApi.listBacktestHistory).mockResolvedValue(mockHistory)
     const wrapper = await mountView()
 
     expect(wrapper.find('.page-title').text()).toBe('回测')
@@ -154,7 +154,6 @@ describe('BacktestView', () => {
 
   it('renders configuration form section', async () => {
     vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockStrategies as any)
-    vi.mocked(backtestApi.listBacktestHistory).mockResolvedValue(mockHistory)
     const wrapper = await mountView()
 
     expect(wrapper.find('.config-panel').exists()).toBe(true)
@@ -162,7 +161,6 @@ describe('BacktestView', () => {
 
   it('shows empty state when no result and not running', async () => {
     vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockStrategies as any)
-    vi.mocked(backtestApi.listBacktestHistory).mockResolvedValue(mockHistory)
     const wrapper = await mountView()
 
     expect(wrapper.find('.empty-state').exists()).toBe(true)
@@ -170,7 +168,6 @@ describe('BacktestView', () => {
 
   it('shows progress panel when running', async () => {
     vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockStrategies as any)
-    vi.mocked(backtestApi.listBacktestHistory).mockResolvedValue(mockHistory)
     vi.mocked(backtestApi.runBacktest).mockImplementation(
       () => new Promise(() => {})
     )
@@ -184,7 +181,6 @@ describe('BacktestView', () => {
 
   it('displays error alert when backtest fails', async () => {
     vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockStrategies as any)
-    vi.mocked(backtestApi.listBacktestHistory).mockResolvedValue(mockHistory)
     const wrapper = await mountView()
 
     ;(wrapper.vm as any).backtestState = 'failed'
@@ -197,7 +193,6 @@ describe('BacktestView', () => {
 
   it('shows results section after backtest completes', async () => {
     vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockStrategies as any)
-    vi.mocked(backtestApi.listBacktestHistory).mockResolvedValue(mockHistory)
     const wrapper = await mountView()
 
     ;(wrapper.vm as any).backtestState = 'completed'
@@ -256,7 +251,6 @@ describe('BacktestView', () => {
 
   it('switches between tabs when clicked', async () => {
     vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockStrategies as any)
-    vi.mocked(backtestApi.listBacktestHistory).mockResolvedValue(mockHistory)
     const wrapper = await mountView()
     ;(wrapper.vm as any).backtestState = 'completed'
     ;(wrapper.vm as any).result = mockResult
@@ -300,9 +294,277 @@ describe('BacktestView', () => {
 
   it('has config section title', async () => {
     vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockStrategies as any)
-    vi.mocked(backtestApi.listBacktestHistory).mockResolvedValue(mockHistory)
     const wrapper = await mountView()
 
     expect(wrapper.text()).toContain('回测配置')
+  })
+
+  // --- NEW: Enhanced coverage tests ---
+
+  it('handleReturnToIdle resets all state', async () => {
+    const wrapper = await mountView()
+    ;(wrapper.vm as any).backtestState = 'completed'
+    ;(wrapper.vm as any).result = mockResult
+    ;(wrapper.vm as any).error = 'some error'
+    ;(wrapper.vm as any).isRunning = true
+    ;(wrapper.vm as any).currentJobId = 'job-123'
+    ;(wrapper.vm as any).lastParams = { strategy_id: 'str-1' }
+
+    ;(wrapper.vm as any).handleReturnToIdle()
+    await flushPromises()
+
+    expect((wrapper.vm as any).backtestState).toBe('idle')
+    expect((wrapper.vm as any).result).toBeNull()
+    expect((wrapper.vm as any).error).toBe('')
+    expect((wrapper.vm as any).isRunning).toBe(false)
+    expect((wrapper.vm as any).currentJobId).toBeNull()
+    expect((wrapper.vm as any).lastParams).toBeNull()
+  })
+
+  it('handleRerun resets state to idle', async () => {
+    const wrapper = await mountView()
+    ;(wrapper.vm as any).backtestState = 'completed'
+    ;(wrapper.vm as any).result = mockResult
+
+    ;(wrapper.vm as any).handleRerun()
+    await flushPromises()
+
+    expect((wrapper.vm as any).backtestState).toBe('idle')
+    expect((wrapper.vm as any).result).toBeNull()
+  })
+
+  it('handleCancel calls cancelBacktest API', async () => {
+    vi.mocked(backtestApi.cancelBacktest).mockResolvedValue(undefined)
+    const wrapper = await mountView()
+    ;(wrapper.vm as any).currentJobId = 'job-123'
+    ;(wrapper.vm as any).backtestState = 'running'
+
+    await (wrapper.vm as any).handleCancel()
+    await flushPromises()
+
+    expect(backtestApi.cancelBacktest).toHaveBeenCalledWith('job-123')
+    expect((wrapper.vm as any).backtestState).toBe('idle')
+  })
+
+  it('handleCancel works without jobId', async () => {
+    const wrapper = await mountView()
+    ;(wrapper.vm as any).currentJobId = null
+    ;(wrapper.vm as any).backtestState = 'running'
+
+    await (wrapper.vm as any).handleCancel()
+    await flushPromises()
+
+    expect(backtestApi.cancelBacktest).not.toHaveBeenCalled()
+    expect((wrapper.vm as any).backtestState).toBe('idle')
+  })
+
+  it('cleanupState resets all refs', async () => {
+    const wrapper = await mountView()
+    const vm = wrapper.vm as any
+    vm.result = mockResult
+    vm.error = 'error'
+    vm.isRunning = true
+    vm.backtestState = 'completed'
+    vm.currentJobId = 'job-123'
+    vm.lastParams = { strategy_id: 'str-1' }
+    vm.activeTab = 1
+
+    vm.cleanupState()
+    await flushPromises()
+
+    expect(vm.result).toBeNull()
+    expect(vm.error).toBe('')
+    expect(vm.isRunning).toBe(false)
+    expect(vm.backtestState).toBe('idle')
+    expect(vm.currentJobId).toBeNull()
+    expect(vm.lastParams).toBeNull()
+    expect(vm.activeTab).toBe(0)
+  })
+
+  it('loads history on mount', async () => {
+    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockStrategies as any)
+    await mountView()
+
+    expect(backtestApi.listBacktestHistory).toHaveBeenCalled()
+  })
+
+  it('shows history section when idle with history items', async () => {
+    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockStrategies as any)
+    const wrapper = await mountView()
+
+    // history should be loaded
+    expect((wrapper.vm as any).historyItems).toHaveLength(2)
+    // When idle and has history, show history section
+    expect(wrapper.find('.history-section').exists()).toBe(true)
+  })
+
+  it('shows history tab in results section', async () => {
+    const wrapper = await mountView()
+    ;(wrapper.vm as any).backtestState = 'completed'
+    ;(wrapper.vm as any).result = mockResult
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('绩效报告')
+  })
+
+  it('loadHistory handles API error gracefully', async () => {
+    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockStrategies as any)
+    vi.mocked(backtestApi.listBacktestHistory).mockRejectedValue(new Error('Network error'))
+    const wrapper = await mountView()
+
+    expect((wrapper.vm as any).historyItems).toEqual([])
+    expect((wrapper.vm as any).historyLoading).toBe(false)
+  })
+
+  it('handleHistorySelect loads result and switches to completed', async () => {
+    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockStrategies as any)
+    vi.mocked(backtestApi.getBacktestResult).mockResolvedValue(mockResult)
+    const wrapper = await mountView()
+
+    await (wrapper.vm as any).handleHistorySelect(mockHistory.items[0])
+    await flushPromises()
+
+    expect(backtestApi.getBacktestResult).toHaveBeenCalledWith('uuid-1')
+    expect((wrapper.vm as any).backtestState).toBe('completed')
+    expect((wrapper.vm as any).result).toEqual(mockResult)
+    expect((wrapper.vm as any).activeTab).toBe(0)
+  })
+
+  it('handleHistorySelect handles failed result', async () => {
+    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockStrategies as any)
+    vi.mocked(backtestApi.getBacktestResult).mockResolvedValue({
+      ...mockResult,
+      status: 'failed',
+      error: 'Test error',
+    })
+    const wrapper = await mountView()
+
+    await (wrapper.vm as any).handleHistorySelect(mockHistory.items[0])
+    await flushPromises()
+
+    expect((wrapper.vm as any).backtestState).toBe('failed')
+    expect((wrapper.vm as any).error).toBe('Test error')
+  })
+
+  it('handleHistorySelect handles API error', async () => {
+    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockStrategies as any)
+    vi.mocked(backtestApi.getBacktestResult).mockRejectedValue(new Error('Network error'))
+    const wrapper = await mountView()
+
+    await (wrapper.vm as any).handleHistorySelect(mockHistory.items[0])
+    await flushPromises()
+
+    expect((wrapper.vm as any).backtestState).toBe('failed')
+    expect((wrapper.vm as any).error).toContain('Network error')
+  })
+
+  it('handleDelete calls API after confirmation', async () => {
+    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockStrategies as any)
+    vi.mocked(backtestApi.deleteBacktestResult).mockResolvedValue(undefined)
+    // Mock ElMessageBox.confirm to auto-confirm
+    const { ElMessageBox } = await import('element-plus')
+    vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue('confirm' as any)
+
+    const wrapper = await mountView()
+    ;(wrapper.vm as any).result = mockResult
+    ;(wrapper.vm as any).backtestState = 'completed'
+
+    await (wrapper.vm as any).handleDelete()
+    await flushPromises()
+
+    expect(backtestApi.deleteBacktestResult).toHaveBeenCalledWith('uuid-1')
+
+    vi.restoreAllMocks()
+  })
+
+  it('pollJob resolves on completed', async () => {
+    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockStrategies as any)
+    vi.useFakeTimers()
+    // Mock ResizeObserver for @vueuse/core useResizeObserver
+    const origRO = global.ResizeObserver
+    global.ResizeObserver = vi.fn().mockImplementation(() => ({
+      observe: vi.fn(),
+      unobserve: vi.fn(),
+      disconnect: vi.fn(),
+    })) as any
+
+    const wrapper = await mountView()
+
+    vi.mocked(backtestApi.getBacktestResult).mockResolvedValue({
+      ...mockResult,
+      status: 'completed',
+    })
+
+    const pollPromise = (wrapper.vm as any).pollJob('uuid-1')
+
+    // Advance timer to trigger the first poll
+    await vi.advanceTimersByTimeAsync(3000)
+    const result = await pollPromise
+
+    expect(result.status).toBe('completed')
+    vi.useRealTimers()
+    global.ResizeObserver = origRO
+  })
+
+  it('pollJob resolves on failed', async () => {
+    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockStrategies as any)
+    vi.useFakeTimers()
+    // Mock ResizeObserver for @vueuse/core useResizeObserver
+    const origRO = global.ResizeObserver
+    global.ResizeObserver = vi.fn().mockImplementation(() => ({
+      observe: vi.fn(),
+      unobserve: vi.fn(),
+      disconnect: vi.fn(),
+    })) as any
+
+    const wrapper = await mountView()
+
+    vi.mocked(backtestApi.getBacktestResult).mockResolvedValue({
+      ...mockResult,
+      status: 'failed',
+      error: 'some error',
+    })
+
+    const pollPromise = (wrapper.vm as any).pollJob('uuid-1')
+
+    await vi.advanceTimersByTimeAsync(3000)
+    const result = await pollPromise
+
+    expect(result.status).toBe('failed')
+    vi.useRealTimers()
+    global.ResizeObserver = origRO
+  })
+
+  it('pollJob resolves null on timeout', async () => {
+    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockStrategies as any)
+    vi.useFakeTimers()
+    // Mock ResizeObserver for @vueuse/core useResizeObserver
+    const origRO = global.ResizeObserver
+    global.ResizeObserver = vi.fn().mockImplementation(() => ({
+      observe: vi.fn(),
+      unobserve: vi.fn(),
+      disconnect: vi.fn(),
+    })) as any
+
+    const wrapper = await mountView()
+
+    // Always return running status
+    vi.mocked(backtestApi.getBacktestResult).mockResolvedValue({
+      ...mockResult,
+      status: 'running',
+    })
+
+    const pollPromise = (wrapper.vm as any).pollJob('uuid-1')
+
+    // Advance through MAX_POLL_ATTEMPTS * POLL_INTERVAL
+    // MAX_POLL_ATTEMPTS = 60, POLL_INTERVAL = 2000
+    for (let i = 0; i < 65; i++) {
+      await vi.advanceTimersByTimeAsync(2000)
+    }
+
+    const result = await pollPromise
+    expect(result).toBeNull()
+    vi.useRealTimers()
+    global.ResizeObserver = origRO
   })
 })

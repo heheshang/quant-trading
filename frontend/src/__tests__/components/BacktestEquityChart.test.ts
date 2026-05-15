@@ -2,32 +2,42 @@ import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import ElementPlus from 'element-plus'
 import BacktestEquityChart from '@/components/backtest/BacktestEquityChart.vue'
+import type { EquityPoint } from '@/types/backtest'
 
-// Mock echarts
+// Mock ECharts entirely — Canvas is not available in jsdom
 vi.mock('echarts', () => ({
+  default: {
+    init: vi.fn(() => ({
+      setOption: vi.fn(),
+      dispose: vi.fn(),
+      resize: vi.fn(),
+    })),
+    graphic: {
+      LinearGradient: vi.fn(),
+    },
+  },
   init: vi.fn(() => ({
     setOption: vi.fn(),
     dispose: vi.fn(),
     resize: vi.fn(),
   })),
   graphic: {
-    LinearGradient: vi.fn(() => ({})),
+    LinearGradient: vi.fn(),
   },
 }))
 
-// Use time: number (ms timestamp), not date: string — Bug#8
-const mockEquity = [
-  { time: Date.parse('2024-01-01'), equity: 100000, drawdown_pct: 0 },
-  { time: Date.parse('2024-02-01'), equity: 105000, drawdown_pct: -2.1 },
-  { time: Date.parse('2024-03-01'), equity: 112000, drawdown_pct: -4.5 },
-  { time: Date.parse('2024-04-01'), equity: 108000, drawdown_pct: -7.2 },
-  { time: Date.parse('2024-05-01'), equity: 125300, drawdown_pct: -3.1 },
+const mockData: EquityPoint[] = [
+  { time: new Date('2024-01-01').getTime(), equity: 100000, drawdown_pct: 0 },
+  { time: new Date('2024-01-02').getTime(), equity: 101500, drawdown_pct: 0 },
+  { time: new Date('2024-01-03').getTime(), equity: 103200, drawdown_pct: 0 },
+  { time: new Date('2024-01-04').getTime(), equity: 102800, drawdown_pct: 0.04 },
+  { time: new Date('2024-01-05').getTime(), equity: 105000, drawdown_pct: 0 },
 ]
 
 function createWrapper(props: any = {}) {
   return mount(BacktestEquityChart, {
     props: {
-      data: props.data ?? mockEquity,
+      data: props.data === undefined ? mockData : props.data,
       loading: props.loading ?? false,
       initialCapital: props.initialCapital ?? 100000,
     },
@@ -38,13 +48,18 @@ function createWrapper(props: any = {}) {
 }
 
 describe('BacktestEquityChart', () => {
-  it('renders chart container', () => {
+  it('renders the component wrapper', () => {
     const wrapper = createWrapper()
-    expect(wrapper.find('.equity-chart-wrapper').exists()).toBe(true)
+    expect(wrapper.find('.backtest-equity-chart').exists()).toBe(true)
+  })
+
+  it('renders chart title', () => {
+    const wrapper = createWrapper()
+    expect(wrapper.text()).toContain('权益曲线')
   })
 
   it('shows loading skeleton when loading', () => {
-    const wrapper = createWrapper({ loading: true })
+    const wrapper = createWrapper({ loading: true, data: [] })
     expect(wrapper.find('.chart-loading').exists()).toBe(true)
   })
 
@@ -53,39 +68,42 @@ describe('BacktestEquityChart', () => {
     expect(wrapper.find('.chart-empty').exists()).toBe(true)
   })
 
-  it('renders chart title', () => {
-    const wrapper = createWrapper()
-    expect(wrapper.find('.chart-title').text()).toContain('权益曲线')
-  })
-
-  it('passes data length to echarts', () => {
-    const wrapper = createWrapper()
-    expect(wrapper.find('.equity-chart-container').exists()).toBe(true)
-  })
-
-  it('displays initial capital annotation', () => {
-    const wrapper = createWrapper()
-    expect(wrapper.text()).toContain('100,000')
-  })
-
-  it('displays final equity', () => {
-    const wrapper = createWrapper()
-    expect(wrapper.text()).toContain('125,')
-  })
-
-  it('renders baseline indicator text', () => {
-    const wrapper = createWrapper()
-    expect(wrapper.find('.baseline-label').exists() || wrapper.text().includes('初始')).toBe(true)
-  })
-
-  it('shows tab bar when data exists', () => {
-    const wrapper = createWrapper()
-    expect(wrapper.find('.chart-controls').exists() || wrapper.text().includes('权益曲线')).toBe(true)
-  })
-
-  it('renders chart container with data', () => {
+  it('shows chart wrapper when data is present', () => {
     const wrapper = createWrapper()
     expect(wrapper.find('.equity-chart-wrapper').exists()).toBe(true)
+  })
+
+  it('displays initial capital in info badge', () => {
+    const wrapper = createWrapper()
+    expect(wrapper.text()).toContain('初始')
+    expect(wrapper.text()).toContain('100,000.00')
+  })
+
+  it('displays final equity in info badge', () => {
+    const wrapper = createWrapper()
+    expect(wrapper.text()).toContain('最终')
+    // Final equity = 105000
+    expect(wrapper.text()).toContain('105,000.00')
+  })
+
+  it('does not show info badges when no data', () => {
+    const wrapper = createWrapper({ data: [] })
+    expect(wrapper.find('.chart-info').exists()).toBe(false)
+  })
+
+  it('renders chart container div', () => {
+    const wrapper = createWrapper()
     expect(wrapper.find('.equity-chart-container').exists()).toBe(true)
+  })
+
+  it('accepts custom initialCapital prop', () => {
+    const wrapper = createWrapper({ initialCapital: 50000 })
+    expect(wrapper.text()).toContain('50,000.00')
+  })
+
+  it('initializes echarts on mount', async () => {
+    const echarts = await import('echarts')
+    createWrapper()
+    expect(echarts.init).toHaveBeenCalled()
   })
 })

@@ -298,6 +298,27 @@ function saveTag() {
 }
 
 onMounted(fetchSymbols)
+
+// Expose internals for testing
+defineExpose({
+  filterForm,
+  allData,
+  filteredData,
+  paginatedData,
+  pagination,
+  chartDialogVisible,
+  chartSymbol,
+  chartInterval,
+  tagDialogVisible,
+  tagRow,
+  tagForm,
+  handleCommand,
+  confirmDelete,
+  openTagDialog,
+  saveTag,
+  handleFilterChange,
+  handleIntervalChange,
+})
 </script>
 
 <style scoped>

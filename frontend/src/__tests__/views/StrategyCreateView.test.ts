@@ -321,8 +321,8 @@ describe('StrategyCreateView', () => {
 
   it('does not use v-html anywhere in StrategyCreateView', async () => {
     const fs = await import('fs')
-    const path = await import('path')
-    const vuePath = path.resolve(__dirname, '../../views/strategy/StrategyCreateView.vue')
+    const url = await import('url')
+    const vuePath = url.fileURLToPath(import.meta.url).replace(/[^/]+$/, '../../views/strategy/StrategyCreateView.vue')
     const content = fs.readFileSync(vuePath, 'utf-8')
     expect(content).not.toMatch(/v-html/)
   })

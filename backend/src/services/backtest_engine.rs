@@ -1,10 +1,11 @@
-// ============ Backtest Engine Core ============
-//
-// Adheres to ADR-004 and ADR-007:
-// - Full memory vectorized computation
-// - Stateless StrategyTemplate.generate_signal()
-// - O(n) equity_curve traversal for metrics
-// - CancellationToken + Arc<AtomicU32> for progress/cancel
+//! Backtest engine core — memory-vectorized computation with strategy signal
+//! generation, equity tracking, and metrics calculation.
+//!
+//! Adheres to ADR-004 and ADR-007:
+//! - Full memory vectorized computation
+//! - Stateless [`StrategyTemplate::generate_signal()`]
+//! - O(n) equity_curve traversal for metrics
+//! - [`CancellationToken`] + [`Arc<AtomicU32>`] for progress/cancel
 
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
@@ -17,8 +18,11 @@ use crate::models::backtest::{
 use crate::services::strategy::StrategyTemplate;
 use serde_json::Value;
 
-// ============ Engine ============
-
+/// The core backtest execution engine.
+///
+/// Walks through historical kline bars, generates trading signals via the
+/// injected [`StrategyTemplate`], manages positions, records equity points,
+/// and calculates comprehensive performance metrics on completion.
 pub struct BacktestEngine {
     config: BacktestConfig,
     klines: Vec<Kline>,
@@ -36,6 +40,14 @@ pub struct BacktestEngine {
 }
 
 impl BacktestEngine {
+    /// Create a new engine instance ready to run.
+    ///
+    /// * `config` — backtest configuration (symbol, dates, capital, fees)
+    /// * `klines` — historical price bars sorted by time ASC
+    /// * `strategy` — the trading strategy template for signal generation
+    /// * `strategy_params` — runtime parameters for the strategy
+    /// * `progress` — shared atomic counter for progress reporting (0–100)
+    /// * `cancel_token` — token to signal cancellation from outside
     pub fn new(
         config: BacktestConfig,
         klines: Vec<Kline>,
@@ -66,6 +78,10 @@ impl BacktestEngine {
     }
 
     /// Run the backtest. Returns (metrics, trades, equity_curve) on success.
+    ///
+    /// Walks through each kline bar, generates signals, manages positions,
+    /// and finally calculates performance metrics. Supports cancellation
+    /// via the [`CancellationToken`] checked every 100 bars.
     pub fn run(&mut self) -> Result<(BacktestMetrics, Vec<TradeRecord>, Vec<EquityPoint>), String> {
         let total = self.klines.len();
         if total == 0 {
@@ -116,6 +132,7 @@ impl BacktestEngine {
         ))
     }
 
+    /// Process a single kline bar: generate signal, manage position, record equity.
     fn process_bar(&mut self, idx: usize, kline: &Kline) {
         let signal =
             self.strategy
@@ -156,6 +173,10 @@ impl BacktestEngine {
         self.record_equity_point(kline.open_time, kline.close);
     }
 
+    /// Open a long position using `pct` of available cash.
+    ///
+    /// Applies slippage (buy at ask) and deducts trading fees.
+    /// No-op if the allocated amount is insufficient for at least one unit.
     fn open_long(&mut self, kline: &Kline, pct: f64) {
         let pct = pct.clamp(0.0, 1.0);
         let allocated = self.account.cash * pct;
@@ -185,6 +206,10 @@ impl BacktestEngine {
         });
     }
 
+    /// Open a short position using `pct` of available cash as collateral.
+    ///
+    /// Applies slippage (sell at bid) and deducts trading fees.
+    /// No-op if insufficient cash for fees.
     fn open_short(&mut self, kline: &Kline, pct: f64) {
         let pct = pct.clamp(0.0, 1.0);
         // Short selling: we "borrow" and sell, receiving cash
@@ -215,6 +240,10 @@ impl BacktestEngine {
         });
     }
 
+    /// Close a position at the given `price` and `reason`.
+    ///
+    /// Calculates PnL (realized), fees, and slippage for the exit side,
+    /// records a [`TradeRecord`], and updates account cash/equity.
     fn close_position(&mut self, time: i64, price: f64, reason: &str, pos: Position) {
         let slippage = price * self.config.slippage_rate;
         let exit_price = match pos.direction {
@@ -257,6 +286,9 @@ impl BacktestEngine {
         });
     }
 
+    /// Check stop-loss and take-profit levels against the current bar's high/low.
+    ///
+    /// If triggered, closes the position and records the exit reason.
     fn check_sl_tp(&mut self, kline: &Kline) {
         let position = match &self.open_position {
             Some(p) => p.clone(),
@@ -301,6 +333,10 @@ impl BacktestEngine {
         }
     }
 
+    /// Record an equity point for the current bar.
+    ///
+    /// Computes mark-to-market equity (cash + unrealized PnL) and the
+    /// running drawdown percentage using [`Self::peak_equity`].
     fn record_equity_point(&mut self, time: i64, kline_close: f64) {
         let equity = if let Some(pos) = &self.open_position {
             // Mark-to-market: use current close for unrealized PnL
@@ -331,6 +367,11 @@ impl BacktestEngine {
 
     // ============ Metrics Calculation ============
 
+    /// Calculate comprehensive performance metrics from the completed backtest.
+    ///
+    /// Returns [`BacktestMetrics`] including total/annualized return,
+    /// max drawdown, Sharpe/Sortino/Calmar ratios, win rate, profit factor,
+    /// and fee/slippage totals.
     fn calculate_metrics(&self) -> BacktestMetrics {
         let total_trades = self.trades.len() as i32;
         let final_equity = self
@@ -506,7 +547,10 @@ impl BacktestEngine {
 // ============ Helper for truncated equity curve ============
 
 /// Sample equity_curve for large datasets.
+///
 /// Uses uniform sampling: keeps every `step`-th point + first + last.
+/// This keeps the response payload manageable even for backtests with
+/// hundreds of thousands of equity points.
 pub fn sample_equity_curve(points: &[EquityPoint], max_points: usize) -> Vec<EquityPoint> {
     if points.len() <= max_points {
         return points.to_vec();
@@ -524,7 +568,9 @@ pub fn sample_equity_curve(points: &[EquityPoint], max_points: usize) -> Vec<Equ
 // ============ Data Access: Kline Loading ============
 
 /// Build a time range query for kline_data.
-/// Returns (symbol, interval, start_ms, end_ms).
+///
+/// Parses `start_date`/`end_date` from the config into millisecond timestamps.
+/// Returns `(symbol, interval, start_ms, end_ms)`.
 pub fn build_kline_query(config: &BacktestConfig) -> (String, String, i64, i64) {
     let start_ms = chrono::NaiveDate::parse_from_str(&config.start_date, "%Y-%m-%d")
         .map(|d| d.and_hms_opt(0, 0, 0).unwrap())
@@ -616,7 +662,7 @@ mod tests {
 
         let result = engine.run();
         assert!(result.is_ok());
-        let (metrics, trades, _) = result.unwrap();
+        let (metrics, _trades, _) = result.unwrap();
         assert_eq!(metrics.total_trades, 1); // 1 round-trip: buy at idx 0 → close at last bar
         assert!(metrics.sharpe_ratio >= 0.0 || metrics.sharpe_ratio == 0.0);
     }

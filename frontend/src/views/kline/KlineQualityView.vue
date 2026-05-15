@@ -411,6 +411,24 @@ function handleExportAnomalies() {
 }
 
 fetchSymbols()
+
+// Expose internals for testing
+defineExpose({
+  form,
+  report,
+  loading,
+  cleanDialogVisible,
+  fixDialogVisible,
+  runQualityCheck,
+  showCleanDialog,
+  confirmCleanAll,
+  handleExportAnomalies,
+  handleFix,
+  submitFix,
+  ringDashOffset,
+  coverageClass,
+  otherAnomalyCount,
+})
 </script>
 
 <style scoped lang="scss">

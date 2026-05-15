@@ -1,16 +1,16 @@
-// ============ Backtest DB Operations ============
-//
-// SeaORM-based CRUD for backtest_results table.
-// Provides:
-//   - create_backtest_run (INSERT with status=running)
-//   - update_completed (UPDATE metrics/trades/equity_curve)
-//   - update_failed (UPDATE status=failed + error)
-//   - find_backtest_result (SELECT by id)
-//   - get_backtest_progress (SELECT status + progress)
-//   - list_backtest_history (paginated SELECT by strategy_id)
-//   - delete_backtest_record (DELETE by id)
-//   - load_klines (SELECT from kline_data by symbol/interval/time)
-//   - find_strategy (SELECT from strategies by id)
+//! Backtest database operations — SeaORM CRUD for backtest_results table
+//! and kline data access.
+//!
+//! Provides:
+//!   - [`create_backtest_run`] (INSERT with status=running)
+//!   - [`update_completed`] (UPDATE metrics/trades/equity_curve)
+//!   - [`update_failed`] (UPDATE status=failed + error)
+//!   - [`find_backtest_result`] (SELECT by id)
+//!   - [`get_backtest_progress`] (SELECT status + progress)
+//!   - [`list_backtest_history`] (paginated SELECT by strategy_id)
+//!   - [`delete_backtest_record`] (DELETE by id)
+//!   - [`load_klines`] (SELECT from kline_data by symbol/interval/time)
+//!   - [`find_strategy`] (SELECT from strategies by id)
 
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter,
@@ -57,7 +57,7 @@ pub async fn create_backtest_run(
     }
     .insert(db)
     .await?;
-    tracing::info!("Created backtest run: {}", id);
+    tracing::info!(result_id = %id, user_id = %user_id, strategy_id = %strategy_id, "Created backtest run (DB)");
     Ok(())
 }
 
@@ -118,10 +118,13 @@ pub async fn update_failed(
 }
 
 /// Find a backtest result by ID.
+///
+/// Returns `None` if no record exists for the given UUID.
 pub async fn find_backtest_result(
     db: &DatabaseConnection,
     id: Uuid,
 ) -> Result<Option<BacktestResultResponse>, AppError> {
+    tracing::debug!(result_id = %id, "Finding backtest result");
     let m = backtest_results::Entity::find_by_id(id).one(db).await?;
     match m {
         Some(model) => Ok(Some(model_to_result_response(model)?)),
@@ -153,6 +156,8 @@ pub async fn get_backtest_progress(
 }
 
 /// List backtest history for a strategy with pagination.
+///
+/// Returns [`BacktestSummary`] items sorted by `created_at` DESC.
 pub async fn list_backtest_history(
     db: &DatabaseConnection,
     strategy_id: Option<Uuid>,
@@ -213,10 +218,10 @@ pub async fn list_backtest_history(
     })
 }
 
-/// Delete a backtest record.
+/// Delete a backtest record by ID.
 pub async fn delete_backtest_record(db: &DatabaseConnection, id: Uuid) -> Result<(), AppError> {
     backtest_results::Entity::delete_by_id(id).exec(db).await?;
-    tracing::info!("Deleted backtest record: {}", id);
+    tracing::info!(result_id = %id, "Deleted backtest record (DB)");
     Ok(())
 }
 
