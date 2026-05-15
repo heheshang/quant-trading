@@ -1,0 +1,1878 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>交易执行 - 设计原型</title>
+<!-- Element Plus -->
+<link rel="stylesheet" href="https://unpkg.com/element-plus@2.9.1/dist/index.css">
+<link rel="stylesheet" href="https://unpkg.com/element-plus@2.9.1/theme-chalk/dark/css-vars.css">
+<!-- Element Plus Icons -->
+<script src="https://unpkg.com/@element-plus/icons-vue@2.3.1/dist/index.iife.min.js"></script>
+<!-- Vue 3 -->
+<script src="https://unpkg.com/vue@3.5.13/dist/vue.global.prod.js"></script>
+<!-- Element Plus JS -->
+<script src="https://unpkg.com/element-plus@2.9.1/dist/index.full.js"></script>
+
+<style>
+:root {
+  --color-bg: #08090a;
+  --color-surface: #191a1b;
+  --color-surface-elevated: #212223;
+  --color-deep-bg: #050607;
+  --color-text-primary: #f7f8f8;
+  --color-text-secondary: #d0d6e0;
+  --color-text-tertiary: #8a8f98;
+  --color-accent: #7170ff;
+  --color-accent-hover: #8b8aff;
+  --color-border: rgba(255,255,255,0.08);
+  --color-border-hover: rgba(255,255,255,0.16);
+  --color-error: #e5484d;
+  --color-success: #10b981;
+  --color-warning: #f5a623;
+  --color-info: #60a5fa;
+  --color-buy: #67C23A;
+  --color-sell: #F56C6C;
+  --color-buy-bg: rgba(103,194,58,0.12);
+  --color-sell-bg: rgba(245,108,108,0.12);
+  --color-positive: #67C23A;
+  --color-negative: #F56C6C;
+  --color-neutral: #8a8f98;
+  --color-frozen: #f5a623;
+  --font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body, #app {
+  width: 100%; height: 100%;
+  font-family: var(--font-ui);
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+.dark {
+  --el-bg-color: var(--color-surface);
+  --el-bg-color-overlay: var(--color-surface-elevated);
+  --el-bg-color-page: var(--color-bg);
+  --el-text-color-primary: var(--color-text-primary);
+  --el-text-color-regular: var(--color-text-secondary);
+  --el-text-color-secondary: var(--color-text-tertiary);
+  --el-border-color: var(--color-border);
+  --el-border-color-light: var(--color-border);
+  --el-border-color-lighter: var(--color-border);
+  --el-fill-color-blank: var(--color-surface);
+  --el-color-primary: var(--color-accent);
+  --el-color-success: var(--color-buy);
+  --el-color-danger: var(--color-sell);
+  --el-color-warning: var(--color-warning);
+}
+
+/* Trade Page Layout */
+.trade-page {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Left Panel - Market Chart */
+.market-panel {
+  flex: 2;
+  min-width: 400px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--color-border);
+}
+
+.market-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.market-header__symbol {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.market-header__price {
+  font-family: var(--font-mono);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--color-buy);
+}
+
+.market-header__change {
+  font-size: 14px;
+  color: var(--color-buy);
+  margin-left: 8px;
+}
+
+.market-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+}
+
+.chart-placeholder {
+  flex: 1;
+  background: var(--color-deep-bg);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-tertiary);
+  font-size: 14px;
+}
+
+.depth-section {
+  height: 180px;
+  margin-top: 16px;
+}
+
+.depth-placeholder {
+  height: 100%;
+  background: var(--color-deep-bg);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-tertiary);
+  font-size: 14px;
+}
+
+/* Right Panel */
+.right-panel {
+  width: 380px;
+  min-width: 360px;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg);
+}
+
+/* Trade Header */
+.trade-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.trade-header__left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.trade-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  height: 24px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  background: rgba(96,165,250,0.12);
+  color: var(--color-info);
+}
+
+.trade-header__title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.trade-header__account {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.trade-header__balance {
+  color: var(--color-text-primary);
+}
+
+.trade-header__frozen {
+  color: var(--color-frozen);
+}
+
+.ws-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+
+.ws-status__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-success);
+}
+
+.ws-status--disconnected .ws-status__dot {
+  background: var(--color-text-tertiary);
+}
+
+/* Order Form */
+.order-form {
+  padding: 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.form-section {
+  margin-bottom: 12px;
+}
+
+.form-section:last-child {
+  margin-bottom: 0;
+}
+
+.form-label {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  margin-bottom: 6px;
+  display: block;
+}
+
+/* Symbol Selector */
+.symbol-select {
+  width: 100%;
+}
+
+/* Side Toggle */
+.side-toggle {
+  display: flex;
+  gap: 8px;
+}
+
+.side-toggle__btn {
+  flex: 1;
+  height: 40px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: none;
+}
+
+.side-toggle__btn--buy {
+  background: var(--color-buy);
+  color: #fff;
+}
+
+.side-toggle__btn--buy.active {
+  background: var(--color-buy);
+  color: #fff;
+}
+
+.side-toggle__btn--sell {
+  background: var(--color-sell);
+  color: #fff;
+}
+
+.side-toggle__btn--sell.active {
+  background: var(--color-sell);
+  color: #fff;
+}
+
+.side-toggle__btn--buy.inactive {
+  background: var(--color-buy-bg);
+  color: var(--color-buy);
+}
+
+.side-toggle__btn--sell.inactive {
+  background: var(--color-sell-bg);
+  color: var(--color-sell);
+}
+
+/* Order Type */
+.order-type {
+  display: flex;
+  gap: 8px;
+}
+
+.order-type__btn {
+  flex: 1;
+  height: 32px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: none;
+}
+
+.order-type__btn.active {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: rgba(113,112,255,0.1);
+}
+
+/* Input Group */
+.input-group {
+  display: flex;
+  align-items: center;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.input-group:focus-within {
+  border-color: var(--color-accent);
+}
+
+.input-group__input {
+  flex: 1;
+  height: 40px;
+  padding: 0 12px;
+  background: transparent;
+  border: none;
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  outline: none;
+}
+
+.input-group__input::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.input-group__suffix {
+  padding: 0 12px;
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  background: var(--color-surface);
+  height: 100%;
+  display: flex;
+  align-items: center;
+  border-left: 1px solid var(--color-border);
+}
+
+.market-hint {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  margin-top: 4px;
+  padding-left: 4px;
+}
+
+/* Quantity Slider */
+.qty-slider {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.qty-slider__btn {
+  flex: 1;
+  height: 28px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-surface-elevated);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: none;
+}
+
+.qty-slider__btn.active {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #fff;
+}
+
+/* Account Info */
+.account-info {
+  background: var(--color-surface);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 12px;
+}
+
+.account-info__row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.account-info__row:last-child {
+  margin-bottom: 0;
+}
+
+.account-info__label {
+  color: var(--color-text-tertiary);
+}
+
+.account-info__value {
+  font-family: var(--font-mono);
+  color: var(--color-text-primary);
+}
+
+.account-info__value--frozen {
+  color: var(--color-frozen);
+}
+
+/* Order Summary */
+.order-summary {
+  background: var(--color-surface-elevated);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 12px;
+  margin-top: 12px;
+}
+
+.order-summary__row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.order-summary__row:last-child {
+  margin-bottom: 0;
+}
+
+.order-summary__label {
+  color: var(--color-text-tertiary);
+}
+
+.order-summary__value {
+  font-family: var(--font-mono);
+  color: var(--color-text-primary);
+}
+
+/* Submit Button */
+.submit-btn {
+  width: 100%;
+  height: 44px;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 12px;
+  transition: none;
+}
+
+.submit-btn--buy {
+  background: var(--color-buy);
+  color: #fff;
+}
+
+.submit-btn--sell {
+  background: var(--color-sell);
+  color: #fff;
+}
+
+.submit-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Tab Panel */
+.tab-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tab-header {
+  display: flex;
+  height: 44px;
+  border-bottom: 1px solid var(--color-border);
+  padding: 0 8px;
+}
+
+.tab-btn {
+  padding: 0 16px;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  position: relative;
+  transition: none;
+}
+
+.tab-btn.active {
+  color: var(--color-text-primary);
+}
+
+.tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--color-accent);
+}
+
+.tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 9px;
+  background: var(--color-error);
+  color: #fff;
+  font-size: 11px;
+  margin-left: 6px;
+}
+
+.tab-content {
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Filter Bar */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-border);
+  flex-wrap: wrap;
+}
+
+.filter-bar .el-select {
+  width: 100px;
+}
+
+.filter-bar .el-input {
+  width: 120px;
+}
+
+.filter-bar__spacer {
+  flex: 1;
+}
+
+.cancel-all-btn {
+  padding: 4px 12px;
+  border: 1px solid var(--color-error);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-error);
+  font-size: 12px;
+  cursor: pointer;
+  transition: none;
+}
+
+.cancel-all-btn:hover {
+  background: var(--color-error);
+  color: #fff;
+}
+
+/* Table */
+.table-container {
+  flex: 1;
+  overflow: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.data-table th {
+  text-align: left;
+  padding: 8px 12px;
+  color: var(--color-text-tertiary);
+  font-weight: 600;
+  border-bottom: 1px solid var(--color-border);
+  position: sticky;
+  top: 0;
+  background: var(--color-bg);
+}
+
+.data-table th.right,
+.data-table td.right {
+  text-align: right;
+}
+
+.data-table th.center,
+.data-table td.center {
+  text-align: center;
+}
+
+.data-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+}
+
+.data-table tr:hover td {
+  background: rgba(255,255,255,0.02);
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+/* Status Pill */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.status-pill--pending {
+  background: rgba(245,166,35,0.12);
+  color: var(--color-warning);
+}
+
+.status-pill--partial {
+  background: rgba(96,165,250,0.12);
+  color: var(--color-info);
+}
+
+.status-pill--filled {
+  background: rgba(103,194,58,0.12);
+  color: var(--color-success);
+}
+
+.status-pill--cancelled {
+  background: rgba(138,143,152,0.08);
+  color: var(--color-text-tertiary);
+}
+
+.status-pill--rejected {
+  background: rgba(229,72,77,0.12);
+  color: var(--color-error);
+}
+
+/* Side Tag */
+.side-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.side-tag--buy {
+  background: var(--color-buy-bg);
+  color: var(--color-buy);
+}
+
+.side-tag--sell {
+  background: var(--color-sell-bg);
+  color: var(--color-sell);
+}
+
+/* Action Button */
+.action-btn {
+  padding: 4px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  transition: none;
+}
+
+.action-btn:hover {
+  border-color: var(--color-error);
+  color: var(--color-error);
+}
+
+.action-btn--detail {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+/* Progress Cell */
+.progress-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.progress-cell__text {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.progress-bar {
+  width: 60px;
+  height: 3px;
+  background: var(--color-border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-bar__fill {
+  height: 100%;
+  background: var(--color-buy);
+  border-radius: 2px;
+}
+
+.progress-bar__fill--sell {
+  background: var(--color-sell);
+}
+
+/* Position Panel */
+.position-summary {
+  display: flex;
+  gap: 16px;
+  padding: 12px 16px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  font-size: 12px;
+  flex-wrap: wrap;
+}
+
+.position-summary__item {
+  display: flex;
+  gap: 6px;
+}
+
+.position-summary__label {
+  color: var(--color-text-tertiary);
+}
+
+.position-summary__value {
+  font-family: var(--font-mono);
+  color: var(--color-text-primary);
+}
+
+.position-summary__value--frozen {
+  color: var(--color-frozen);
+}
+
+.position-summary__value--positive {
+  color: var(--color-positive);
+}
+
+.position-summary__value--negative {
+  color: var(--color-negative);
+}
+
+/* PNL Cell */
+.pnl-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.pnl-cell__amount {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.pnl-cell__amount--positive {
+  color: var(--color-positive);
+}
+
+.pnl-cell__amount--negative {
+  color: var(--color-negative);
+}
+
+.pnl-cell__rate {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+/* Empty State */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  color: var(--color-text-tertiary);
+  text-align: center;
+}
+
+.empty-state__icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.empty-state__text {
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.empty-state__hint {
+  font-size: 12px;
+}
+
+/* Confirm Dialog */
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.dialog {
+  width: 400px;
+  background: var(--color-surface-elevated);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.dialog__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.dialog__close {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  font-size: 18px;
+  border-radius: 6px;
+}
+
+.dialog__close:hover {
+  background: var(--color-surface);
+}
+
+.dialog__body {
+  padding: 20px 16px;
+}
+
+.dialog__row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 14px;
+}
+
+.dialog__row-label {
+  color: var(--color-text-tertiary);
+}
+
+.dialog__row-value {
+  font-family: var(--font-mono);
+  color: var(--color-text-primary);
+}
+
+.dialog__warning {
+  background: rgba(245,166,35,0.12);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--color-warning);
+  margin-top: 12px;
+}
+
+.dialog__mode {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--color-info);
+}
+
+.dialog__footer {
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  border-top: 1px solid var(--color-border);
+}
+
+.dialog__btn {
+  flex: 1;
+  height: 40px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: none;
+}
+
+.dialog__btn--cancel {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.dialog__btn--confirm {
+  color: #fff;
+}
+
+.dialog__btn--confirm--buy {
+  background: var(--color-buy);
+}
+
+.dialog__btn--confirm--sell {
+  background: var(--color-sell);
+}
+
+.dialog__btn--confirm--danger {
+  background: var(--color-error);
+}
+
+/* Pagination */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  border-top: 1px solid var(--color-border);
+}
+
+/* Drawer */
+.drawer-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 1500;
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 420px;
+  background: var(--color-surface-elevated);
+  display: flex;
+  flex-direction: column;
+}
+
+.drawer__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.drawer__title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.drawer__close {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  font-size: 18px;
+  border-radius: 6px;
+}
+
+.drawer__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.drawer__section {
+  margin-bottom: 20px;
+}
+
+.drawer__section-title {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.drawer__row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 13px;
+}
+
+.drawer__row-label {
+  color: var(--color-text-secondary);
+}
+
+.drawer__row-value {
+  font-family: var(--font-mono);
+  color: var(--color-text-primary);
+}
+
+.drawer__footer {
+  padding: 16px;
+  border-top: 1px solid var(--color-border);
+}
+
+.drawer__cancel-btn {
+  width: 100%;
+  height: 40px;
+  border: 1px solid var(--color-error);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-error);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: none;
+}
+
+.drawer__cancel-btn:hover {
+  background: var(--color-error);
+  color: #fff;
+}
+
+/* Hidden */
+.hidden {
+  display: none !important;
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="trade-page">
+    <!-- Left Panel - Market -->
+    <div class="market-panel">
+      <div class="market-header">
+        <span class="market-header__symbol">BTC/USDT</span>
+        <div>
+          <span class="market-header__price">50,123.45</span>
+          <span class="market-header__change">+2.34%</span>
+        </div>
+      </div>
+      <div class="market-content">
+        <div class="chart-placeholder">K线图表区域 (ECharts)</div>
+        <div class="depth-section">
+          <div class="depth-placeholder">深度图区域</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Panel -->
+    <div class="right-panel">
+      <!-- Trade Header -->
+      <div class="trade-header">
+        <div class="trade-header__left">
+          <span class="trade-mode-badge">🧪 模拟交易</span>
+          <span class="trade-header__title">交易执行</span>
+        </div>
+        <div class="trade-header__account">
+          <span class="trade-header__balance">余额: ¥50,000.00</span>
+          <span class="trade-header__frozen">冻结: ¥4,950.00</span>
+        </div>
+        <div class="ws-status">
+          <span class="ws-status__dot"></span>
+          <span>已连接</span>
+        </div>
+      </div>
+
+      <!-- Order Form -->
+      <div class="order-form">
+        <!-- Symbol -->
+        <div class="form-section">
+          <label class="form-label">交易对</label>
+          <el-select v-model="symbol" class="symbol-select" placeholder="选择交易对">
+            <el-option label="BTC/USDT" value="BTC/USDT"></el-option>
+            <el-option label="ETH/USDT" value="ETH/USDT"></el-option>
+            <el-option label="SOL/USDT" value="SOL/USDT"></el-option>
+          </el-select>
+        </div>
+
+        <!-- Side Toggle -->
+        <div class="form-section">
+          <div class="side-toggle">
+            <button class="side-toggle__btn side-toggle__btn--buy" :class="{active: side === 'buy', inactive: side !== 'buy'}" @click="side = 'buy'">买入</button>
+            <button class="side-toggle__btn side-toggle__btn--sell" :class="{active: side === 'sell', inactive: side !== 'sell'}" @click="side = 'sell'">卖出</button>
+          </div>
+        </div>
+
+        <!-- Order Type -->
+        <div class="form-section">
+          <div class="order-type">
+            <button class="order-type__btn" :class="{active: orderType === 'limit'}" @click="orderType = 'limit'">限价</button>
+            <button class="order-type__btn" :class="{active: orderType === 'market'}" @click="orderType = 'market'">市价</button>
+          </div>
+        </div>
+
+        <!-- Price Input -->
+        <div class="form-section" :class="{hidden: orderType === 'market'}">
+          <label class="form-label">价格</label>
+          <div class="input-group">
+            <input type="text" class="input-group__input" v-model="price" placeholder="输入价格">
+            <span class="input-group__suffix">USDT</span>
+          </div>
+          <div class="market-hint">当前市价: 50,123.45 | <a href="#" @click.prevent="price = '50123.45'">填入市价</a></div>
+        </div>
+        <div class="form-section" :class="{hidden: orderType !== 'market'}">
+          <label class="form-label">价格</label>
+          <div class="market-hint" style="padding: 8px 0;">市价单将以市场最优价成交</div>
+        </div>
+
+        <!-- Quantity Input -->
+        <div class="form-section">
+          <label class="form-label">数量</label>
+          <div class="input-group">
+            <input type="text" class="input-group__input" v-model="quantity" placeholder="输入数量">
+            <span class="input-group__suffix">BTC</span>
+          </div>
+          <div class="market-hint" v-if="orderType === 'limit'">≈ {{ (parseFloat(price || 0) * parseFloat(quantity || 0)).toFixed(2) }} USDT</div>
+        </div>
+
+        <!-- Quantity Slider -->
+        <div class="qty-slider">
+          <button class="qty-slider__btn" :class="{active: qtyPercent === 25}" @click="setQtyPercent(25)">25%</button>
+          <button class="qty-slider__btn" :class="{active: qtyPercent === 50}" @click="setQtyPercent(50)">50%</button>
+          <button class="qty-slider__btn" :class="{active: qtyPercent === 75}" @click="setQtyPercent(75)">75%</button>
+          <button class="qty-slider__btn" :class="{active: qtyPercent === 100}" @click="setQtyPercent(100)">100%</button>
+        </div>
+
+        <!-- Account Info -->
+        <div class="account-info" style="margin-top: 12px;">
+          <div class="account-info__row">
+            <span class="account-info__label">可用余额</span>
+            <span class="account-info__value">¥50,000.00</span>
+          </div>
+          <div class="account-info__row">
+            <span class="account-info__label">冻结</span>
+            <span class="account-info__value account-info__value--frozen">¥4,950.00</span>
+          </div>
+        </div>
+
+        <!-- Order Summary -->
+        <div class="order-summary">
+          <div class="order-summary__row">
+            <span class="order-summary__label">预估金额</span>
+            <span class="order-summary__value">≈ {{ ((parseFloat(price || 0) * parseFloat(quantity || 0)) || 0).toFixed(2) }} USDT</span>
+          </div>
+          <div class="order-summary__row">
+            <span class="order-summary__label">手续费(≈)</span>
+            <span class="order-summary__value">≈ {{ ((parseFloat(price || 0) * parseFloat(quantity || 0) * 0.001) || 0).toFixed(4) }} USDT</span>
+          </div>
+        </div>
+
+        <!-- Submit Button -->
+        <button class="submit-btn" :class="side === 'buy' ? 'submit-btn--buy' : 'submit-btn--sell'" :disabled="!canSubmit" @click="showConfirm = true">
+          {{ side === 'buy' ? '买入限价 BTC' : '卖出限价 BTC' }}
+        </button>
+      </div>
+
+      <!-- Tab Panel -->
+      <div class="tab-panel">
+        <div class="tab-header">
+          <button class="tab-btn" :class="{active: activeTab === 'orders'}" @click="activeTab = 'orders'">
+            当前委托<span class="tab-badge" v-if="orders.length">{{orders.length}}</span>
+          </button>
+          <button class="tab-btn" :class="{active: activeTab === 'history'}" @click="activeTab = 'history'">历史</button>
+          <button class="tab-btn" :class="{active: activeTab === 'positions'}" @click="activeTab = 'positions'">
+            持仓<span class="tab-badge" v-if="positions.length">{{positions.length}}</span>
+          </button>
+          <button class="tab-btn" :class="{active: activeTab === 'trades'}" @click="activeTab = 'trades'">成交</button>
+        </div>
+
+        <div class="tab-content">
+          <!-- Orders Tab -->
+          <div v-if="activeTab === 'orders'" style="display: flex; flex-direction: column; height: 100%;">
+            <div class="filter-bar">
+              <el-select v-model="orderFilter.status" placeholder="状态" size="small">
+                <el-option label="全部" value=""></el-option>
+                <el-option label="待成交" value="pending"></el-option>
+                <el-option label="部分成交" value="partial_filled"></el-option>
+              </el-select>
+              <el-select v-model="orderFilter.side" placeholder="方向" size="small">
+                <el-option label="全部" value=""></el-option>
+                <el-option label="买入" value="buy"></el-option>
+                <el-option label="卖出" value="sell"></el-option>
+              </el-select>
+              <el-input v-model="orderFilter.symbol" placeholder="搜索交易对" size="small"></el-input>
+              <span class="filter-bar__spacer"></span>
+              <button class="cancel-all-btn" v-if="orders.length" @click="showCancelAllConfirm = true">全部撤单</button>
+            </div>
+            <div class="table-container" style="flex: 1;">
+              <table class="data-table" v-if="filteredOrders.length">
+                <thead>
+                  <tr>
+                    <th>时间</th>
+                    <th>交易对</th>
+                    <th class="center">方向</th>
+                    <th class="center">类型</th>
+                    <th class="right">价格</th>
+                    <th class="right">数量</th>
+                    <th class="right">已成交</th>
+                    <th class="center">状态</th>
+                    <th class="center">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="order in filteredOrders" :key="order.id">
+                    <td class="mono">{{order.time}}</td>
+                    <td style="font-weight: 600;">{{order.symbol}}</td>
+                    <td class="center"><span class="side-tag" :class="'side-tag--' + order.side">{{order.side === 'buy' ? '买' : '卖'}}</span></td>
+                    <td class="center" style="color: var(--color-text-secondary);">{{order.type === 'limit' ? '限价' : '市价'}}</td>
+                    <td class="right mono">{{order.price || '市价'}}</td>
+                    <td class="right mono">{{order.quantity}}</td>
+                    <td class="right">
+                      <div class="progress-cell">
+                        <span class="progress-cell__text mono">{{order.filled}} / {{order.quantity}}</span>
+                        <div class="progress-bar">
+                          <div class="progress-bar__fill" :class="{'progress-bar__fill--sell': order.side === 'sell'}" :style="{width: (order.filled / order.quantity * 100) + '%'}"></div>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="center">
+                      <span class="status-pill" :class="'status-pill--' + order.status">{{getStatusText(order.status)}}</span>
+                    </td>
+                    <td class="center">
+                      <button class="action-btn" v-if="order.status === 'pending' || order.status === 'partial_filled'" @click="cancelOrder(order)">撤单</button>
+                      <button class="action-btn action-btn--detail" v-else @click="showDetail(order)">详情</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="empty-state" v-else>
+                <div class="empty-state__icon">📋</div>
+                <div class="empty-state__text">暂无未成交委托</div>
+                <div class="empty-state__hint">下单后将在这里显示</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- History Tab -->
+          <div v-if="activeTab === 'history'" style="display: flex; flex-direction: column; height: 100%;">
+            <div class="filter-bar">
+              <el-select v-model="historyFilter.status" placeholder="状态" size="small">
+                <el-option label="全部" value=""></el-option>
+                <el-option label="已成交" value="filled"></el-option>
+                <el-option label="已撤销" value="cancelled"></el-option>
+              </el-select>
+            </div>
+            <div class="table-container" style="flex: 1;">
+              <table class="data-table" v-if="filteredHistory.length">
+                <thead>
+                  <tr>
+                    <th>时间</th>
+                    <th>交易对</th>
+                    <th class="center">方向</th>
+                    <th class="center">类型</th>
+                    <th class="right">价格</th>
+                    <th class="right">数量</th>
+                    <th class="center">状态</th>
+                    <th class="center">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="order in filteredHistory" :key="order.id">
+                    <td class="mono">{{order.time}}</td>
+                    <td style="font-weight: 600;">{{order.symbol}}</td>
+                    <td class="center"><span class="side-tag" :class="'side-tag--' + order.side">{{order.side === 'buy' ? '买' : '卖'}}</span></td>
+                    <td class="center" style="color: var(--color-text-secondary);">{{order.type === 'limit' ? '限价' : '市价'}}</td>
+                    <td class="right mono">{{order.price || '市价'}}</td>
+                    <td class="right mono">{{order.quantity}}</td>
+                    <td class="center">
+                      <span class="status-pill" :class="'status-pill--' + order.status">{{getStatusText(order.status)}}</span>
+                    </td>
+                    <td class="center">
+                      <button class="action-btn action-btn--detail" @click="showDetail(order)">详情</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="empty-state" v-else>
+                <div class="empty-state__icon">📋</div>
+                <div class="empty-state__text">暂无历史委托</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Positions Tab -->
+          <div v-if="activeTab === 'positions'" style="display: flex; flex-direction: column; height: 100%;">
+            <div class="position-summary">
+              <div class="position-summary__item">
+                <span class="position-summary__label">可用:</span>
+                <span class="position-summary__value">¥50,000.00</span>
+              </div>
+              <div class="position-summary__item">
+                <span class="position-summary__label">冻结:</span>
+                <span class="position-summary__value position-summary__value--frozen">¥4,950.00</span>
+              </div>
+              <div class="position-summary__item">
+                <span class="position-summary__label">权益:</span>
+                <span class="position-summary__value">¥55,050.00</span>
+              </div>
+              <div class="position-summary__item">
+                <span class="position-summary__label">盈亏:</span>
+                <span class="position-summary__value position-summary__value--positive">+¥50.00</span>
+              </div>
+            </div>
+            <div class="table-container" style="flex: 1;">
+              <table class="data-table" v-if="positions.length">
+                <thead>
+                  <tr>
+                    <th>交易对</th>
+                    <th class="center">方向</th>
+                    <th class="right">数量</th>
+                    <th class="right">可用</th>
+                    <th class="right">均价</th>
+                    <th class="right">浮动盈亏</th>
+                    <th class="center">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="pos in positions" :key="pos.symbol">
+                    <td style="font-weight: 600;">{{pos.symbol}}</td>
+                    <td class="center"><span class="side-tag" :class="pos.side === 'long' ? 'side-tag--buy' : 'side-tag--sell'">{{pos.side === 'long' ? '多' : '空'}}</span></td>
+                    <td class="right mono">{{pos.quantity}}</td>
+                    <td class="right mono" style="color: var(--color-text-secondary);">{{pos.available}}</td>
+                    <td class="right mono">{{pos.avgPrice}}</td>
+                    <td class="right">
+                      <div class="pnl-cell">
+                        <span class="pnl-cell__amount" :class="pos.pnl >= 0 ? 'pnl-cell__amount--positive' : 'pnl-cell__amount--negative'">{{pos.pnl >= 0 ? '+' : ''}}¥{{pos.pnl.toFixed(2)}}</span>
+                        <span class="pnl-cell__rate" :class="pos.pnl >= 0 ? 'pnl-cell__amount--positive' : 'pnl-cell__amount--negative'">{{pos.pnl >= 0 ? '+' : ''}}{{pos.pnlRate.toFixed(2)}}%</span>
+                      </div>
+                    </td>
+                    <td class="center">
+                      <button class="action-btn" @click="closePosition(pos)">平仓</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="empty-state" v-else>
+                <div class="empty-state__icon">💼</div>
+                <div class="empty-state__text">暂无持仓</div>
+                <div class="empty-state__hint">下单后持仓将在这里显示</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Trades Tab -->
+          <div v-if="activeTab === 'trades'" style="display: flex; flex-direction: column; height: 100%;">
+            <div class="filter-bar">
+              <el-select v-model="tradeFilter.symbol" placeholder="交易对" size="small">
+                <el-option label="全部" value=""></el-option>
+                <el-option label="BTC/USDT" value="BTC/USDT"></el-option>
+                <el-option label="ETH/USDT" value="ETH/USDT"></el-option>
+              </el-select>
+              <el-select v-model="tradeFilter.side" placeholder="方向" size="small">
+                <el-option label="全部" value=""></el-option>
+                <el-option label="买入" value="buy"></el-option>
+                <el-option label="卖出" value="sell"></el-option>
+              </el-select>
+            </div>
+            <div class="table-container" style="flex: 1;">
+              <table class="data-table" v-if="trades.length">
+                <thead>
+                  <tr>
+                    <th>成交时间</th>
+                    <th>交易对</th>
+                    <th class="center">方向</th>
+                    <th class="right">价格</th>
+                    <th class="right">数量</th>
+                    <th class="right">手续费</th>
+                    <th class="center">委托</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="trade in filteredTrades" :key="trade.id">
+                    <td class="mono">{{trade.time}}</td>
+                    <td style="font-weight: 600;">{{trade.symbol}}</td>
+                    <td class="center"><span class="side-tag" :class="'side-tag--' + trade.side">{{trade.side === 'buy' ? '买' : '卖'}}</span></td>
+                    <td class="right mono">{{trade.price}}</td>
+                    <td class="right mono">{{trade.quantity}}</td>
+                    <td class="right mono" style="color: var(--color-frozen);">{{trade.fee}}</td>
+                    <td class="center"><span style="color: var(--color-accent); font-size: 11px;">#{{trade.orderId}}</span></td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="empty-state" v-else>
+                <div class="empty-state__icon">📊</div>
+                <div class="empty-state__text">暂无成交记录</div>
+                <div class="empty-state__hint">下单成交后将在这里显示</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm Dialog -->
+  <div class="dialog-overlay" v-if="showConfirm" @click.self="showConfirm = false">
+    <div class="dialog">
+      <div class="dialog__header">
+        <span>确认提交委托</span>
+        <button class="dialog__close" @click="showConfirm = false">×</button>
+      </div>
+      <div class="dialog__body">
+        <div class="dialog__row">
+          <span class="dialog__row-label">交易对</span>
+          <span class="dialog__row-value">{{symbol}}</span>
+        </div>
+        <div class="dialog__row">
+          <span class="dialog__row-label">方向</span>
+          <span class="dialog__row-value" :style="{color: side === 'buy' ? 'var(--color-buy)' : 'var(--color-sell)'}">{{side === 'buy' ? '买入' : '卖出'}}</span>
+        </div>
+        <div class="dialog__row">
+          <span class="dialog__row-label">类型</span>
+          <span class="dialog__row-value">{{orderType === 'limit' ? '限价' : '市价'}}</span>
+        </div>
+        <div class="dialog__row" v-if="orderType === 'limit'">
+          <span class="dialog__row-label">价格</span>
+          <span class="dialog__row-value">{{price}} USDT</span>
+        </div>
+        <div class="dialog__row">
+          <span class="dialog__row-label">数量</span>
+          <span class="dialog__row-value">{{quantity}} BTC</span>
+        </div>
+        <div class="dialog__row">
+          <span class="dialog__row-label">预估金额</span>
+          <span class="dialog__row-value">≈ {{ ((parseFloat(price || 0) * parseFloat(quantity || 0)) || 0).toFixed(2) }} USDT</span>
+        </div>
+        <div class="dialog__row">
+          <span class="dialog__row-label">手续费(≈)</span>
+          <span class="dialog__row-value">≈ {{ ((parseFloat(price || 0) * parseFloat(quantity || 0) * 0.001) || 0).toFixed(4) }} USDT</span>
+        </div>
+        <div class="dialog__mode">
+          <span>🧪 模拟交易</span>
+        </div>
+        <div class="dialog__warning" v-if="priceDeviation > 10">
+          ⚠️ 委托价格偏离当前市场价较大({{priceDeviation.toFixed(0)}}%)，是否确认提交？
+        </div>
+      </div>
+      <div class="dialog__footer">
+        <button class="dialog__btn dialog__btn--cancel" @click="showConfirm = false">取消</button>
+        <button class="dialog__btn dialog__btn--confirm" :class="side === 'buy' ? 'dialog__btn--confirm--buy' : 'dialog__btn--confirm--sell'" @click="submitOrder">确认提交</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cancel Confirm Dialog -->
+  <div class="dialog-overlay" v-if="showCancelConfirm" @click.self="showCancelConfirm = false">
+    <div class="dialog">
+      <div class="dialog__header">
+        <span>确认撤单</span>
+        <button class="dialog__close" @click="showCancelConfirm = false">×</button>
+      </div>
+      <div class="dialog__body">
+        <div class="dialog__row">
+          <span class="dialog__row-label">交易对</span>
+          <span class="dialog__row-value">{{cancelTarget?.symbol}}</span>
+        </div>
+        <div class="dialog__row">
+          <span class="dialog__row-label">方向</span>
+          <span class="dialog__row-value" :style="{color: cancelTarget?.side === 'buy' ? 'var(--color-buy)' : 'var(--color-sell)'}">{{cancelTarget?.side === 'buy' ? '买入' : '卖出'}}</span>
+        </div>
+        <div class="dialog__row">
+          <span class="dialog__row-label">价格</span>
+          <span class="dialog__row-value">{{cancelTarget?.price || '市价'}}</span>
+        </div>
+        <div class="dialog__row">
+          <span class="dialog__row-label">数量</span>
+          <span class="dialog__row-value">{{cancelTarget?.quantity}} BTC</span>
+        </div>
+        <div class="dialog__warning" style="margin-top: 12px;">
+          将释放保证金 ≈ {{ ((parseFloat(cancelTarget?.price || 0) * parseFloat(cancelTarget?.quantity || 0)) || 0).toFixed(2) }} USDT
+        </div>
+      </div>
+      <div class="dialog__footer">
+        <button class="dialog__btn dialog__btn--cancel" @click="showCancelConfirm = false">取消</button>
+        <button class="dialog__btn dialog__btn--confirm dialog__btn--confirm--danger" @click="confirmCancel">确认撤单</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cancel All Confirm Dialog -->
+  <div class="dialog-overlay" v-if="showCancelAllConfirm" @click.self="showCancelAllConfirm = false">
+    <div class="dialog">
+      <div class="dialog__header">
+        <span>确认撤单</span>
+        <button class="dialog__close" @click="showCancelAllConfirm = false">×</button>
+      </div>
+      <div class="dialog__body">
+        <p style="font-size: 14px; margin-bottom: 12px;">确认撤销全部 <strong>{{orders.length}}</strong> 个未成交委托？</p>
+        <div class="dialog__warning">
+          将释放保证金总额 ≈ ¥{{totalFrozen.toFixed(2)}}
+        </div>
+      </div>
+      <div class="dialog__footer">
+        <button class="dialog__btn dialog__btn--cancel" @click="showCancelAllConfirm = false">取消</button>
+        <button class="dialog__btn dialog__btn--confirm dialog__btn--confirm--danger" @click="confirmCancelAll">确认撤单</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Order Detail Drawer -->
+  <div class="drawer-overlay" v-if="showDrawer" @click.self="showDrawer = false">
+    <div class="drawer">
+      <div class="drawer__header">
+        <span class="drawer__title">委托详情 #{{detailOrder?.id}}</span>
+        <button class="drawer__close" @click="showDrawer = false">×</button>
+      </div>
+      <div class="drawer__body" v-if="detailOrder">
+        <div class="drawer__section">
+          <div class="drawer__section-title">基本信息</div>
+          <div class="drawer__row">
+            <span class="drawer__row-label">交易对</span>
+            <span class="drawer__row-value">{{detailOrder.symbol}}</span>
+          </div>
+          <div class="drawer__row">
+            <span class="drawer__row-label">方向</span>
+            <span class="drawer__row-value" :style="{color: detailOrder.side === 'buy' ? 'var(--color-buy)' : 'var(--color-sell)'}">{{detailOrder.side === 'buy' ? '买入' : '卖出'}}</span>
+          </div>
+          <div class="drawer__row">
+            <span class="drawer__row-label">类型</span>
+            <span class="drawer__row-value">{{detailOrder.type === 'limit' ? '限价' : '市价'}}</span>
+          </div>
+          <div class="drawer__row">
+            <span class="drawer__row-label">状态</span>
+            <span class="status-pill" :class="'status-pill--' + detailOrder.status">{{getStatusText(detailOrder.status)}}</span>
+          </div>
+        </div>
+
+        <div class="drawer__section">
+          <div class="drawer__section-title">委托信息</div>
+          <div class="drawer__row">
+            <span class="drawer__row-label">委托价格</span>
+            <span class="drawer__row-value">{{detailOrder.price || '市价'}} USDT</span>
+          </div>
+          <div class="drawer__row">
+            <span class="drawer__row-label">委托数量</span>
+            <span class="drawer__row-value">{{detailOrder.quantity}} BTC</span>
+          </div>
+          <div class="drawer__row">
+            <span class="drawer__row-label">已成交</span>
+            <span class="drawer__row-value">{{detailOrder.filled}} BTC</span>
+          </div>
+          <div class="drawer__row">
+            <span class="drawer__row-label">成交均价</span>
+            <span class="drawer__row-value">{{detailOrder.avgPrice || '-'}}</span>
+          </div>
+          <div class="drawer__row">
+            <span class="drawer__row-label">手续费</span>
+            <span class="drawer__row-value">{{detailOrder.fee}} USDT</span>
+          </div>
+          <div class="drawer__row">
+            <span class="drawer__row-label">创建时间</span>
+            <span class="drawer__row-value">{{detailOrder.time}}</span>
+          </div>
+        </div>
+
+        <div class="drawer__section" v-if="detailOrder.side === 'buy'">
+          <div class="drawer__section-title">保证金信息</div>
+          <div class="drawer__row">
+            <span class="drawer__row-label">冻结金额</span>
+            <span class="drawer__row-value" style="color: var(--color-frozen);">¥{{((parseFloat(detailOrder.price) * parseFloat(detailOrder.quantity)) || 0).toFixed(2)}}</span>
+          </div>
+          <div class="drawer__row">
+            <span class="drawer__row-label">已释放</span>
+            <span class="drawer__row-value" style="color: var(--color-success);">¥{{((parseFloat(detailOrder.avgPrice || 0) * parseFloat(detailOrder.filled)) || 0).toFixed(2)}}</span>
+          </div>
+        </div>
+      </div>
+      <div class="drawer__footer" v-if="detailOrder && (detailOrder.status === 'pending' || detailOrder.status === 'partial_filled')">
+        <button class="drawer__cancel-btn" @click="cancelOrder(detailOrder); showDrawer = false">撤销委托</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Close Position Dialog -->
+  <div class="dialog-overlay" v-if="showClosePosition" @click.self="showClosePosition = false">
+    <div class="dialog">
+      <div class="dialog__header">
+        <span>平仓确认</span>
+        <button class="dialog__close" @click="showClosePosition = false">×</button>
+      </div>
+      <div class="dialog__body">
+        <p style="font-size: 14px; margin-bottom: 12px;">
+          确认平仓 <strong>{{closeTarget?.symbol}}</strong> {{closeTarget?.quantity}} BTC？
+        </p>
+        <p style="font-size: 13px; color: var(--color-text-secondary); margin-bottom: 12px;">将以市价卖出</p>
+        <div class="dialog__row">
+          <span class="dialog__row-label">预估金额</span>
+          <span class="dialog__row-value">≈ ¥{{(closeTarget?.quantity * 50123.45 || 0).toFixed(2)}}</span>
+        </div>
+        <div class="dialog__row">
+          <span class="dialog__row-label">将释放保证金</span>
+          <span class="dialog__row-value" style="color: var(--color-frozen);">≈ ¥{{((closeTarget?.quantity * closeTarget?.avgPrice) || 0).toFixed(2)}}</span>
+        </div>
+      </div>
+      <div class="dialog__footer">
+        <button class="dialog__btn dialog__btn--cancel" @click="showClosePosition = false">取消</button>
+        <button class="dialog__btn dialog__btn--confirm dialog__btn--confirm--sell" @click="confirmClosePosition">确认平仓</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const { createApp, ref, computed, reactive } = Vue;
+
+const app = createApp({
+  setup() {
+    // Order Form State
+    const symbol = ref('BTC/USDT');
+    const side = ref('buy');
+    const orderType = ref('limit');
+    const price = ref('');
+    const quantity = ref('');
+    const qtyPercent = ref(null);
+    const showConfirm = ref(false);
+
+    // Tab State
+    const activeTab = ref('orders');
+    const orderFilter = reactive({ status: '', side: '', symbol: '' });
+    const historyFilter = reactive({ status: '' });
+    const tradeFilter = reactive({ symbol: '', side: '' });
+
+    // Data
+    const orders = ref([
+      { id: '123456', symbol: 'BTC/USDT', side: 'buy', type: 'limit', price: '49500.00', quantity: '0.1000', filled: '0.0500', status: 'partial_filled', time: '05-15 06:30' },
+      { id: '123455', symbol: 'ETH/USDT', side: 'sell', type: 'limit', price: '3200.00', quantity: '1.0000', filled: '0.0000', status: 'pending', time: '05-15 06:28' },
+    ]);
+
+    const history = ref([
+      { id: '123454', symbol: 'BTC/USDT', side: 'buy', type: 'market', price: null, quantity: '0.2000', filled: '0.2000', status: 'filled', time: '05-15 06:01', avgPrice: '50100.00', fee: '10.02' },
+      { id: '123453', symbol: 'SOL/USDT', side: 'buy', type: 'limit', price: '150.00', quantity: '10.0000', filled: '10.0000', status: 'filled', time: '05-15 05:58', avgPrice: '150.00', fee: '1.50' },
+    ]);
+
+    const positions = ref([
+      { symbol: 'BTC/USDT', side: 'long', quantity: '0.3000', available: '0.2000', avgPrice: '49000.00', pnl: 303.00, pnlRate: 2.06 },
+    ]);
+
+    const trades = ref([
+      { id: 't1', symbol: 'BTC/USDT', side: 'buy', price: '49500.00', quantity: '0.0500', fee: '2.48', time: '06:05:30', orderId: '123456' },
+      { id: 't2', symbol: 'ETH/USDT', side: 'sell', price: '3200.00', quantity: '0.5000', fee: '1.60', time: '06:03:15', orderId: '123455' },
+    ]);
+
+    // Computed
+    const currentMarketPrice = computed(() => 50123.45);
+    
+    const priceDeviation = computed(() => {
+      if (!price.value || !currentMarketPrice.value) return 0;
+      return (parseFloat(price.value) - currentMarketPrice.value) / currentMarketPrice.value * 100;
+    });
+
+    const canSubmit = computed(() => {
+      if (orderType.value === 'limit' && (!price.value || parseFloat(price.value) <= 0)) return false;
+      if (!quantity.value || parseFloat(quantity.value) <= 0) return false;
+      return true;
+    });
+
+    const filteredOrders = computed(() => {
+      return orders.value.filter(o => {
+        if (orderFilter.status && o.status !== orderFilter.status) return false;
+        if (orderFilter.side && o.side !== orderFilter.side) return false;
+        if (orderFilter.symbol && !o.symbol.toLowerCase().includes(orderFilter.symbol.toLowerCase())) return false;
+        return true;
+      });
+    });
+
+    const filteredHistory = computed(() => {
+      return history.value.filter(o => {
+        if (historyFilter.status && o.status !== historyFilter.status) return false;
+        return true;
+      });
+    });
+
+    const filteredTrades = computed(() => {
+      return trades.value.filter(t => {
+        if (tradeFilter.symbol && t.symbol !== tradeFilter.symbol) return false;
+        if (tradeFilter.side && t.side !== tradeFilter.side) return false;
+        return true;
+      });
+    });
+
+    const totalFrozen = computed(() => {
+      return orders.value.reduce((sum, o) => {
+        return sum + (parseFloat(o.price) * parseFloat(o.quantity)) || 0;
+      }, 0);
+    });
+
+    // Methods
+    const setQtyPercent = (pct) => {
+      qtyPercent.value = pct;
+      const balance = 50000;
+      const p = parseFloat(price.value) || currentMarketPrice.value;
+      if (side.value === 'buy') {
+        quantity.value = ((balance * pct / 100) / p).toFixed(4);
+      } else {
+        const available = positions.value.find(pos => pos.symbol === symbol.value)?.available || '0';
+        quantity.value = (parseFloat(available) * pct / 100).toFixed(4);
+      }
+    };
+
+    const getStatusText = (status) => {
+      const map = {
+        'pending': '待成交',
+        'partial_filled': '部分成交',
+        'filled': '已成交',
+        'cancelled': '已撤销',
+        'expired': '已过期',
+        'rejected': '已拒绝'
+      };
+      return map[status] || status;
+    };
+
+    const submitOrder = () => {
+      const newOrder = {
+        id: String(Date.now()),
+        symbol: symbol.value,
+        side: side.value,
+        type: orderType.value,
+        price: orderType.value === 'limit' ? price.value : null,
+        quantity: quantity.value,
+        filled: '0.0000',
+        status: orderType.value === 'market' ? 'filled' : 'pending',
+        time: new Date().toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(/\//g, '-')
+      };
+      
+      if (orderType.value === 'market') {
+        history.value.unshift(newOrder);
+        trades.value.unshift({
+          id: 't' + Date.now(),
+          symbol: newOrder.symbol,
+          side: newOrder.side,
+          price: currentMarketPrice.value.toFixed(2),
+          quantity: newOrder.quantity,
+          fee: (parseFloat(newOrder.quantity) * currentMarketPrice.value * 0.001).toFixed(4),
+          time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+          orderId: newOrder.id
+        });
+        // Update position
+        const pos = positions.value.find(p => p.symbol === newOrder.symbol);
+        if (pos) {
+          if (newOrder.side === 'buy') {
+            pos.quantity = (parseFloat(pos.quantity) + parseFloat(newOrder.quantity)).toFixed(4);
+            pos.pnl = (parseFloat(pos.quantity) * (currentMarketPrice.value - parseFloat(pos.avgPrice)));
+            pos.pnlRate = ((currentMarketPrice.value - parseFloat(pos.avgPrice)) / parseFloat(pos.avgPrice) * 100);
+          }
+        }
+      } else {
+        orders.value.unshift(newOrder);
+      }
+      
+      showConfirm.value = false;
+      price.value = '';
+      quantity.value = '';
+      qtyPercent.value = null;
+      
+      ElementPlus.ElMessage.success('委托已提交');
+    };
+
+    // Cancel Order
+    const showCancelConfirm = ref(false);
+    const cancelTarget = ref(null);
+    
+    const cancelOrder = (order) => {
+      cancelTarget.value = order;
+      showCancelConfirm.value = true;
+    };
+
+    const confirmCancel = () => {
+      const idx = orders.value.findIndex(o => o.id === cancelTarget.value.id);
+      if (idx !== -1) {
+        orders.value.splice(idx, 1);
+      }
+      showCancelConfirm.value = false;
+      cancelTarget.value = null;
+      ElementPlus.ElMessage.success('委托已撤销');
+    };
+
+    // Cancel All
+    const showCancelAllConfirm = ref(false);
+    
+    const confirmCancelAll = () => {
+      orders.value = [];
+      showCancelAllConfirm.value = false;
+      ElementPlus.ElMessage.success(`成功撤销 ${orders.value.length} 个委托`);
+    };
+
+    // Order Detail
+    const showDrawer = ref(false);
+    const detailOrder = ref(null);
+    
+    const showDetail = (order) => {
+      detailOrder.value = order;
+      showDrawer.value = true;
+    };
+
+    // Close Position
+    const showClosePosition = ref(false);
+    const closeTarget = ref(null);
+    
+    const closePosition = (pos) => {
+      closeTarget.value = pos;
+      showClosePosition.value = true;
+    };
+
+    const confirmClosePosition = () => {
+      const idx = positions.value.findIndex(p => p.symbol === closeTarget.value.symbol);
+      if (idx !== -1) {
+        positions.value.splice(idx, 1);
+      }
+      showClosePosition.value = false;
+      closeTarget.value = null;
+      ElementPlus.ElMessage.success('平仓委托已提交');
+    };
+
+    return {
+      symbol, side, orderType, price, quantity, qtyPercent,
+      showConfirm, canSubmit, priceDeviation,
+      activeTab, orderFilter, historyFilter, tradeFilter,
+      orders, history, positions, trades,
+      filteredOrders, filteredHistory, filteredTrades, totalFrozen,
+      setQtyPercent, getStatusText, submitOrder,
+      showCancelConfirm, cancelTarget, cancelOrder, confirmCancel,
+      showCancelAllConfirm, confirmCancelAll,
+      showDrawer, detailOrder, showDetail,
+      showClosePosition, closeTarget, closePosition, confirmClosePosition
+    };
+  }
+});
+
+app.use(ElementPlus);
+app.mount('#app');
+</script>
+</body>
+</html>

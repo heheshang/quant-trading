@@ -1,13 +1,16 @@
 <template>
   <div class="order-list">
-    <el-tabs v-model="activeTab" class="order-tabs" @tab-change="onTabChange">
-      <el-tab-pane name="current">
-        <template #label>
-          <span>当前委托 <el-badge v-if="activeCount > 0" :value="activeCount" class="tab-badge" /></span>
-        </template>
-      </el-tab-pane>
-      <el-tab-pane label="历史委托" name="history" />
-    </el-tabs>
+    <!-- Tab bar (hidden when hideTabs=true, used inside parent tabs) -->
+    <div v-if="!hideTabs" class="order-tabs-wrapper">
+      <el-tabs v-model="activeTab" class="order-tabs" @tab-change="onTabChange">
+        <el-tab-pane name="current">
+          <template #label>
+            <span>当前委托 <el-badge v-if="activeCount > 0" :value="activeCount" class="tab-badge" /></span>
+          </template>
+        </el-tab-pane>
+        <el-tab-pane label="历史委托" name="history" />
+      </el-tabs>
+    </div>
 
     <!-- Filters -->
     <div class="filters">
@@ -129,9 +132,20 @@ import { getOrders, cancelOrder, cancelAllOrders } from '@/api/order'
 
 interface Props {
   symbol?: string
+  isHistory?: boolean
+  /** Hide the internal tab bar when used as embedded component */
+  hideTabs?: boolean
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  symbol: '',
+  isHistory: false,
+  hideTabs: false,
+})
+
+const emit = defineEmits<{
+  (e: 'orders-change', count: number): void
+}>()
 
 const activeTab = ref<'current' | 'history'>('current')
 const loading = ref(false)
@@ -145,10 +159,20 @@ let pollTimer: ReturnType<typeof setInterval> | null = null
 
 const symbolOptions = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT']
 
+// If isHistory prop is true, start on history tab
+if (props.isHistory) {
+  activeTab.value = 'history'
+}
+
 const activeCount = computed(() => {
   return orders.value.filter(
     (o) => o.status === 'pending' || o.status === 'partial_filled',
   ).length
+})
+
+// Emit active count to parent
+watch(activeCount, (count) => {
+  emit('orders-change', count)
 })
 
 async function fetchOrders() {

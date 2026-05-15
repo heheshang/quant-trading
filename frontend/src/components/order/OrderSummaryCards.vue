@@ -162,14 +162,7 @@ function formatMoney(value: string | number | undefined): string {
   border: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
   border-radius: 12px;
   padding: 20px;
-  transition: all 0.2s ease;
   height: 100%;
-
-  &:hover {
-    border-color: var(--color-border-hover, rgba(255, 255, 255, 0.16));
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  }
 }
 
 .summary-card__header {
@@ -219,15 +212,8 @@ function formatMoney(value: string | number | undefined): string {
 }
 
 .skeleton-line {
-  background: linear-gradient(90deg, var(--color-surface, #191a1b) 25%, rgba(255, 255, 255, 0.05) 50%, var(--color-surface, #191a1b) 75%);
-  background-size: 200% 100%;
-  animation: skeleton-loading 1.5s ease-in-out infinite;
+  background: var(--color-surface, #191a1b);
   border-radius: 4px;
-}
-
-@keyframes skeleton-loading {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
 }
 
 .summary-card--loading {

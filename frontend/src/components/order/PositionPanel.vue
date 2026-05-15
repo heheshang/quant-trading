@@ -489,11 +489,7 @@ function pnlClass(value: string | number | undefined | null): string {
 }
 
 .price-flash {
-  animation: flash 0.3s ease;
-}
-
-@keyframes flash {
-  50% { background-color: rgba(255, 255, 255, 0.08); }
+  background-color: rgba(255, 255, 255, 0.08);
 }
 
 // Close position dialog
@@ -541,15 +537,8 @@ function pnlClass(value: string | number | undefined | null): string {
 }
 
 .skeleton-line {
-  background: linear-gradient(90deg, var(--color-surface, #191a1b) 25%, rgba(255, 255, 255, 0.05) 50%, var(--color-surface, #191a1b) 75%);
-  background-size: 200% 100%;
-  animation: skeleton-loading 1.5s ease-in-out infinite;
+  background: var(--color-surface-elevated, #212223);
   border-radius: 4px;
   height: 14px;
-}
-
-@keyframes skeleton-loading {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
 }
 </style>
