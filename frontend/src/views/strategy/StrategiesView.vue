@@ -10,6 +10,14 @@
             策略模板市场
           </el-button>
         </router-link>
+        <el-button type="default" @click="handleImport">
+          <el-icon><Upload /></el-icon>
+          导入
+        </el-button>
+        <el-button type="default" @click="handleExportAll">
+          <el-icon><Download /></el-icon>
+          导出全部
+        </el-button>
         <router-link :to="{ name: 'StrategyCreate' }">
           <el-button type="primary" class="create-btn">
             <el-icon><Plus /></el-icon>
@@ -45,7 +53,7 @@
             <el-radio-button value="draft" class="filter-pill">草稿</el-radio-button>
             <el-radio-button value="active" class="filter-pill">运行中</el-radio-button>
             <el-radio-button value="paused" class="filter-pill">已暂停</el-radio-button>
-            <el-radio-button value="archived" class="filter-pill">已归档</el-radio-button>
+            <el-radio-button value="stopped" class="filter-pill">已停止</el-radio-button>
           </el-radio-group>
         </div>
         <div class="filter-right">
@@ -215,7 +223,10 @@
                     <el-dropdown-item command="edit">
                       <el-icon><Edit /></el-icon>编辑
                     </el-dropdown-item>
-                    <el-dropdown-item command="delete" divided>
+                    <el-dropdown-item command="export" divided>
+                      <el-icon><Download /></el-icon>导出
+                    </el-dropdown-item>
+                    <el-dropdown-item command="delete">
                       <el-icon><Delete /></el-icon><span class="danger-text">删除</span>
                     </el-dropdown-item>
                   </template>
@@ -226,14 +237,11 @@
                     <el-dropdown-item command="stop">
                       <el-icon><CircleClose /></el-icon>停止
                     </el-dropdown-item>
-                    <el-dropdown-item command="edit">
-                      <el-icon><Edit /></el-icon>编辑
-                    </el-dropdown-item>
                     <el-dropdown-item command="clone">
                       <el-icon><CopyDocument /></el-icon>克隆
                     </el-dropdown-item>
-                    <el-dropdown-item command="delete" divided>
-                      <el-icon><Delete /></el-icon><span class="danger-text">删除</span>
+                    <el-dropdown-item command="export" divided>
+                      <el-icon><Download /></el-icon>导出
                     </el-dropdown-item>
                   </template>
                   <template v-else-if="strategy.status === 'paused'">
@@ -249,15 +257,18 @@
                     <el-dropdown-item command="clone">
                       <el-icon><CopyDocument /></el-icon>克隆
                     </el-dropdown-item>
-                    <el-dropdown-item command="delete" divided>
-                      <el-icon><Delete /></el-icon><span class="danger-text">删除</span>
+                    <el-dropdown-item command="export" divided>
+                      <el-icon><Download /></el-icon>导出
                     </el-dropdown-item>
                   </template>
                   <template v-else-if="strategy.status === 'stopped'">
                     <el-dropdown-item command="clone">
                       <el-icon><CopyDocument /></el-icon>克隆
                     </el-dropdown-item>
-                    <el-dropdown-item command="delete" divided>
+                    <el-dropdown-item command="export" divided>
+                      <el-icon><Download /></el-icon>导出
+                    </el-dropdown-item>
+                    <el-dropdown-item command="delete">
                       <el-icon><Delete /></el-icon><span class="danger-text">删除</span>
                     </el-dropdown-item>
                   </template>
@@ -303,8 +314,8 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search, Cpu, MoreFilled, Edit, Delete, VideoPlay, VideoPause, CircleClose, CopyDocument, Shop } from '@element-plus/icons-vue'
-import { listStrategies, deleteStrategy, toggleStrategy, bulkUpdateStatus, bulkDeleteStrategies } from '@/api/strategies'
+import { Plus, Search, Cpu, MoreFilled, Edit, Delete, VideoPlay, VideoPause, CircleClose, CopyDocument, Shop, Upload, Download } from '@element-plus/icons-vue'
+import { listStrategies, deleteStrategy, toggleStrategy, bulkUpdateStatus, bulkDeleteStrategies, importStrategies, exportStrategies } from '@/api/strategies'
 import type { StrategyFull } from '@/types'
 
 // StrategyStatusBadge inline component
@@ -346,6 +357,48 @@ const deleteModalVisible = ref(false)
 const deleteTargets = ref<StrategyFull[]>([])
 const deleteLoading = ref(false)
 const bulkLoading = ref(false)
+const importLoading = ref(false)
+
+// Import/Export handlers
+const handleImport = async () => {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = '.json'
+  input.onchange = async (e: Event) => {
+    const file = (e.target as HTMLInputElement).files?.[0]
+    if (!file) return
+    importLoading.value = true
+    try {
+      const result = await importStrategies(file)
+      ElMessage.success(`成功导入 ${result.imported} 个策略`)
+      if (result.errors.length > 0) {
+        ElMessage.warning(`部分失败: ${result.errors.join('; ')}`)
+      }
+      await fetchStrategies()
+    } catch {
+      ElMessage.error('导入失败，请检查文件格式')
+    } finally {
+      importLoading.value = false
+    }
+  }
+  input.click()
+}
+
+const handleExportAll = async () => {
+  try {
+    const result = await exportStrategies()
+    const blob = new Blob([JSON.stringify(result.data, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = result.filename || `strategies_backup_${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+    ElMessage.success('导出成功')
+  } catch {
+    ElMessage.error('导出失败，请重试')
+  }
+}
 
 const isFiltered = computed(() => filterStatus.value !== '' || searchQuery.value !== '')
 
@@ -509,6 +562,21 @@ async function handleActionCommand(cmd: string, row: StrategyFull) {
     case 'clone':
       // Clone by creating a new strategy with same params but new name
       ElMessage.info('克隆功能开发中')
+      break
+    case 'export':
+      try {
+        const result = await exportStrategies([row.id])
+        const blob = new Blob([JSON.stringify(result.data, null, 2)], { type: 'application/json' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${row.name}_${new Date().toISOString().slice(0, 10)}.json`
+        a.click()
+        URL.revokeObjectURL(url)
+        ElMessage.success('导出成功')
+      } catch {
+        ElMessage.error('导出失败，请重试')
+      }
       break
     case 'start':
       try {
@@ -738,13 +806,12 @@ onMounted(() => {
 
   .slide-down-enter-active,
   .slide-down-leave-active {
-    transition: all 0.2s ease;
+    /* no animation — static show/hide */
   }
 
   .slide-down-enter-from,
   .slide-down-leave-to {
     opacity: 0;
-    transform: translateY(-8px);
   }
 
   .skeleton-table {
@@ -787,7 +854,7 @@ onMounted(() => {
     border-radius: 8px;
     cursor: pointer;
     position: relative;
-    transition: all 0.2s ease;
+    /* no animation — static hover state */
 
     &:hover {
       border-color: var(--color-accent);

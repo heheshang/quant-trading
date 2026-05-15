@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>策略管理模块 UI 原型 - Quant Trading</title>
+<link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
+<link rel="stylesheet" href="https://unpkg.com/element-plus/theme-chalk/dark/css-vars.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --color-bg: #08090a;
+  --color-surface: #191a1b;
+  --color-surface-elevated: #212223;
+  --color-deep-bg: #050607;
+  --color-text-primary: #f7f8f8;
+  --color-text-secondary: #d0d6e0;
+  --color-text-tertiary: #8a8f98;
+  --color-accent: #7170ff;
+  --color-accent-hover: #8b8aff;
+  --color-border: rgba(255,255,255,0.08);
+  --color-border-hover: rgba(255,255,255,0.16);
+  --color-error: #e5484d;
+  --color-success: #10b981;
+  --color-warning: #f5a623;
+  --color-info: #60a5fa;
+  --color-buy: #67C23A;
+  --color-sell: #F56C6C;
+  --color-buy-bg: rgba(103,194,58,0.12);
+  --color-sell-bg: rgba(245,108,108,0.12);
+  --color-neutral: #8a8f98;
+  --color-positive: #67C23A;
+  --color-negative: #F56C6C;
+  --color-tag-trend: #60a5fa;
+  --color-tag-grid: #67C23A;
+  --color-tag-arbitrage: #f5a623;
+  --color-tag-mean: #a78bfa;
+  --color-tag-custom: #8a8f98;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  min-height: 100vh;
+  padding: 24px 48px;
+}
+.mono { font-family: 'JetBrains Mono', monospace; }
+
+/* ── Header ── */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 1344px;
+  margin: 0 auto 24px;
+  padding: 0 4px;
+}
+.page-title {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+.header-actions { display: flex; gap: 12px; align-items: center; }
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 0 16px; height: 36px; border-radius: 8px;
+  font-size: 14px; font-weight: 500; cursor: pointer;
+  border: 1px solid transparent; transition: none;
+}
+.btn-primary {
+  background: var(--color-accent); color: #fff; border-color: var(--color-accent);
+}
+.btn-default {
+  background: var(--color-surface-elevated); color: var(--color-text-primary);
+  border-color: var(--color-border);
+}
+.btn-primary:hover { background: var(--color-accent-hover); }
+.btn-default:hover { border-color: var(--color-border-hover); }
+
+/* ── Filter Bar ── */
+.filter-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  max-width: 1344px; margin: 0 auto 20px; gap: 16px;
+}
+.filter-pills { display: flex; gap: 4px; }
+.filter-pill {
+  padding: 6px 14px; border-radius: 16px; font-size: 13px;
+  background: var(--color-surface-elevated); color: var(--color-text-secondary);
+  border: 1px solid var(--color-border); cursor: pointer;
+}
+.filter-pill.active {
+  background: var(--color-accent); color: #fff; border-color: var(--color-accent);
+}
+.filter-right { display: flex; gap: 10px; align-items: center; }
+.search-input {
+  width: 220px; height: 36px;
+}
+.search-input .el-input__wrapper {
+  background: var(--color-surface-elevated) !important;
+  border: 1px solid var(--color-border); border-radius: 8px;
+  box-shadow: none !important;
+}
+.sort-select { width: 150px; }
+.sort-select .el-input__wrapper {
+  background: var(--color-surface-elevated) !important;
+  border: 1px solid var(--color-border); border-radius: 8px;
+  box-shadow: none !important;
+}
+
+/* ── Strategy Grid ── */
+.strategy-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  gap: 16px;
+  max-width: 1344px;
+  margin: 0 auto;
+}
+.strategy-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 16px;
+  position: relative;
+  cursor: pointer;
+}
+.strategy-card:hover { border-color: var(--color-border-hover); }
+.strategy-card.is-stopped { opacity: 0.7; }
+.card-checkbox {
+  position: absolute; top: 14px; left: 14px; z-index: 2;
+}
+.card-header { padding-left: 32px; margin-bottom: 10px; }
+.card-title-row {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 4px;
+}
+.strategy-name { font-size: 15px; font-weight: 600; color: var(--color-text-primary); }
+.strategy-desc { font-size: 12px; color: var(--color-text-tertiary); margin-left: 32px; }
+
+/* ── Status Badge ── */
+.status-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; font-weight: 500;
+}
+.status-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+}
+.badge-draft .status-dot { background: var(--color-text-tertiary); }
+.badge-draft .status-text { color: var(--color-text-tertiary); }
+.badge-active .status-dot { background: var(--color-success); box-shadow: 0 0 4px var(--color-success); }
+.badge-active .status-text { color: var(--color-success); }
+.badge-paused .status-dot { background: var(--color-warning); }
+.badge-paused .status-text { color: var(--color-warning); }
+.badge-stopped .status-dot { background: var(--color-error); }
+.badge-stopped .status-text { color: var(--color-error); }
+
+/* ── Card Body ── */
+.card-body { margin: 12px 0; }
+.card-info-row {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+}
+.symbol-cell {
+  font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600;
+  color: var(--color-text-primary); background: var(--color-surface-elevated);
+  padding: 2px 8px; border-radius: 4px;
+}
+.timeframe-cell {
+  font-family: 'JetBrains Mono', monospace; font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.template-type-tag {
+  font-size: 11px; height: 20px; line-height: 18px; padding: 0 8px;
+  border-radius: 4px; border-width: 1px;
+}
+.tag-trend { background: rgba(96,165,250,0.12); color: var(--color-tag-trend); border-color: var(--color-tag-trend); }
+.tag-grid { background: rgba(103,194,58,0.12); color: var(--color-tag-grid); border-color: var(--color-tag-grid); }
+.tag-arbitrage { background: rgba(245,166,35,0.12); color: var(--color-tag-arbitrage); border-color: var(--color-tag-arbitrage); }
+.tag-mean { background: rgba(167,139,250,0.12); color: var(--color-tag-mean); border-color: var(--color-tag-mean); }
+.tag-custom { background: rgba(138,143,152,0.12); color: var(--color-tag-custom); border-color: var(--color-tag-custom); }
+
+.card-metrics-row {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+}
+.metric-item { background: var(--color-surface-elevated); border-radius: 6px; padding: 8px 10px; }
+.metric-label { display: block; font-size: 11px; color: var(--color-text-tertiary); margin-bottom: 2px; }
+.metric-value { font-size: 13px; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+.metric-value.up { color: var(--color-positive); }
+.metric-value.down { color: var(--color-negative); }
+
+/* ── Card Footer ── */
+.card-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 12px; padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+.last-run-time { font-size: 12px; color: var(--color-text-tertiary); }
+.action-btn {
+  width: 28px; height: 28px; padding: 0; border-radius: 6px;
+  background: transparent; border: 1px solid transparent;
+  color: var(--color-text-secondary); cursor: pointer;
+}
+.action-btn:hover { background: var(--color-surface-elevated); border-color: var(--color-border); }
+
+/* ── Action Dropdown (static demo) ── */
+.action-menu {
+  position: absolute; top: 48px; right: 8px; z-index: 100;
+  background: var(--color-surface-elevated); border: 1px solid var(--color-border);
+  border-radius: 8px; padding: 4px; min-width: 140px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+.action-menu-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; border-radius: 6px; font-size: 13px;
+  cursor: pointer; color: var(--color-text-primary);
+}
+.action-menu-item:hover { background: var(--color-surface); }
+.action-menu-item.danger { color: var(--color-error); }
+.action-menu-item .icon { width: 16px; text-align: center; }
+.divider { height: 1px; background: var(--color-border); margin: 4px 0; }
+
+/* ── Import Modal ── */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  display: flex; align-items: center; justify-content: center; z-index: 1000;
+}
+.modal {
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: 12px; padding: 24px; width: 480px;
+}
+.modal-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+.modal-body { margin-bottom: 20px; }
+.drop-zone {
+  border: 2px dashed var(--color-border); border-radius: 8px;
+  padding: 32px; text-align: center; cursor: pointer;
+}
+.drop-zone:hover { border-color: var(--color-accent); }
+.drop-zone-icon { font-size: 32px; margin-bottom: 8px; }
+.drop-zone-text { font-size: 14px; color: var(--color-text-secondary); }
+.drop-zone-hint { font-size: 12px; color: var(--color-text-tertiary); margin-top: 4px; }
+.modal-footer { display: flex; justify-content: flex-end; gap: 10px; }
+
+/* ── Pagination ── */
+.pagination-wrapper {
+  display: flex; justify-content: center; margin-top: 24px;
+}
+
+/* ── Empty State ── */
+.empty-state {
+  text-align: center; padding: 60px 20px; max-width: 1344px; margin: 0 auto;
+}
+.empty-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.4; }
+.empty-title { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+.empty-desc { font-size: 14px; color: var(--color-text-secondary); margin-bottom: 20px; }
+
+/* ── Notification Toast ── */
+.toast {
+  position: fixed; top: 20px; right: 20px; z-index: 2000;
+  background: var(--color-surface-elevated); border: 1px solid var(--color-border);
+  border-radius: 8px; padding: 12px 16px; font-size: 14px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4); max-width: 300px;
+}
+.toast-success { border-left: 3px solid var(--color-success); }
+.toast-error { border-left: 3px solid var(--color-error); }
+.toast-info { border-left: 3px solid var(--color-accent); }
+
+/* ── Tooltip ── */
+[data-tooltip] { position: relative; }
+[data-tooltip]:hover::after {
+  content: attr(data-tooltip);
+  position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+  background: var(--color-surface-elevated); border: 1px solid var(--color-border);
+  border-radius: 6px; padding: 4px 8px; font-size: 12px; white-space: nowrap;
+  z-index: 3000;
+}
+</style>
+</head>
+<body>
+
+<!-- Page Header -->
+<div class="page-header">
+  <h1 class="page-title">策略管理</h1>
+  <div class="header-actions">
+    <button class="btn btn-default" id="importBtn">
+      <span>📥</span> 导入策略
+    </button>
+    <button class="btn btn-default" id="exportBtn">
+      <span>📤</span> 导出全部
+    </button>
+    <button class="btn btn-default">
+      <span>📦</span> 策略模板市场
+    </button>
+    <button class="btn btn-primary">
+      <span>+</span> 创建策略
+    </button>
+  </div>
+</div>
+
+<!-- Filter Bar -->
+<div class="filter-bar">
+  <div class="filter-pills">
+    <div class="filter-pill active" data-filter="all">全部</div>
+    <div class="filter-pill" data-filter="draft">草稿</div>
+    <div class="filter-pill" data-filter="active">运行中</div>
+    <div class="filter-pill" data-filter="paused">已暂停</div>
+    <div class="filter-pill" data-filter="stopped">已停止</div>
+  </div>
+  <div class="filter-right">
+    <div class="search-input">
+      <input placeholder="搜索策略名称..." style="
+        width: 100%; height: 36px; padding: 0 12px; border-radius: 8px;
+        background: var(--color-surface-elevated); border: 1px solid var(--color-border);
+        color: var(--color-text-primary); font-size: 14px; outline: none;
+      ">
+    </div>
+    <div class="sort-select">
+      <select style="
+        width: 100%; height: 36px; padding: 0 12px; border-radius: 8px;
+        background: var(--color-surface-elevated); border: 1px solid var(--color-border);
+        color: var(--color-text-primary); font-size: 14px; outline: none;
+      ">
+        <option>创建时间（最新）</option>
+        <option>创建时间（最早）</option>
+        <option>名称 A-Z</option>
+        <option>名称 Z-A</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<!-- Strategy Grid -->
+<div class="strategy-grid" id="strategyGrid">
+  <!-- Card 1: Active -->
+  <div class="strategy-card" data-status="active">
+    <div class="card-checkbox">
+      <input type="checkbox" id="chk1">
+    </div>
+    <div class="card-header">
+      <div class="card-title-row">
+        <span class="strategy-name">BTC 双均线策略</span>
+        <span class="status-badge badge-active">
+          <span class="status-dot"></span>
+          <span class="status-text">运行中</span>
+        </span>
+      </div>
+      <div class="strategy-desc">15min BTC/USDT 趋势跟踪策略</div>
+    </div>
+    <div class="card-body">
+      <div class="card-info-row">
+        <span class="symbol-cell">BTCUSDT</span>
+        <span class="timeframe-cell">15m</span>
+        <span class="template-type-tag tag-trend">趋势跟踪</span>
+      </div>
+      <div class="card-metrics-row">
+        <div class="metric-item">
+          <span class="metric-label">收益率</span>
+          <span class="metric-value up">+24.6%</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label">夏普率</span>
+          <span class="metric-value">1.82</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label">最大回撤</span>
+          <span class="metric-value down">-8.3%</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label">交易次数</span>
+          <span class="metric-value">156</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-footer">
+      <span class="last-run-time">上次运行: 2026-05-15 14:32</span>
+      <button class="action-btn" onclick="toggleMenu(this)">⋮</button>
+      <div class="action-menu" style="display:none;">
+        <div class="action-menu-item" onclick="action('pause','BTC 双均线策略')"><span class="icon">⏸</span>暂停</div>
+        <div class="action-menu-item" onclick="action('stop','BTC 双均线策略')"><span class="icon">⏹</span>停止</div>
+        <div class="action-menu-item" onclick="action('clone','BTC 双均线策略')"><span class="icon">📋</span>克隆</div>
+        <div class="action-menu-item" onclick="action('export','BTC 双均线策略')"><span class="icon">📤</span>导出</div>
+        <div class="divider"></div>
+        <div class="action-menu-item danger" onclick="action('delete','BTC 双均线策略')"><span class="icon">🗑</span>删除</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card 2: Paused -->
+  <div class="strategy-card" data-status="paused">
+    <div class="card-checkbox"><input type="checkbox" id="chk2"></div>
+    <div class="card-header">
+      <div class="card-title-row">
+        <span class="strategy-name">ETH 布林带均值回归</span>
+        <span class="status-badge badge-paused">
+          <span class="status-dot"></span>
+          <span class="status-text">已暂停</span>
+        </span>
+      </div>
+      <div class="strategy-desc">30min ETH/USDT 均值回归策略</div>
+    </div>
+    <div class="card-body">
+      <div class="card-info-row">
+        <span class="symbol-cell">ETHUSDT</span>
+        <span class="timeframe-cell">30m</span>
+        <span class="template-type-tag tag-mean">均值回归</span>
+      </div>
+      <div class="card-metrics-row">
+        <div class="metric-item">
+          <span class="metric-label">收益率</span>
+          <span class="metric-value up">+12.4%</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label">夏普率</span>
+          <span class="metric-value">1.35</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label">最大回撤</span>
+          <span class="metric-value down">-5.7%</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label">交易次数</span>
+          <span class="metric-value">89</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-footer">
+      <span class="last-run-time">上次运行: 2026-05-14 09:15</span>
+      <button class="action-btn" onclick="toggleMenu(this)">⋮</button>
+      <div class="action-menu" style="display:none;">
+        <div class="action-menu-item" onclick="action('start','ETH 布林带均值回归')"><span class="icon">▶</span>启用</div>
+        <div class="action-menu-item" onclick="action('stop','ETH 布林带均值回归')"><span class="icon">⏹</span>停止</div>
+        <div class="action-menu-item" onclick="action('clone','ETH 布林带均值回归')"><span class="icon">📋</span>克隆</div>
+        <div class="action-menu-item" onclick="action('export','ETH 布林带均值回归')"><span class="icon">📤</span>导出</div>
+        <div class="divider"></div>
+        <div class="action-menu-item danger" onclick="action('delete','ETH 布林带均值回归')"><span class="icon">🗑</span>删除</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card 3: Draft -->
+  <div class="strategy-card" data-status="draft">
+    <div class="card-checkbox"><input type="checkbox" id="chk3"></div>
+    <div class="card-header">
+      <div class="card-title-row">
+        <span class="strategy-name">BNB 网格交易</span>
+        <span class="status-badge badge-draft">
+          <span class="status-dot"></span>
+          <span class="status-text">草稿</span>
+        </span>
+      </div>
+      <div class="strategy-desc">1H BNB/USDT 网格做市策略</div>
+    </div>
+    <div class="card-body">
+      <div class="card-info-row">
+        <span class="symbol-cell">BNBUSDT</span>
+        <span class="timeframe-cell">1H</span>
+        <span class="template-type-tag tag-grid">网格交易</span>
+      </div>
+      <div class="card-metrics-row">
+        <div class="metric-item"><span class="metric-label">收益率</span><span class="metric-value">—</span></div>
+        <div class="metric-item"><span class="metric-label">夏普率</span><span class="metric-value">—</span></div>
+        <div class="metric-item"><span class="metric-label">最大回撤</span><span class="metric-value down">—</span></div>
+        <div class="metric-item"><span class="metric-label">交易次数</span><span class="metric-value">—</span></div>
+      </div>
+    </div>
+    <div class="card-footer">
+      <span class="last-run-time">创建时间: 2026-05-13 18:22</span>
+      <button class="action-btn" onclick="toggleMenu(this)">⋮</button>
+      <div class="action-menu" style="display:none;">
+        <div class="action-menu-item" onclick="action('export','BNB 网格交易')"><span class="icon">📤</span>导出</div>
+        <div class="divider"></div>
+        <div class="action-menu-item danger" onclick="action('delete','BNB 网格交易')"><span class="icon">🗑</span>删除</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card 4: Stopped -->
+  <div class="strategy-card is-stopped" data-status="stopped">
+    <div class="card-checkbox"><input type="checkbox" id="chk4"></div>
+    <div class="card-header">
+      <div class="card-title-row">
+        <span class="strategy-name">SOL 套利策略</span>
+        <span class="status-badge badge-stopped">
+          <span class="status-dot"></span>
+          <span class="status-text">已停止</span>
+        </span>
+      </div>
+      <div class="strategy-desc">5min SOL/USDT 三角套利策略</div>
+    </div>
+    <div class="card-body">
+      <div class="card-info-row">
+        <span class="symbol-cell">SOLUSDT</span>
+        <span class="timeframe-cell">5m</span>
+        <span class="template-type-tag tag-arbitrage">套利</span>
+      </div>
+      <div class="card-metrics-row">
+        <div class="metric-item">
+          <span class="metric-label">收益率</span>
+          <span class="metric-value up">+5.8%</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label">夏普率</span>
+          <span class="metric-value">0.92</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label">最大回撤</span>
+          <span class="metric-value down">-12.1%</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label">交易次数</span>
+          <span class="metric-value">43</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-footer">
+      <span class="last-run-time">已停止: 2026-05-10 11:05</span>
+      <button class="action-btn" onclick="toggleMenu(this)">⋮</button>
+      <div class="action-menu" style="display:none;">
+        <div class="action-menu-item" onclick="action('clone','SOL 套利策略')"><span class="icon">📋</span>克隆</div>
+        <div class="action-menu-item" onclick="action('export','SOL 套利策略')"><span class="icon">📤</span>导出</div>
+        <div class="divider"></div>
+        <div class="action-menu-item danger" onclick="action('delete','SOL 套利策略')"><span class="icon">🗑</span>删除</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Pagination -->
+<div class="pagination-wrapper">
+  <div style="display:flex;gap:8px;align-items:center;">
+    <button style="padding:6px 12px;border-radius:6px;background:var(--color-surface-elevated);border:1px solid var(--color-border);color:var(--color-text-secondary);font-size:13px;cursor:pointer;">&lt;</button>
+    <button style="padding:6px 12px;border-radius:6px;background:var(--color-accent);border:1px solid var(--color-accent);color:#fff;font-size:13px;cursor:pointer;">1</button>
+    <button style="padding:6px 12px;border-radius:6px;background:var(--color-surface-elevated);border:1px solid var(--color-border);color:var(--color-text-primary);font-size:13px;cursor:pointer;">2</button>
+    <button style="padding:6px 12px;border-radius:6px;background:var(--color-surface-elevated);border:1px solid var(--color-border);color:var(--color-text-primary);font-size:13px;cursor:pointer;">3</button>
+    <button style="padding:6px 12px;border-radius:6px;background:var(--color-surface-elevated);border:1px solid var(--color-border);color:var(--color-text-primary);font-size:13px;cursor:pointer;">&gt;</button>
+    <span style="font-size:13px;color:var(--color-text-tertiary);margin-left:8px;">共 42 条</span>
+  </div>
+</div>
+
+<!-- Import Modal -->
+<div class="modal-overlay" id="importModal" style="display:none;">
+  <div class="modal">
+    <div class="modal-title">导入策略</div>
+    <div class="modal-body">
+      <div class="drop-zone">
+        <div class="drop-zone-icon">📁</div>
+        <div class="drop-zone-text">点击选择文件或拖拽到此处</div>
+        <div class="drop-zone-hint">支持 .json 格式，单个文件最多包含 10 条策略</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-default" onclick="closeImportModal()">取消</button>
+      <button class="btn btn-primary" onclick="closeImportModal()">确认导入</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast toast-success" id="toast" style="display:none;"></div>
+
+<script>
+// Filter pills
+document.querySelectorAll('.filter-pill').forEach(pill => {
+  pill.addEventListener('click', function() {
+    document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+    this.classList.add('active');
+    const filter = this.dataset.filter;
+    document.querySelectorAll('.strategy-card').forEach(card => {
+      card.style.display = (filter === 'all' || card.dataset.status === filter) ? '' : 'none';
+    });
+  });
+});
+
+// Toggle action menu
+function toggleMenu(btn) {
+  const menu = btn.nextElementSibling;
+  document.querySelectorAll('.action-menu').forEach(m => { if (m !== menu) m.style.display = 'none'; });
+  menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+}
+document.addEventListener('click', () => {
+  document.querySelectorAll('.action-menu').forEach(m => m.style.display = 'none');
+});
+
+// Import modal
+document.getElementById('importBtn').addEventListener('click', () => {
+  document.getElementById('importModal').style.display = 'flex';
+});
+function closeImportModal() {
+  document.getElementById('importModal').style.display = 'none';
+}
+
+// Export
+document.getElementById('exportBtn').addEventListener('click', () => {
+  showToast('已生成导出文件 strategy_backup_20260515.json', 'success');
+});
+
+// Actions
+function action(cmd, name) {
+  if (cmd === 'delete') {
+    if (!confirm(`确定要删除「${name}」吗？此操作不可撤销。`)) return;
+    showToast(`策略「${name}」已删除`, 'success');
+  } else if (cmd === 'export') {
+    showToast(`策略「${name}」已导出`, 'success');
+  } else if (cmd === 'start') {
+    showToast(`策略「${name}」已启用`, 'success');
+  } else if (cmd === 'pause') {
+    showToast(`策略「${name}」已暂停`, 'success');
+  } else if (cmd === 'stop') {
+    showToast(`策略「${name}」已停止`, 'success');
+  } else if (cmd === 'clone') {
+    showToast(`策略「${name}」已克隆`, 'success');
+  }
+}
+
+function showToast(msg, type) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.className = `toast toast-${type}`;
+  toast.style.display = 'block';
+  setTimeout(() => toast.style.display = 'none', 3000);
+}
+</script>
+</body>
+</html>
