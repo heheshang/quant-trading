@@ -1,8 +1,9 @@
 use crate::db::strategy;
 use crate::models::backtest::{Kline, Signal};
 use crate::models::schemas::{
-    BulkUpdateStatusRequest, CreateStrategyRequest, PaginatedResponse, PaginationParams,
-    ParameterDef, StrategyResponse, TemplateInfo, UpdateStrategyRequest,
+    BulkUpdateStatusRequest, CreateStrategyRequest, ImportBatchRequest, ImportBatchResponse,
+    ImportStrategyRequest, PaginatedResponse, PaginationParams, ParameterDef, StrategyResponse,
+    TemplateInfo, UpdateStrategyRequest,
 };
 use crate::utils::error::AppError;
 use sea_orm::{
@@ -1557,6 +1558,134 @@ pub async fn import_strategy(
 
     let saved = model.insert(db).await?;
     Ok(model_to_response(saved))
+}
+
+/// Import a batch of strategies from JSON export (ADR D2)
+pub async fn import_batch(
+    db: &DatabaseConnection,
+    user_id: Uuid,
+    req: ImportBatchRequest,
+) -> Result<ImportBatchResponse, AppError> {
+    let mut imported = 0;
+    let mut errors: Vec<String> = Vec::new();
+
+    for (i, strategy_req) in req.strategies.iter().enumerate() {
+        match import_single_strategy(db, user_id, strategy_req).await {
+            Ok(_) => imported += 1,
+            Err(e) => {
+                errors.push(format!(
+                    "策略[{}]「{}」导入失败: {}",
+                    i + 1,
+                    &strategy_req.name,
+                    e
+                ));
+            }
+        }
+    }
+
+    Ok(ImportBatchResponse { imported, errors })
+}
+
+/// Shared logic for importing a single strategy (validates, deduplicates name, inserts)
+async fn import_single_strategy(
+    db: &DatabaseConnection,
+    user_id: Uuid,
+    req: &ImportStrategyRequest,
+) -> Result<(), AppError> {
+    // Validate template exists
+    let template = get_template(&req.template_type)
+        .ok_or_else(|| AppError::Validation(format!("Unknown template type: {}", req.template_type)))?;
+
+    // Validate parameters
+    template
+        .validate(&req.parameters)
+        .map_err(|e| AppError::Validation(format!("Parameter validation failed: {}", e)))?;
+
+    // Validate name
+    if req.name.trim().is_empty() {
+        return Err(AppError::Validation("Strategy name cannot be empty".into()));
+    }
+    if req.name.len() > 100 {
+        return Err(AppError::Validation(
+            "Strategy name must be <= 100 characters".into(),
+        ));
+    }
+
+    // Validate symbol
+    if req.symbol.trim().is_empty() || req.symbol.len() > 20 {
+        return Err(AppError::Validation("Invalid symbol".into()));
+    }
+
+    // Validate timeframe
+    let allowed_timeframes = ["1m", "5m", "15m", "30m", "1h", "4h", "1d", "1w"];
+    if !allowed_timeframes.contains(&req.timeframe.as_str()) {
+        return Err(AppError::Validation(format!(
+            "Invalid timeframe: {}. Allowed: 1m/5m/15m/30m/1h/4h/1d/1w",
+            req.timeframe
+        )));
+    }
+
+    // Validate strategy_type
+    let allowed_types = [
+        "trend_following",
+        "mean_reversion",
+        "grid_trading",
+        "arbitrage",
+        "custom",
+    ];
+    if !allowed_types.contains(&req.strategy_type.as_str()) {
+        return Err(AppError::Validation(format!(
+            "Invalid strategy_type: {}",
+            req.strategy_type
+        )));
+    }
+
+    // Check for duplicate name within user's strategies
+    let existing = strategy::Entity::find()
+        .filter(strategy::Column::UserId.eq(user_id))
+        .filter(strategy::Column::Name.eq(&req.name))
+        .one(db)
+        .await?;
+    let final_name = if existing.is_some() {
+        // Append import suffix with counter
+        let mut counter = 2;
+        loop {
+            let candidate = format!("{} (import-{})", req.name, counter);
+            let exists = strategy::Entity::find()
+                .filter(strategy::Column::UserId.eq(user_id))
+                .filter(strategy::Column::Name.eq(&candidate))
+                .one(db)
+                .await?;
+            if exists.is_none() {
+                break candidate;
+            }
+            counter += 1;
+        }
+    } else {
+        req.name.clone()
+    };
+
+    let now = chrono::Utc::now();
+    let description = req.description.clone().unwrap_or_default();
+    let status = req.status.clone().unwrap_or_else(|| "draft".to_string());
+
+    let model = strategy::ActiveModel {
+        id: Set(Uuid::new_v4()),
+        user_id: Set(user_id),
+        name: Set(final_name),
+        description: Set(description),
+        symbol: Set(req.symbol.clone()),
+        timeframe: Set(req.timeframe.clone()),
+        strategy_type: Set(req.strategy_type.clone()),
+        template_type: Set(req.template_type.clone()),
+        parameters: Set(req.parameters.clone()),
+        status: Set(status),
+        created_at: Set(now),
+        updated_at: Set(now),
+    };
+
+    model.insert(db).await?;
+    Ok(())
 }
 
 // ============ Tests ============

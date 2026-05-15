@@ -132,7 +132,7 @@ fn create_router(db: DbPool, cors: CorsLayer, matching_engine: Arc<MatchingEngin
         )
         .route(
             "/strategies/import",
-            post(handlers::strategy::import_strategy),
+            post(handlers::strategy::import_strategies_batch),
         )
         .layer(middleware::from_fn(
             quant_trading_backend::middleware::auth::auth_middleware,

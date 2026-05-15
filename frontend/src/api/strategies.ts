@@ -50,13 +50,9 @@ export function exportStrategies(ids?: string[]): Promise<{ filename: string; da
   return client.get('/strategies/export', { params: ids ? { ids: ids.join(',') } : undefined })
 }
 
-/** Import strategies from JSON (ADR D2) */
-export function importStrategies(file: File): Promise<{ imported: number; errors: string[] }> {
-  const formData = new FormData()
-  formData.append('file', file)
-  return client.post('/strategies/import', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
+/** Import strategies from JSON array (ADR D2) */
+export function importStrategies(data: CreateStrategyPayload[]): Promise<{ imported: number; errors: string[] }> {
+  return client.post('/strategies/import', { strategies: data })
 }
 
 /** T4.5: Upload strategy code file (.py/.js), returns file path */

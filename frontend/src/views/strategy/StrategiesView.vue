@@ -316,7 +316,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Cpu, MoreFilled, Edit, Delete, VideoPlay, VideoPause, CircleClose, CopyDocument, Shop, Upload, Download } from '@element-plus/icons-vue'
 import { listStrategies, deleteStrategy, toggleStrategy, bulkUpdateStatus, bulkDeleteStrategies, importStrategies, exportStrategies } from '@/api/strategies'
-import type { StrategyFull } from '@/types'
+import type { StrategyFull, CreateStrategyPayload } from '@/types'
 
 // StrategyStatusBadge inline component
 import { defineComponent, h } from 'vue'
@@ -369,14 +369,19 @@ const handleImport = async () => {
     if (!file) return
     importLoading.value = true
     try {
-      const result = await importStrategies(file)
+      const text = await file.text()
+      const strategies = JSON.parse(text) as CreateStrategyPayload[]
+      if (!Array.isArray(strategies)) throw new Error('JSON must be an array of strategies')
+      const result = await importStrategies(strategies)
       ElMessage.success(`成功导入 ${result.imported} 个策略`)
       if (result.errors.length > 0) {
         ElMessage.warning(`部分失败: ${result.errors.join('; ')}`)
       }
       await fetchStrategies()
-    } catch {
-      ElMessage.error('导入失败，请检查文件格式')
+    } catch (err: any) {
+      ElMessage.error(err?.message === 'JSON must be an array of strategies'
+        ? '文件格式错误：JSON 必须是策略数组'
+        : '导入失败，请检查文件格式')
     } finally {
       importLoading.value = false
     }

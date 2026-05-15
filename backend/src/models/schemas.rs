@@ -235,6 +235,17 @@ pub struct ImportStrategyRequest {
     pub status: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct ImportBatchRequest {
+    pub strategies: Vec<ImportStrategyRequest>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ImportBatchResponse {
+    pub imported: usize,
+    pub errors: Vec<String>,
+}
+
 #[derive(Debug, Serialize)]
 pub struct TemplateInfo {
     pub id: String,

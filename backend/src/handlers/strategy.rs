@@ -1,7 +1,7 @@
 use crate::middleware::auth::AuthenticatedUser;
 use crate::models::schemas::{
-    BulkUpdateStatusRequest, CreateStrategyRequest, ExportParams, ImportStrategyRequest,
-    PaginationParams, UpdateStatusRequest, UpdateStrategyRequest,
+    BulkUpdateStatusRequest, CreateStrategyRequest, ExportParams, ImportBatchRequest,
+    ImportStrategyRequest, PaginationParams, UpdateStatusRequest, UpdateStrategyRequest,
 };
 use crate::services::strategy;
 use crate::utils::error::AppError;
@@ -121,4 +121,15 @@ pub async fn import_strategy(
         StatusCode::CREATED,
         Json(ApiResponse::success(serde_json::json!(result))),
     ))
+}
+
+/// POST /api/v1/strategies/import (batch, JSON array body)
+/// Handles frontend importStrategies(data: CreateStrategyPayload[])
+pub async fn import_strategies_batch(
+    user: AuthenticatedUser,
+    State(db): State<Arc<DatabaseConnection>>,
+    Json(body): Json<ImportBatchRequest>,
+) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
+    let result = strategy::import_batch(&db, user.user_id, body).await?;
+    Ok(Json(ApiResponse::success(serde_json::json!(result))))
 }
