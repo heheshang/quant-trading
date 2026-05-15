@@ -9,6 +9,9 @@ pub struct Model {
     pub user_id: Uuid,
     pub name: String,
     pub description: String,
+    pub symbol: String,
+    pub timeframe: String,
+    pub strategy_type: String,
     pub template_type: String,
     #[sea_orm(column_type = "JsonBinary")]
     pub parameters: Json,

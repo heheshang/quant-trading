@@ -130,10 +130,13 @@ fn create_router(db: DbPool, cors: CorsLayer, matching_engine: Arc<MatchingEngin
             "/strategies/export",
             get(handlers::strategy::export_strategies),
         )
+        .route(
+            "/strategies/import",
+            post(handlers::strategy::import_strategy),
+        )
         .layer(middleware::from_fn(
             quant_trading_backend::middleware::auth::auth_middleware,
         ));
-
     // Kline routes (authenticated)
     let kline_routes = Router::new()
         .route("/kline/query", get(handlers::kline::query_klines))

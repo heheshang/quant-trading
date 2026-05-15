@@ -1,7 +1,7 @@
 use crate::middleware::auth::AuthenticatedUser;
 use crate::models::schemas::{
-    BulkUpdateStatusRequest, CreateStrategyRequest, ExportParams, PaginationParams,
-    UpdateStatusRequest, UpdateStrategyRequest,
+    BulkUpdateStatusRequest, CreateStrategyRequest, ExportParams, ImportStrategyRequest,
+    PaginationParams, UpdateStatusRequest, UpdateStrategyRequest,
 };
 use crate::services::strategy;
 use crate::utils::error::AppError;
@@ -108,4 +108,17 @@ pub async fn export_strategies(
 ) -> Result<Json<ApiResponse<Vec<serde_json::Value>>>, AppError> {
     let result = strategy::export_strategies(&db, user.user_id, params.status.as_deref()).await?;
     Ok(Json(ApiResponse::success(result)))
+}
+
+/// POST /api/v1/strategies/import
+pub async fn import_strategy(
+    user: AuthenticatedUser,
+    State(db): State<Arc<DatabaseConnection>>,
+    Json(body): Json<ImportStrategyRequest>,
+) -> Result<(StatusCode, Json<ApiResponse<serde_json::Value>>), AppError> {
+    let result = strategy::import_strategy(&db, user.user_id, body).await?;
+    Ok((
+        StatusCode::CREATED,
+        Json(ApiResponse::success(serde_json::json!(result))),
+    ))
 }

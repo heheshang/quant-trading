@@ -176,6 +176,9 @@ pub struct StrategyResponse {
     pub user_id: Uuid,
     pub name: String,
     pub description: String,
+    pub symbol: String,
+    pub timeframe: String,
+    pub strategy_type: String,
     pub template_type: String,
     pub parameters: serde_json::Value,
     pub status: String,
@@ -187,6 +190,9 @@ pub struct StrategyResponse {
 pub struct CreateStrategyRequest {
     pub name: String,
     pub description: Option<String>,
+    pub symbol: String,
+    pub timeframe: String,
+    pub strategy_type: String,
     pub template_type: String,
     pub parameters: serde_json::Value,
 }
@@ -214,6 +220,19 @@ pub struct ExportParams {
     pub status: Option<String>,
     #[allow(dead_code)]
     pub format: Option<String>, // currently only json is supported
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ImportStrategyRequest {
+    pub name: String,
+    pub description: Option<String>,
+    pub symbol: String,
+    pub timeframe: String,
+    pub strategy_type: String,
+    pub template_type: String,
+    pub parameters: serde_json::Value,
+    /// Optional: override status on import (default: "draft")
+    pub status: Option<String>,
 }
 
 #[derive(Debug, Serialize)]

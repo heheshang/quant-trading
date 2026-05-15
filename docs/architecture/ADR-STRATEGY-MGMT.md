@@ -3,7 +3,7 @@
 | 字段 | 值 |
 |------|-----|
 | **ID** | ADR-STRATEGY-MGMT |
-| **状态** | Draft |
+| **状态** | Accepted |
 | **日期** | 2026-05-13 |
 | **决策者** | Tech Lead |
 | **影响范围** | 策略管理完整链路（handler → service → db → frontend） |

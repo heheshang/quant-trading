@@ -1164,6 +1164,9 @@ fn model_to_response(m: strategy::Model) -> StrategyResponse {
         user_id: m.user_id,
         name: m.name,
         description: m.description,
+        symbol: m.symbol,
+        timeframe: m.timeframe,
+        strategy_type: m.strategy_type,
         template_type: m.template_type,
         parameters: m.parameters,
         status: m.status,
@@ -1206,6 +1209,32 @@ pub async fn create_strategy(
         ));
     }
 
+    // Validate symbol (non-empty, alphanumeric+USDT suffix)
+    if req.symbol.trim().is_empty() {
+        return Err(AppError::Validation("Symbol cannot be empty".into()));
+    }
+    if req.symbol.len() > 20 {
+        return Err(AppError::Validation("Symbol must be <= 20 characters".into()));
+    }
+
+    // Validate timeframe (allowed values)
+    let allowed_timeframes = ["1m", "5m", "15m", "30m", "1h", "4h", "1d", "1w"];
+    if !allowed_timeframes.contains(&req.timeframe.as_str()) {
+        return Err(AppError::Validation(format!(
+            "Invalid timeframe: {}. Allowed: 1m/5m/15m/30m/1h/4h/1d/1w",
+            req.timeframe
+        )));
+    }
+
+    // Validate strategy_type
+    let allowed_types = ["trend_following", "mean_reversion", "grid_trading", "arbitrage", "custom"];
+    if !allowed_types.contains(&req.strategy_type.as_str()) {
+        return Err(AppError::Validation(format!(
+            "Invalid strategy_type: {}. Allowed: trend_following/mean_reversion/grid_trading/arbitrage/custom",
+            req.strategy_type
+        )));
+    }
+
     let now = chrono::Utc::now();
     let description = req.description.unwrap_or_default();
     let model = strategy::ActiveModel {
@@ -1213,6 +1242,9 @@ pub async fn create_strategy(
         user_id: Set(user_id),
         name: Set(req.name),
         description: Set(description),
+        symbol: Set(req.symbol),
+        timeframe: Set(req.timeframe),
+        strategy_type: Set(req.strategy_type),
         template_type: Set(req.template_type),
         parameters: Set(req.parameters),
         status: Set("draft".to_string()),
@@ -1427,6 +1459,104 @@ pub async fn bulk_update_status(
         results.push(model_to_response(saved));
     }
     Ok(results)
+}
+
+// ============ Import/Export ============
+
+pub async fn import_strategy(
+    db: &DatabaseConnection,
+    user_id: Uuid,
+    req: crate::models::schemas::ImportStrategyRequest,
+) -> Result<StrategyResponse, AppError> {
+    // Validate template exists
+    let template = get_template(&req.template_type).ok_or_else(|| {
+        AppError::Validation(format!("Unknown template type: {}", req.template_type))
+    })?;
+
+    // Validate parameters
+    template
+        .validate(&req.parameters)
+        .map_err(|e| AppError::Validation(format!("Parameter validation failed: {}", e)))?;
+
+    // Validate name
+    if req.name.trim().is_empty() {
+        return Err(AppError::Validation("Strategy name cannot be empty".into()));
+    }
+    if req.name.len() > 100 {
+        return Err(AppError::Validation(
+            "Strategy name must be <= 100 characters".into(),
+        ));
+    }
+
+    // Validate symbol
+    if req.symbol.trim().is_empty() || req.symbol.len() > 20 {
+        return Err(AppError::Validation("Invalid symbol".into()));
+    }
+
+    // Validate timeframe
+    let allowed_timeframes = ["1m", "5m", "15m", "30m", "1h", "4h", "1d", "1w"];
+    if !allowed_timeframes.contains(&req.timeframe.as_str()) {
+        return Err(AppError::Validation(format!(
+            "Invalid timeframe: {}. Allowed: 1m/5m/15m/30m/1h/4h/1d/1w",
+            req.timeframe
+        )));
+    }
+
+    // Validate strategy_type
+    let allowed_types = ["trend_following", "mean_reversion", "grid_trading", "arbitrage", "custom"];
+    if !allowed_types.contains(&req.strategy_type.as_str()) {
+        return Err(AppError::Validation(format!(
+            "Invalid strategy_type: {}",
+            req.strategy_type
+        )));
+    }
+
+    // Check for duplicate name within user's strategies
+    let existing = strategy::Entity::find()
+        .filter(strategy::Column::UserId.eq(user_id))
+        .filter(strategy::Column::Name.eq(&req.name))
+        .one(db)
+        .await?;
+    let final_name = if existing.is_some() {
+        // Append import suffix with counter
+        let mut counter = 2;
+        loop {
+            let candidate = format!("{} (import-{})", req.name, counter);
+            let exists = strategy::Entity::find()
+                .filter(strategy::Column::UserId.eq(user_id))
+                .filter(strategy::Column::Name.eq(&candidate))
+                .one(db)
+                .await?;
+            if exists.is_none() {
+                break candidate;
+            }
+            counter += 1;
+        }
+    } else {
+        req.name.clone()
+    };
+
+    let now = chrono::Utc::now();
+    let description = req.description.unwrap_or_default();
+    let status = req.status.unwrap_or_else(|| "draft".to_string());
+
+    let model = strategy::ActiveModel {
+        id: Set(Uuid::new_v4()),
+        user_id: Set(user_id),
+        name: Set(final_name),
+        description: Set(description),
+        symbol: Set(req.symbol),
+        timeframe: Set(req.timeframe),
+        strategy_type: Set(req.strategy_type),
+        template_type: Set(req.template_type),
+        parameters: Set(req.parameters),
+        status: Set(status),
+        created_at: Set(now),
+        updated_at: Set(now),
+    };
+
+    let saved = model.insert(db).await?;
+    Ok(model_to_response(saved))
 }
 
 // ============ Tests ============
