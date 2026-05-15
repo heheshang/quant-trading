@@ -241,7 +241,7 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   /** Emitted after position is closed */
-  (e: 'close-success', positionId: number): void
+  (e: 'close-success', symbol: string): void
   /** Emitted when filter changes */
   (e: 'filter-change', filters: { side: string; symbol: string }): void
 }>()
@@ -335,9 +335,9 @@ async function onConfirmClose() {
   }
   closingPosition.value = true
   try {
-    await closePosition(closeTarget.value.id)
+    await closePosition(closeTarget.value.symbol, isPartialClose.value ? closeQuantity.value : undefined)
     ElMessage.success('平仓委托已提交')
-    emit('close-success', closeTarget.value.id)
+    emit('close-success', closeTarget.value.symbol)
     closeDialogVisible.value = false
   } catch (err: unknown) {
     if (err instanceof Error) {

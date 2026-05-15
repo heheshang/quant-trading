@@ -82,7 +82,7 @@ export interface CancelAllResponse {
 
 /** Paper account (GET /api/v1/account) */
 export interface PaperAccount {
-  user_id: number
+  user_id: string
   balance: string
   frozen_balance: string
   initial_balance: string
@@ -117,8 +117,8 @@ export interface TradeWsMessage {
 
 /** Position (ADR D7: weighted average avg_entry_price) */
 export interface Position {
-  id: number
-  user_id: number
+  id: string
+  user_id: string
   symbol: string
   side: 'long' | 'short'
   quantity: string

@@ -169,7 +169,7 @@ describe('order API', () => {
   describe('getAccount', () => {
     it('should GET /account', async () => {
       const mockAccount: PaperAccount = {
-        user_id: 1,
+        user_id: '1',
         balance: '55000.00',
         frozen_balance: '4950.00',
         initial_balance: '100000.00',
@@ -223,12 +223,12 @@ describe('order API', () => {
   })
 
   describe('closePosition', () => {
-    it('should POST /positions/:id/close', async () => {
+    it('should POST /positions/:symbol/close', async () => {
       mockClient.post.mockResolvedValue(undefined)
 
-      await closePosition(42)
+      await closePosition('BTC/USDT')
 
-      expect(mockClient.post).toHaveBeenCalledWith('/positions/42/close')
+      expect(mockClient.post).toHaveBeenCalledWith('/positions/BTC%2FUSDT/close', {})
     })
   })
 

@@ -54,9 +54,9 @@ export function getPositions(): Promise<Position[]> {
   return client.get('/positions')
 }
 
-/** Close position: POST /api/v1/positions/:id/close */
-export function closePosition(id: number): Promise<void> {
-  return client.post(`/positions/${id}/close`)
+/** Close position: POST /api/v1/positions/:symbol/close */
+export function closePosition(symbol: string, quantity?: string): Promise<void> {
+  return client.post(`/positions/${encodeURIComponent(symbol)}/close`, quantity ? { quantity } : {})
 }
 
 /** Get trades: GET /api/v1/trades */

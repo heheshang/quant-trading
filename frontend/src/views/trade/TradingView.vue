@@ -272,7 +272,7 @@ function onOrdersChange(count: number) {
   activeOrderCount.value = count
 }
 
-function onPositionClose() {
+function onPositionClose(_symbol?: string) {
   loadPositions()
   loadAccount()
 }
