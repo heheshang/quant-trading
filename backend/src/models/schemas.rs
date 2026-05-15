@@ -254,6 +254,7 @@ pub struct ImportBatchResponse {
 #[derive(Debug, Serialize)]
 pub struct TemplateInfo {
     pub id: String,
+    pub template_id: Uuid, // ADR D6: deterministic UUID for this template
     pub name: String,
     pub description: String,
     pub category: String,

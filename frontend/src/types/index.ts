@@ -172,6 +172,7 @@ export interface StrategyParamDef {
 /** Strategy template (aligned with backend TemplateInfo, ADR D6) */
 export interface StrategyTemplate {
   id: string
+  template_id: string  // ADR D6: deterministic UUID matching backend TemplateInfo.template_id
   name: string
   description: string
   category: string

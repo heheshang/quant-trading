@@ -711,8 +711,8 @@ async function doSave(targetStatus: 'active' | 'paused' | 'draft') {
     }
 
     if (selectedTemplate.value) {
-      payload.template_id = selectedTemplate.value.id
-      payload.template_type = selectedTemplate.value.id
+      payload.template_id = selectedTemplate.value.template_id  // UUID (ADR D6)
+      payload.template_type = selectedTemplate.value.id         // string ID (e.g. "ma_crossover")
     }
 
     if (isEdit.value && props.strategyId) {

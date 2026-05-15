@@ -1135,6 +1135,7 @@ pub fn get_template(id: &str) -> Option<Box<dyn StrategyTemplate>> {
 fn template_to_info(t: Box<dyn StrategyTemplate>) -> TemplateInfo {
     TemplateInfo {
         id: t.id().to_string(),
+        template_id: template_type_to_uuid(t.id()),
         name: t.name().to_string(),
         description: t.description().to_string(),
         category: t.category().to_string(),
