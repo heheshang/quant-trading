@@ -11,7 +11,8 @@ use quant_trading_backend::services::kline_writer::{KlineWriter, KlineRecord};
 use quant_trading_backend::services::matching_engine::MatchingEngine;
 use quant_trading_backend::services::redis_cache::RedisCache;
 use quant_trading_backend::CONFIG;
-use tokio::sync::{mpsc, Arc};
+use std::sync::Arc;
+use tokio::sync::mpsc;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::EnvFilter;
@@ -75,7 +76,7 @@ async fn main() {
 
     // Initialize KlineWriter background task
     let (kline_tx, kline_rx) = mpsc::channel(100);
-    let kline_writer = KlineWriter::new(kline_rx, db.as_ref().clone());
+    let mut kline_writer = KlineWriter::new(kline_rx, db.as_ref().clone());
     tokio::spawn(async move { kline_writer.run().await; });
     ws_hub.set_kline_writer_tx(kline_tx);
 
