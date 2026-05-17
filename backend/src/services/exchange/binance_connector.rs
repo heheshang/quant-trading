@@ -105,7 +105,7 @@ impl BinanceConnector {
 
     /// Connect to Binance WebSocket and handle messages.
     async fn connect_and_subscribe(
-        &self,
+        &mut self,
         subscribe_msg: &str,
         mut shutdown_rx: tokio::sync::oneshot::Receiver<()>,
     ) -> Result<(), ConnectorError> {
@@ -128,10 +128,6 @@ impl BinanceConnector {
 
         info!("Binance WebSocket subscription sent");
 
-        // Message handling loop
-        let mut reconnect_delay = self.config.initial_reconnect_delay;
-        let max_delay = self.config.max_reconnect_delay;
-
         loop {
             tokio::select! {
                 // Incoming WebSocket message
@@ -139,7 +135,6 @@ impl BinanceConnector {
                     match msg {
                         Some(Ok(Message::Text(text))) => {
                             self.handle_message(&text);
-                            reconnect_delay = self.config.initial_reconnect_delay; // Reset on success
                         }
                         Some(Ok(Message::Ping(data))) => {
                             debug!("Received ping, responding with pong");
@@ -150,15 +145,15 @@ impl BinanceConnector {
                         }
                         Some(Ok(Message::Close(reason))) => {
                             warn!("WebSocket closed: {:?}", reason);
-                            break;
+                            return Err(ConnectorError::Disconnected("Connection closed".to_string()));
                         }
                         Some(Err(e)) => {
                             error!("WebSocket error: {}", e);
-                            break;
+                            return Err(ConnectorError::ConnectionFailed(e.to_string()));
                         }
                         None => {
                             warn!("WebSocket stream ended");
-                            break;
+                            return Err(ConnectorError::Disconnected("Stream ended".to_string()));
                         }
                         _ => {}
                     }
@@ -166,13 +161,10 @@ impl BinanceConnector {
                 // Shutdown signal
                 _ = &mut shutdown_rx => {
                     info!("BinanceConnector shutdown signal received");
-                    break;
+                    return Ok(());
                 }
             }
         }
-
-        // Attempt reconnection with exponential backoff
-        self.reconnect().await
     }
 
     /// Handle an incoming WebSocket message.
@@ -251,7 +243,7 @@ impl BinanceConnector {
     }
 
     /// Attempt reconnection with exponential backoff.
-    async fn reconnect(&self) -> Result<(), ConnectorError> {
+    async fn reconnect(&mut self) -> Result<(), ConnectorError> {
         let mut delay = self.config.initial_reconnect_delay;
         let max_delay = self.config.max_reconnect_delay;
 

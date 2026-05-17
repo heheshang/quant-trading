@@ -1,19 +1,3 @@
-use crate::services::exchange::ws_hub::{HubMessage, WsHub};
-use crate::utils::error::AppError;
-use axum::{
-    extract::{
-        ws::{Message, WebSocket, WebSocketUpgrade},
-        Extension, Query,
-    },
-    response::IntoResponse,
-};
-use futures::{SinkExt, StreamExt};
-use serde::Serialize;
-use std::sync::Arc;
-use tracing::{info, warn};
-
-use crate::models::schemas::WsQueryParams;
-
 /// WebSocket message serializer
 #[derive(Serialize)]
 struct WsJsonMessage<'a> {
@@ -65,20 +49,6 @@ fn serialize_hub_message(msg: HubMessage) -> String {
     }
 }
 
-/// GET /api/v1/ws — upgrade to WebSocket connection (JWT auth required)
-pub async fn ws_handler(
-    ws: WebSocketUpgrade,
-    Query(params): Query<WsQueryParams>,
-    Extension(ws_hub): Extension<Arc<WsHub>>,
-) -> Result<impl IntoResponse, AppError> {
-    // Validate JWT token from query param
-    let claims = crate::services::auth::validate_token(&params.token, &crate::CONFIG.jwt_secret)?;
-
-    info!("WebSocket authenticated for user: {}", claims.username);
-
-    Ok(ws.on_upgrade(move |socket| handle_socket(socket, claims.jti, ws_hub)))
-}
-
 async fn handle_socket(socket: WebSocket, _session_id: String, ws_hub: Arc<WsHub>) {
     info!("WebSocket connection established");
 
@@ -105,6 +75,7 @@ async fn handle_socket(socket: WebSocket, _session_id: String, ws_hub: Arc<WsHub
                 match ws_msg {
                     Some(Ok(Message::Text(text))) => {
                         info!("WS received from client: {}", text);
+                        // Echo back for now; later: parse subscribe/unsubscribe commands
                         let _ = sender.send(Message::Text(format!("echo: {}", text).into())).await;
                     }
                     Some(Ok(Message::Close(_))) | None => break,
@@ -119,17 +90,4 @@ async fn handle_socket(socket: WebSocket, _session_id: String, ws_hub: Arc<WsHub
     }
 
     info!("WebSocket connection closed");
-}
-
-/// Health check endpoint
-pub async fn health_check() -> impl axum::response::IntoResponse {
-    axum::Json(serde_json::json!({
-        "code": 0,
-        "data": {
-            "status": "ok",
-            "version": env!("CARGO_PKG_VERSION"),
-            "timestamp": chrono::Utc::now().to_rfc3339(),
-        },
-        "message": "success"
-    }))
 }

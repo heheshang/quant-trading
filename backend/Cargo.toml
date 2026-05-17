@@ -15,6 +15,7 @@ tokio = { version = "1", features = ["full"] }
 
 # Async streams
 futures = "0.3"
+futures-util = "0.3"
 
 # Serialization
 serde = { version = "1", features = ["derive"] }

@@ -7,6 +7,7 @@ use std::sync::Arc;
 
 use crate::db::DbPool;
 use crate::services::binance_rest::BinanceRestClient;
+use crate::services::exchange::ws_hub::WsHub;
 use crate::services::redis_cache::RedisCache;
 
 /// Application shared state
@@ -20,15 +21,17 @@ pub struct AppState {
     pub db: DbPool,
     pub redis: Arc<RedisCache>,
     pub binance: Arc<BinanceRestClient>,
+    pub ws_hub: Arc<WsHub>,
 }
 
 impl AppState {
     /// Create a new AppState instance
-    pub fn new(db: DbPool, redis: RedisCache, binance: BinanceRestClient) -> Self {
+    pub fn new(db: DbPool, redis: RedisCache, binance: BinanceRestClient, ws_hub: WsHub) -> Self {
         Self {
             db,
             redis: Arc::new(redis),
             binance: Arc::new(binance),
+            ws_hub: Arc::new(ws_hub),
         }
     }
 }

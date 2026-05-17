@@ -6,6 +6,7 @@ use axum::{
 use quant_trading_backend::db::{init_db, run_migrations, DbPool};
 use quant_trading_backend::handlers;
 use quant_trading_backend::services::binance_rest::BinanceRestClient;
+use quant_trading_backend::services::exchange::ws_hub::WsHub;
 use quant_trading_backend::services::matching_engine::MatchingEngine;
 use quant_trading_backend::services::redis_cache::RedisCache;
 use quant_trading_backend::CONFIG;
@@ -68,8 +69,12 @@ async fn main() {
     // Initialize Binance REST client
     let binance_rest = Arc::new(BinanceRestClient::new());
 
+    // Initialize WebSocket Hub (singleton)
+    let ws_hub = Arc::new(WsHub::new());
+    ws_hub.start();
+
     // Build application
-    let app = create_router(db, cors, matching_engine, redis_cache, binance_rest);
+    let app = create_router(db, cors, matching_engine, redis_cache, binance_rest, ws_hub);
 
     // Start server
     let addr = CONFIG.server_addr();
@@ -88,6 +93,7 @@ fn create_router(
     matching_engine: Arc<MatchingEngine>,
     redis_cache: Arc<RedisCache>,
     binance_rest: Arc<BinanceRestClient>,
+    ws_hub: Arc<WsHub>,
 ) -> Router {
     // Auth routes (no auth required)
     let auth_routes = Router::new()
@@ -281,7 +287,8 @@ fn create_router(
     // Public routes
     let public_routes = Router::new()
         .route("/health", get(handlers::ws::health_check))
-        .route("/ws", get(handlers::ws::ws_handler));
+        .route("/ws", get(handlers::ws::ws_handler))
+        .layer(Extension(ws_hub.clone()));
 
     Router::new()
         .nest("/api/v1/auth", auth_routes)
