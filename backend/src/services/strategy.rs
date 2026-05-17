@@ -1357,22 +1357,20 @@ pub async fn export_strategies(
     db: &DatabaseConnection,
     user_id: Uuid,
     status_filter: Option<&str>,
-) -> Result<Vec<serde_json::Value>, AppError> {
+) -> Result<Vec<StrategyResponse>, AppError> {
     let mut query = strategy::Entity::find().filter(strategy::Column::UserId.eq(user_id));
 
     if let Some(status) = status_filter {
         query = query.filter(strategy::Column::Status.eq(status));
     }
 
-    let items: Vec<serde_json::Value> = query
+    let items: Vec<StrategyResponse> = query
         .order_by_desc(strategy::Column::UpdatedAt)
         .all(db)
         .await?
         .into_iter()
         .map(model_to_response)
-        .map(serde_json::to_value)
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| AppError::Internal(format!("serialization error: {}", e)))?;
+        .collect();
 
     Ok(items)
 }

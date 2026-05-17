@@ -1,6 +1,9 @@
 use crate::middleware::auth::AuthenticatedUser;
 use crate::models::schemas::{
-    KlineCleanRequest, KlineExportParams, KlineImportRequest, KlineQueryParams,
+    KlineCleanRequest, KlineCleanResponse, KlineCsvImportResponse, KlineExportParams,
+    KlineFetchResponse, KlineImportHistoryResponse, KlineImportRequest, KlineImportResponse,
+    KlineLatestResponse, KlineQueryParams, KlineQualityResponse, KlineQueryResponse,
+    KlineRollbackResponse, KlineSymbolListResponse,
 };
 use crate::services::kline;
 use crate::utils::error::AppError;
@@ -20,7 +23,7 @@ pub async fn get_latest_kline(
     user: AuthenticatedUser,
     State(db): State<Arc<DatabaseConnection>>,
     Query(params): Query<KlineLatestParams>,
-) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
+) -> Result<Json<ApiResponse<KlineLatestResponse>>, AppError> {
     let symbol = params
         .symbol
         .as_ref()
@@ -31,12 +34,7 @@ pub async fn get_latest_kline(
         .ok_or_else(|| AppError::Validation("interval is required".into()))?;
 
     let result = kline::get_latest_kline(&db, user.user_id, symbol, interval).await?;
-    match result {
-        Some(kline) => Ok(Json(ApiResponse::success(serde_json::to_value(kline).map_err(
-            |e| AppError::Internal(format!("serialization error: {}", e)),
-        )?))),
-        None => Ok(Json(ApiResponse::success(serde_json::Value::Null))),
-    }
+    Ok(Json(ApiResponse::success(KlineLatestResponse(result))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -49,11 +47,9 @@ pub struct KlineLatestParams {
 pub async fn list_symbols(
     user: AuthenticatedUser,
     State(db): State<Arc<DatabaseConnection>>,
-) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
+) -> Result<Json<ApiResponse<KlineSymbolListResponse>>, AppError> {
     let result = kline::list_symbols(&db, user.user_id).await?;
-    Ok(Json(ApiResponse::success(serde_json::to_value(result).map_err(
-        |e| AppError::Internal(format!("serialization error: {}", e)),
-    )?)))
+    Ok(Json(ApiResponse::success(KlineSymbolListResponse(result))))
 }
 
 /// POST /api/v1/kline/fetch
@@ -61,11 +57,9 @@ pub async fn fetch_klines(
     user: AuthenticatedUser,
     State(db): State<Arc<DatabaseConnection>>,
     Json(body): Json<KlineFetchRequest>,
-) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
+) -> Result<Json<ApiResponse<KlineFetchResponse>>, AppError> {
     let result = kline::fetch_klines(&db, user.user_id, &body.symbol, &body.interval).await?;
-    Ok(Json(ApiResponse::success(serde_json::to_value(result).map_err(
-        |e| AppError::Internal(format!("serialization error: {}", e)),
-    )?)))
+    Ok(Json(ApiResponse::success(KlineFetchResponse(result))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -78,11 +72,9 @@ pub struct KlineFetchRequest {
 pub async fn rollback_clean(
     user: AuthenticatedUser,
     State(db): State<Arc<DatabaseConnection>>,
-) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
+) -> Result<Json<ApiResponse<KlineRollbackResponse>>, AppError> {
     let result = kline::rollback_clean(&db, user.user_id).await?;
-    Ok(Json(ApiResponse::success(serde_json::to_value(result).map_err(
-        |e| AppError::Internal(format!("serialization error: {}", e)),
-    )?)))
+    Ok(Json(ApiResponse::success(KlineRollbackResponse(result))))
 }
 
 /// POST /api/v1/kline/import/csv
@@ -90,7 +82,7 @@ pub async fn import_csv(
     user: AuthenticatedUser,
     State(db): State<Arc<DatabaseConnection>>,
     mut multipart: axum::extract::Multipart,
-) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
+) -> Result<Json<ApiResponse<KlineCsvImportResponse>>, AppError> {
     // Extract fields and file from multipart
     let mut symbol = String::new();
     let mut interval = String::new();
@@ -132,9 +124,7 @@ pub async fn import_csv(
     }
 
     let result = kline::import_csv(&db, user.user_id, &symbol, &interval, &csv_content).await?;
-    Ok(Json(ApiResponse::success(serde_json::to_value(result).map_err(
-        |e| AppError::Internal(format!("serialization error: {}", e)),
-    )?)))
+    Ok(Json(ApiResponse::success(KlineCsvImportResponse(result))))
 }
 
 /// GET /api/v1/kline/query
@@ -142,11 +132,9 @@ pub async fn query_klines(
     user: AuthenticatedUser,
     State(db): State<Arc<DatabaseConnection>>,
     Query(params): Query<KlineQueryParams>,
-) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
+) -> Result<Json<ApiResponse<KlineQueryResponse>>, AppError> {
     let result = kline::query_klines(&db, user.user_id, params).await?;
-    Ok(Json(ApiResponse::success(serde_json::to_value(result).map_err(
-        |e| AppError::Internal(format!("serialization error: {}", e)),
-    )?)))
+    Ok(Json(ApiResponse::success(KlineQueryResponse(result))))
 }
 
 /// POST /api/v1/kline/import
@@ -154,22 +142,18 @@ pub async fn import_klines(
     user: AuthenticatedUser,
     State(db): State<Arc<DatabaseConnection>>,
     Json(body): Json<KlineImportRequest>,
-) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
+) -> Result<Json<ApiResponse<KlineImportResponse>>, AppError> {
     let result = kline::import_klines(&db, user.user_id, body).await?;
-    Ok(Json(ApiResponse::success(serde_json::to_value(result).map_err(
-        |e| AppError::Internal(format!("serialization error: {}", e)),
-    )?)))
+    Ok(Json(ApiResponse::success(KlineImportResponse(result))))
 }
 
 /// GET /api/v1/kline/import-history
 pub async fn import_history(
     user: AuthenticatedUser,
     State(db): State<Arc<DatabaseConnection>>,
-) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
+) -> Result<Json<ApiResponse<KlineImportHistoryResponse>>, AppError> {
     let result = kline::import_history(&db, user.user_id).await?;
-    Ok(Json(ApiResponse::success(serde_json::to_value(result).map_err(
-        |e| AppError::Internal(format!("serialization error: {}", e)),
-    )?)))
+    Ok(Json(ApiResponse::success(KlineImportHistoryResponse(result))))
 }
 
 /// GET /api/v1/kline/quality
@@ -177,7 +161,7 @@ pub async fn quality_report(
     user: AuthenticatedUser,
     State(db): State<Arc<DatabaseConnection>>,
     Query(params): Query<KlineQueryParams>,
-) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
+) -> Result<Json<ApiResponse<KlineQualityResponse>>, AppError> {
     let symbol = params
         .symbol
         .as_ref()
@@ -188,9 +172,7 @@ pub async fn quality_report(
         .ok_or_else(|| AppError::Validation("interval is required".into()))?;
 
     let result = kline::quality_report(&db, user.user_id, symbol, interval).await?;
-    Ok(Json(ApiResponse::success(serde_json::to_value(result).map_err(
-        |e| AppError::Internal(format!("serialization error: {}", e)),
-    )?)))
+    Ok(Json(ApiResponse::success(KlineQualityResponse(result))))
 }
 
 /// POST /api/v1/kline/clean
@@ -198,11 +180,9 @@ pub async fn clean_klines(
     user: AuthenticatedUser,
     State(db): State<Arc<DatabaseConnection>>,
     Json(body): Json<KlineCleanRequest>,
-) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
+) -> Result<Json<ApiResponse<KlineCleanResponse>>, AppError> {
     let result = kline::clean_klines(&db, user.user_id, body).await?;
-    Ok(Json(ApiResponse::success(serde_json::to_value(result).map_err(
-        |e| AppError::Internal(format!("serialization error: {}", e)),
-    )?)))
+    Ok(Json(ApiResponse::success(KlineCleanResponse(result))))
 }
 
 /// GET /api/v1/kline/export

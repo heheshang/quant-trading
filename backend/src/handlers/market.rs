@@ -1,7 +1,7 @@
 use crate::middleware::auth::AuthenticatedUser;
 use crate::models::schemas::{
-    DepthQueryParams, DepthResponse, KlineQueryParams, TickerHistoryQueryParams, TickerQueryParams,
-    TickerResponse,
+    DepthQueryParams, DepthResponse, KlineQueryParams, KlineQueryResponse, TickerHistoryQueryParams,
+    TickerHistoryResponse, TickerQueryParams, TickerResponse,
 };
 use crate::services::binance_rest::BinanceRestClient;
 use crate::services::market_data;
@@ -80,11 +80,9 @@ pub async fn get_ticker_history(
     _user: AuthenticatedUser,
     State(db): State<Arc<DatabaseConnection>>,
     Query(params): Query<TickerHistoryQueryParams>,
-) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
+) -> Result<Json<ApiResponse<TickerHistoryResponse>>, AppError> {
     let result = market_data::get_ticker_history(&db, params).await?;
-    Ok(Json(ApiResponse::success(
-        serde_json::to_value(result).map_err(|e| AppError::Internal(e.to_string()))?,
-    )))
+    Ok(Json(ApiResponse::success(result)))
 }
 
 /// GET /api/v1/market/kline — K线数据查询（复用 kline::query_klines）
@@ -92,11 +90,9 @@ pub async fn get_kline(
     user: AuthenticatedUser,
     State(db): State<Arc<DatabaseConnection>>,
     Query(params): Query<KlineQueryParams>,
-) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
+) -> Result<Json<ApiResponse<KlineQueryResponse>>, AppError> {
     let result = crate::services::kline::query_klines(&db, user.user_id, params).await?;
-    Ok(Json(ApiResponse::success(serde_json::to_value(result).map_err(
-        |e| AppError::Internal(format!("serialization error: {}", e)),
-    )?)))
+    Ok(Json(ApiResponse::success(KlineQueryResponse(result))))
 }
 
 #[cfg(test)]

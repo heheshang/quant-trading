@@ -2,7 +2,7 @@ use crate::db::{role, user};
 use crate::middleware::auth::AuthenticatedUser;
 use crate::models::schemas::{
     AdminUpdateUserRequest, ChangePasswordRequest, PaginatedResponse, PaginationParams,
-    UpdateUserRequest,
+    UpdateUserRequest, UserMeResponse, UserResponse, UserUpdateResponse,
 };
 use crate::services::auth;
 use crate::utils::error::AppError;
@@ -25,12 +25,55 @@ fn require_admin(user: &AuthenticatedUser) -> Result<(), AppError> {
     Ok(())
 }
 
+/// Helper to build UserResponse from user model + role
+fn build_user_response(
+    user_model: &user::Model,
+    role_model: &role::Model,
+) -> UserResponse {
+    UserResponse {
+        id: user_model.id,
+        username: user_model.username.clone(),
+        email: user_model.email.clone(),
+        display_name: user_model.display_name.clone(),
+        avatar_url: user_model.avatar_url.clone(),
+        is_active: user_model.is_active,
+        role: crate::models::schemas::RoleResponse {
+            id: role_model.id,
+            name: role_model.name.clone(),
+            display_name: role_model.display_name.clone(),
+            description: role_model.description.clone(),
+            is_system: role_model.is_system,
+            created_at: role_model.created_at,
+        },
+        last_login_at: user_model.last_login_at,
+        created_at: user_model.created_at,
+    }
+}
+
+/// Internal get_me that returns UserResponse directly (for reuse by auth handler)
+pub async fn get_me_internal(
+    db: &DatabaseConnection,
+    user_id: Uuid,
+) -> Result<UserResponse, AppError> {
+    let user_model = user::Entity::find_by_id(user_id)
+        .one(db)
+        .await?
+        .ok_or_else(|| AppError::NotFound("User not found".into()))?;
+
+    let role_model = role::Entity::find_by_id(user_model.role_id)
+        .one(db)
+        .await?
+        .ok_or_else(|| AppError::Internal("Role not found".into()))?;
+
+    Ok(build_user_response(&user_model, &role_model))
+}
+
 /// List all users (admin only)
 pub async fn list_users(
     user: AuthenticatedUser,
     State(db): State<std::sync::Arc<DatabaseConnection>>,
     Query(params): Query<PaginationParams>,
-) -> Result<Json<ApiResponse<PaginatedResponse<serde_json::Value>>>, AppError> {
+) -> Result<Json<ApiResponse<crate::models::schemas::UserListResponse>>, AppError> {
     require_admin(&user)?;
     let page = params.page();
     let size = params.size();
@@ -52,62 +95,26 @@ pub async fn list_users(
             .await?
             .ok_or_else(|| AppError::Internal("Role not found".into()))?;
 
-        user_list.push(serde_json::json!({
-            "id": u.id,
-            "username": u.username,
-            "email": u.email,
-            "display_name": u.display_name,
-            "is_active": u.is_active,
-            "role": {
-                "id": role.id,
-                "name": role.name,
-                "display_name": role.display_name,
-            },
-            "last_login_at": u.last_login_at,
-            "created_at": u.created_at,
-        }));
+        user_list.push(build_user_response(&u, &role));
     }
 
-    Ok(Json(ApiResponse::success(PaginatedResponse {
-        items: user_list,
-        total,
-        page,
-        size,
-    })))
+    Ok(Json(ApiResponse::success(crate::models::schemas::UserListResponse(
+        PaginatedResponse {
+            items: user_list,
+            total,
+            page,
+            size,
+        },
+    ))))
 }
 
 /// Get current user profile
 pub async fn get_me(
     user: AuthenticatedUser,
     State(db): State<std::sync::Arc<DatabaseConnection>>,
-) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let user_model = user::Entity::find_by_id(user.user_id)
-        .one(&*db)
-        .await?
-        .ok_or_else(|| AppError::NotFound("User not found".into()))?;
-
-    let role = role::Entity::find_by_id(user_model.role_id)
-        .one(&*db)
-        .await?
-        .ok_or_else(|| AppError::Internal("Role not found".into()))?;
-
-    let resp = serde_json::json!({
-        "id": user_model.id,
-        "username": user_model.username,
-        "email": user_model.email,
-        "display_name": user_model.display_name,
-        "avatar_url": user_model.avatar_url,
-        "is_active": user_model.is_active,
-        "role": {
-            "id": role.id,
-            "name": role.name,
-            "display_name": role.display_name,
-        },
-        "last_login_at": user_model.last_login_at,
-        "created_at": user_model.created_at,
-    });
-
-    Ok(Json(ApiResponse::success(resp)))
+) -> Result<Json<ApiResponse<UserMeResponse>>, AppError> {
+    let resp = get_me_internal(&db, user.user_id).await?;
+    Ok(Json(ApiResponse::success(UserMeResponse(resp))))
 }
 
 /// Update current user profile
@@ -115,7 +122,7 @@ pub async fn update_me(
     user: AuthenticatedUser,
     State(db): State<std::sync::Arc<DatabaseConnection>>,
     Json(body): Json<UpdateUserRequest>,
-) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
+) -> Result<Json<ApiResponse<UserUpdateResponse>>, AppError> {
     let user_model = user::Entity::find_by_id(user.user_id)
         .one(&*db)
         .await?
@@ -153,23 +160,7 @@ pub async fn update_me(
         .await?
         .ok_or_else(|| AppError::Internal("Role not found".into()))?;
 
-    let resp = serde_json::json!({
-        "id": updated.id,
-        "username": updated.username,
-        "email": updated.email,
-        "display_name": updated.display_name,
-        "avatar_url": updated.avatar_url,
-        "is_active": updated.is_active,
-        "role": {
-            "id": role.id,
-            "name": role.name,
-            "display_name": role.display_name,
-        },
-        "last_login_at": updated.last_login_at,
-        "created_at": updated.created_at,
-    });
-
-    Ok(Json(ApiResponse::success(resp)))
+    Ok(Json(ApiResponse::success(UserUpdateResponse(build_user_response(&updated, &role)))))
 }
 
 /// Change current user password
@@ -177,7 +168,7 @@ pub async fn change_password(
     user: AuthenticatedUser,
     State(db): State<std::sync::Arc<DatabaseConnection>>,
     Json(body): Json<ChangePasswordRequest>,
-) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
+) -> Result<Json<ApiResponse<crate::models::schemas::ChangePasswordResponse>>, AppError> {
     let user_model = user::Entity::find_by_id(user.user_id)
         .one(&*db)
         .await?
@@ -202,9 +193,9 @@ pub async fn change_password(
     active.updated_at = sea_orm::Set(chrono::Utc::now());
     active.update(&*db).await?;
 
-    Ok(Json(ApiResponse::success(serde_json::json!({
-        "message": "Password changed successfully"
-    }))))
+    Ok(Json(ApiResponse::success(crate::models::schemas::ChangePasswordResponse {
+        message: "Password changed successfully".into(),
+    })))
 }
 
 /// Admin: update user (including role)
@@ -213,7 +204,7 @@ pub async fn admin_update_user(
     State(db): State<std::sync::Arc<DatabaseConnection>>,
     Path(user_id): Path<Uuid>,
     Json(body): Json<AdminUpdateUserRequest>,
-) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
+) -> Result<Json<ApiResponse<crate::models::schemas::UserResponse>>, AppError> {
     require_admin(&user)?;
     let user_model = user::Entity::find_by_id(user_id)
         .one(&*db)
@@ -262,20 +253,7 @@ pub async fn admin_update_user(
         .await?
         .ok_or_else(|| AppError::Internal("Role not found".into()))?;
 
-    let resp = serde_json::json!({
-        "id": updated.id,
-        "username": updated.username,
-        "email": updated.email,
-        "display_name": updated.display_name,
-        "is_active": updated.is_active,
-        "role": {
-            "id": role.id,
-            "name": role.name,
-            "display_name": role.display_name,
-        },
-    });
-
-    Ok(Json(ApiResponse::success(resp)))
+    Ok(Json(ApiResponse::success(build_user_response(&updated, &role))))
 }
 
 /// Admin: delete user
@@ -283,7 +261,7 @@ pub async fn admin_delete_user(
     user: AuthenticatedUser,
     State(db): State<std::sync::Arc<DatabaseConnection>>,
     Path(user_id): Path<Uuid>,
-) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
+) -> Result<Json<ApiResponse<crate::models::schemas::ChangePasswordResponse>>, AppError> {
     require_admin(&user)?;
 
     let user_model = user::Entity::find_by_id(user_id)
@@ -300,34 +278,32 @@ pub async fn admin_delete_user(
 
     user_model.delete(&*db).await?;
 
-    Ok(Json(ApiResponse::success(serde_json::json!({
-        "message": "User deleted successfully"
-    }))))
+    Ok(Json(ApiResponse::success(crate::models::schemas::ChangePasswordResponse {
+        message: "User deleted successfully".into(),
+    })))
 }
 
 /// List all roles
 pub async fn list_roles(
     _user: AuthenticatedUser,
     State(db): State<std::sync::Arc<DatabaseConnection>>,
-) -> Result<Json<ApiResponse<Vec<serde_json::Value>>>, AppError> {
+) -> Result<Json<ApiResponse<crate::models::schemas::RoleListResponse>>, AppError> {
     let roles = role::Entity::find()
         .order_by_asc(role::Column::Name)
         .all(&*db)
         .await?;
 
-    let role_list: Vec<serde_json::Value> = roles
+    let role_list: Vec<crate::models::schemas::RoleResponse> = roles
         .into_iter()
-        .map(|r| {
-            serde_json::json!({
-                "id": r.id,
-                "name": r.name,
-                "display_name": r.display_name,
-                "description": r.description,
-                "is_system": r.is_system,
-                "created_at": r.created_at,
-            })
+        .map(|r| crate::models::schemas::RoleResponse {
+            id: r.id,
+            name: r.name,
+            display_name: r.display_name,
+            description: r.description,
+            is_system: r.is_system,
+            created_at: r.created_at,
         })
         .collect();
 
-    Ok(Json(ApiResponse::success(role_list)))
+    Ok(Json(ApiResponse::success(crate::models::schemas::RoleListResponse(role_list))))
 }
