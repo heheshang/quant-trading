@@ -5,10 +5,11 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, mpsc, Mutex};
 use tracing::{info, warn};
 
 use crate::services::exchange::{BinanceConnector, MarketMessage};
+use crate::services::kline_writer::KlineRecord;
 
 /// HubMessage - standardized message format for WS clients
 #[derive(Clone, Debug)]
@@ -57,6 +58,8 @@ pub struct WsHub {
     tx: broadcast::Sender<HubMessage>,
     /// Server-level event broadcast
     hub_tx: broadcast::Sender<HubEvent>,
+    /// Channel to KlineWriter for DB persistence (Send+Sync safe)
+    kline_writer_tx: Arc<Mutex<Option<mpsc::Sender<KlineRecord>>>>,
 }
 
 impl WsHub {
@@ -68,7 +71,14 @@ impl WsHub {
             shutdown: Arc::new(AtomicBool::new(false)),
             tx,
             hub_tx,
+            kline_writer_tx: Arc::new(Mutex::new(None)),
         }
+    }
+
+    /// Set the KlineWriter sender (called from main.rs after KlineWriter is spawned)
+    pub fn set_kline_writer_tx(&self, tx: mpsc::Sender<KlineRecord>) {
+        let mut guard = self.kline_writer_tx.blocking_lock();
+        *guard = Some(tx);
     }
 
     /// Subscribe to market data (call from WS client handler).
@@ -87,10 +97,11 @@ impl WsHub {
         let shutdown = self.shutdown.clone();
         let tx = self.tx.clone();
         let hub_tx = self.hub_tx.clone();
+        let kline_writer_tx = self.kline_writer_tx.clone();
 
         // Spawn connector + forwarder task
         tokio::spawn(async move {
-            Self::run_connector(shutdown, tx, hub_tx).await;
+            Self::run_connector(shutdown, tx, hub_tx, kline_writer_tx).await;
         });
 
         info!("WebSocket Hub started");
@@ -106,6 +117,7 @@ impl WsHub {
         shutdown: Arc<AtomicBool>,
         hub_tx: broadcast::Sender<HubMessage>,
         _event_tx: broadcast::Sender<HubEvent>,
+        kline_writer_tx: Arc<Mutex<Option<mpsc::Sender<KlineRecord>>>>,
     ) {
         let connector = BinanceConnector::new();
         let mut binance_rx = connector.subscribe();
@@ -121,9 +133,30 @@ impl WsHub {
                 msg = binance_rx.recv() => {
                     match msg {
                         Ok(market_msg) => {
-                            let hub_msg = Self::convert_message(market_msg);
+                            let hub_msg = Self::convert_message(market_msg.clone());
                             if hub_tx.send(hub_msg).is_err() {
                                 // No subscribers, but that's ok
+                            }
+                            // Also send Kline data to KlineWriter for DB persistence
+                            if let MarketMessage::Kline { symbol, interval, open, high, low, close, volume, close_time, timestamp } = &market_msg {
+                                let tx_guard = kline_writer_tx.lock().await;
+                                if let Some(ref tx) = *tx_guard {
+                                    let record = KlineRecord {
+                                        symbol: symbol.clone(),
+                                        interval: interval.clone(),
+                                        open_time: *timestamp as i64,
+                                        close_time: *close_time as i64,
+                                        open: rust_decimal::Decimal::try_from(*open).unwrap_or_default(),
+                                        high: rust_decimal::Decimal::try_from(*high).unwrap_or_default(),
+                                        low: rust_decimal::Decimal::try_from(*low).unwrap_or_default(),
+                                        close: rust_decimal::Decimal::try_from(*close).unwrap_or_default(),
+                                        volume: rust_decimal::Decimal::try_from(*volume).unwrap_or_default(),
+                                        quote_volume: rust_decimal::Decimal::ZERO,
+                                        trades: 0,
+                                        source: "binance_ws".to_string(),
+                                    };
+                                    let _ = tx.try_send(record);
+                                }
                             }
                         }
                         Err(broadcast::error::RecvError::Lagged(n)) => {
@@ -149,29 +182,12 @@ impl WsHub {
     /// Convert Binance MarketMessage → HubMessage
     fn convert_message(msg: MarketMessage) -> HubMessage {
         match msg {
-            MarketMessage::Ticker {
-                symbol,
-                price,
-                change,
-                change_percent,
-                volume,
-                high,
-                low,
-                bid,
-                ask,
-                ..
-            } => HubMessage::Ticker {
-                symbol,
-                price,
-                change,
-                change_pct: change_percent,
-                volume,
-                high,
-                low,
-                bid,
-                ask,
-            },
-            MarketMessage::Depth { symbol, bids, asks, .. } => HubMessage::Depth { symbol, bids, asks },
+            MarketMessage::Ticker { symbol, price, change, change_percent, volume, high, low, bid, ask, .. } => {
+                HubMessage::Ticker { symbol, price, change, change_pct: change_percent, volume, high, low, bid, ask }
+            }
+            MarketMessage::Depth { symbol, bids, asks, .. } => {
+                HubMessage::Depth { symbol, bids, asks }
+            }
             MarketMessage::Kline { symbol, interval, open, high, low, close, volume, .. } => {
                 HubMessage::Kline { symbol, interval, open, high, low, close, volume }
             }
@@ -191,6 +207,7 @@ impl Clone for WsHub {
             shutdown: self.shutdown.clone(),
             tx: self.tx.clone(),
             hub_tx: self.hub_tx.clone(),
+            kline_writer_tx: self.kline_writer_tx.clone(),
         }
     }
 }

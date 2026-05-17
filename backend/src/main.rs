@@ -7,6 +7,7 @@ use quant_trading_backend::db::{init_db, run_migrations, DbPool};
 use quant_trading_backend::handlers;
 use quant_trading_backend::services::binance_rest::BinanceRestClient;
 use quant_trading_backend::services::exchange::ws_hub::WsHub;
+use quant_trading_backend::services::kline_writer::{KlineWriter, KlineRecord};
 use quant_trading_backend::services::matching_engine::MatchingEngine;
 use quant_trading_backend::services::redis_cache::RedisCache;
 use quant_trading_backend::CONFIG;
