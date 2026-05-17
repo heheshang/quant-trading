@@ -105,6 +105,10 @@ pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), sea_orm::DbEr
     );
     db.execute(stmt).await?;
 
+    // Add user_id column (kline_entity uses UUID but existing table may have bigserial id)
+    let alter_user_id = "ALTER TABLE klines ADD COLUMN IF NOT EXISTS user_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'";
+    db.execute(sea_orm::Statement::from_string(backend, alter_user_id.to_string())).await?;
+
     // Add deleted_at column to klines table for soft delete (migration for existing DBs)
     let alter_sql = "ALTER TABLE klines ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ";
     db.execute(sea_orm::Statement::from_string(
