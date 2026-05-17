@@ -6,7 +6,7 @@ use axum::{
 use quant_trading_backend::db::{init_db, run_migrations, DbPool};
 use quant_trading_backend::handlers;
 use quant_trading_backend::services::binance_rest::BinanceRestClient;
-use quant_trading_backend::services::exchange::ws_hub::WsHub;
+use quant_trading_backend::services::exchange::ws_hub::{WsHub, WsHubBuilder};
 use quant_trading_backend::services::kline_writer::{KlineWriter, KlineRecord};
 use quant_trading_backend::services::matching_engine::MatchingEngine;
 use quant_trading_backend::services::redis_cache::RedisCache;
@@ -71,15 +71,17 @@ async fn main() {
     // Initialize Binance REST client
     let binance_rest = Arc::new(BinanceRestClient::new());
 
-    // Initialize WebSocket Hub (singleton)
-    let ws_hub = Arc::new(WsHub::new());
-
     // Initialize KlineWriter background task
     let (kline_tx, kline_rx) = mpsc::channel(100);
     let mut kline_writer = KlineWriter::new(kline_rx, db.as_ref().clone());
     tokio::spawn(async move { kline_writer.run().await; });
-    ws_hub.set_kline_writer_tx(kline_tx);
 
+    // Initialize WebSocket Hub (singleton) with KlineWriter pre-wired
+    let ws_hub = Arc::new(
+        WsHubBuilder::new()
+            .with_kline_writer_tx(kline_tx)
+            .build()
+    );
     ws_hub.start();
 
     // Build application

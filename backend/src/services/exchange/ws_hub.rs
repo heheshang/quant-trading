@@ -62,6 +62,47 @@ pub struct WsHub {
     kline_writer_tx: Arc<Mutex<Option<mpsc::Sender<KlineRecord>>>>,
 }
 
+/// Builder for WsHub to set kline_writer_tx before start
+pub struct WsHubBuilder {
+    shutdown: Arc<AtomicBool>,
+    tx: broadcast::Sender<HubMessage>,
+    hub_tx: broadcast::Sender<HubEvent>,
+    kline_writer_tx: Option<mpsc::Sender<KlineRecord>>,
+}
+
+impl WsHubBuilder {
+    pub fn new() -> Self {
+        let (tx, _) = broadcast::channel(2048);
+        let (hub_tx, _) = broadcast::channel(100);
+        Self {
+            shutdown: Arc::new(AtomicBool::new(false)),
+            tx,
+            hub_tx,
+            kline_writer_tx: None,
+        }
+    }
+
+    pub fn with_kline_writer_tx(mut self, tx: mpsc::Sender<KlineRecord>) -> Self {
+        self.kline_writer_tx = Some(tx);
+        self
+    }
+
+    pub fn build(self) -> WsHub {
+        WsHub {
+            shutdown: self.shutdown,
+            tx: self.tx,
+            hub_tx: self.hub_tx,
+            kline_writer_tx: Arc::new(Mutex::new(self.kline_writer_tx)),
+        }
+    }
+}
+
+impl Default for WsHubBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl WsHub {
     /// Create a new WsHub with broadcast channels.
     pub fn new() -> Self {
@@ -119,7 +160,10 @@ impl WsHub {
         _event_tx: broadcast::Sender<HubEvent>,
         kline_writer_tx: Arc<Mutex<Option<mpsc::Sender<KlineRecord>>>>,
     ) {
-        let connector = BinanceConnector::new();
+        let mut connector = BinanceConnector::new();
+        if let Err(e) = connector.start().await {
+            warn!("BinanceConnector initial start failed: {}, will retry", e);
+        }
         let mut binance_rx = connector.subscribe();
 
         loop {
