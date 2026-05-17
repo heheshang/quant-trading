@@ -129,23 +129,23 @@ pub async fn update_me(
     active.updated_at = sea_orm::Set(chrono::Utc::now());
 
     if let Some(display_name) = body.display_name {
+        #[allow(clippy::collapsible_if)]
         if !display_name.is_empty() {
             active.display_name = sea_orm::Set(Some(display_name));
         }
     }
-    if let Some(email) = body.email {
-        if !email.is_empty() {
-            // Check email uniqueness
-            let existing = user::Entity::find()
-                .filter(user::Column::Email.eq(&email))
-                .filter(user::Column::Id.ne(user.user_id))
-                .one(&*db)
-                .await?;
-            if existing.is_some() {
-                return Err(AppError::Conflict("Email already in use".into()));
-            }
-            active.email = sea_orm::Set(email);
+    if let Some(ref email) = body.email
+        && !email.is_empty()
+    {
+        let existing = user::Entity::find()
+            .filter(user::Column::Email.eq(email))
+            .filter(user::Column::Id.ne(user.user_id))
+            .one(&*db)
+            .await?;
+        if existing.is_some() {
+            return Err(AppError::Conflict("Email already in use".into()));
         }
+        active.email = sea_orm::Set(email.clone());
     }
     if let Some(avatar_url) = body.avatar_url {
         active.avatar_url = sea_orm::Set(Some(avatar_url));
@@ -215,23 +215,18 @@ pub async fn admin_update_user(
     let mut active: user::ActiveModel = user_model.clone().into();
     active.updated_at = sea_orm::Set(chrono::Utc::now());
 
-    if let Some(display_name) = body.display_name {
-        if !display_name.is_empty() {
-            active.display_name = sea_orm::Set(Some(display_name));
+    if let Some(ref email) = body.email
+        && !email.is_empty()
+    {
+        let existing = user::Entity::find()
+            .filter(user::Column::Email.eq(email))
+            .filter(user::Column::Id.ne(user_id))
+            .one(&*db)
+            .await?;
+        if existing.is_some() {
+            return Err(AppError::Conflict("Email already in use".into()));
         }
-    }
-    if let Some(email) = body.email {
-        if !email.is_empty() {
-            let existing = user::Entity::find()
-                .filter(user::Column::Email.eq(&email))
-                .filter(user::Column::Id.ne(user_id))
-                .one(&*db)
-                .await?;
-            if existing.is_some() {
-                return Err(AppError::Conflict("Email already in use".into()));
-            }
-            active.email = sea_orm::Set(email);
-        }
+        active.email = sea_orm::Set(email.clone());
     }
     if let Some(avatar_url) = body.avatar_url {
         active.avatar_url = sea_orm::Set(Some(avatar_url));

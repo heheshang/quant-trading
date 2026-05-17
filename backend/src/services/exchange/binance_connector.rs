@@ -182,6 +182,8 @@ impl BinanceConnector {
             }
             Err(_) => {
                 // Try parsing as single message
+                #[allow(clippy::collapsible_if)]
+                #[allow(clippy::collapsible_if)]
                 if let Ok(msg) = serde_json::from_str::<BinanceStreamMessage>(text) {
                     if let Some(market_msg) = self.normalize_message(msg) {
                         let _ = self.tx.send(market_msg);
@@ -244,6 +246,7 @@ impl BinanceConnector {
     }
 
     /// Attempt reconnection with exponential backoff.
+    #[allow(dead_code)]
     async fn reconnect(&mut self) -> Result<(), ConnectorError> {
         let mut delay = self.config.initial_reconnect_delay;
         let max_delay = self.config.max_reconnect_delay;

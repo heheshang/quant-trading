@@ -184,6 +184,7 @@ struct BinanceTicker24hr {
     #[serde(alias = "askPrice")]
     ask_price: String,
     #[serde(alias = "openTime")]
+    #[allow(dead_code)]
     open_time: i64,
     #[serde(alias = "closeTime")]
     close_time: i64,

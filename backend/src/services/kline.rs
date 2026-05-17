@@ -597,9 +597,12 @@ pub async fn clean_klines(
 
             if open_p.is_err() || high_p.is_err() || low_p.is_err() || close_p.is_err() {
                 should_delete = true;
-            } else if let (Ok(o), Ok(h), Ok(l), Ok(c)) = (open_p, high_p, low_p, close_p) {
-                if h < o || h < l || h < c || l > o || l > c || c <= 0.0 || o <= 0.0 {
-                    should_delete = true;
+            } else {
+                #[allow(clippy::collapsible_if)]
+                if let (Ok(o), Ok(h), Ok(l), Ok(c)) = (open_p, high_p, low_p, close_p) {
+                    if h < o || h < l || h < c || l > o || l > c || c <= 0.0 || o <= 0.0 {
+                        should_delete = true;
+                    }
                 }
             }
         }

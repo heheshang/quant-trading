@@ -42,6 +42,7 @@ pub enum BinanceData {
 /// WS stream: `<symbol>@ticker`
 /// API: https://developers.binance.com/docs/websocket_api/streams/ticker
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[allow(non_snake_case)]
 pub struct TickerData {
     /// Symbol (uppercase), e.g. "BTCUSDT"
     pub s: String,
@@ -100,6 +101,7 @@ impl TickerData {
 /// WS stream: `<symbol>@depth20@100ms`
 /// API: https://developers.binance.com/docs/websocket_api/streams/depth
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[allow(non_snake_case)]
 pub struct DepthData {
     /// Symbol (uppercase)
     pub s: String,
@@ -118,6 +120,7 @@ pub struct DepthData {
 /// WS stream: `<symbol>@kline_1m`
 /// API: https://developers.binance.com/docs/websocket_api/streams/kline
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[allow(non_snake_case)]
 pub struct KlineData {
     /// Symbol (uppercase)
     pub s: String,
@@ -129,6 +132,7 @@ pub struct KlineData {
 
 /// Kline/Candlestick
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[allow(non_snake_case)]
 pub struct Kline {
     /// Kline open time
     pub t: u64,

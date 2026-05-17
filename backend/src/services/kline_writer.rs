@@ -37,6 +37,7 @@ pub struct KlineRecord {
 
 impl KlineRecord {
     /// Convert to sea_orm ActiveModel for insertion
+    #[allow(clippy::wrong_self_convention)]
     fn to_active_model(self) -> KlineActiveModel {
         use sea_orm::Set;
 
@@ -45,9 +46,9 @@ impl KlineRecord {
             symbol: Set(self.symbol),
             interval: Set(self.interval),
             open_time: Set(chrono::DateTime::from_timestamp(self.open_time / 1000, 0)
-                .unwrap_or_else(|| chrono::Utc::now())),
+                .unwrap_or(chrono::Utc::now())),
             close_time: Set(chrono::DateTime::from_timestamp(self.close_time / 1000, 0)
-                .unwrap_or_else(|| chrono::Utc::now())),
+                .unwrap_or(chrono::Utc::now())),
             open: Set(self.open),
             high: Set(self.high),
             low: Set(self.low),
@@ -57,6 +58,7 @@ impl KlineRecord {
             trades: Set(self.trades as i32),
             source: Set(self.source),
             created_at: Set(chrono::Utc::now()),
+            deleted_at: Set(None),
         }
     }
 }
@@ -207,8 +209,10 @@ mod tests {
             source: "binance".to_string(),
         };
 
+        // Clone symbol before to_active_model consumes record
+        let symbol_clone = record.symbol.clone();
         let _active = record.to_active_model();
         // Basic test that conversion doesn't panic
-        assert_eq!(record.symbol, "BTCUSDT");
+        assert_eq!(symbol_clone, "BTCUSDT");
     }
 }

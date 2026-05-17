@@ -181,7 +181,7 @@ impl WsHub {
                         e, backoff_secs
                     );
                     tokio::time::sleep(tokio::time::Duration::from_secs(backoff_secs)).await;
-                    backoff_secs = (backoff_secs * 2).min(30).max(1);
+                    backoff_secs = (backoff_secs * 2).clamp(1, 30);
                     // Create new connector for retry to avoid stale state
                     connector = BinanceConnector::new();
                     continue;
@@ -203,7 +203,7 @@ let mut binance_rx = connector.subscribe();
                         if msg_count == 0 && std::time::SystemTime::now()
                             .duration_since(std::time::UNIX_EPOCH)
                             .unwrap()
-                            .as_secs() % 10 == 0 {
+                            .as_secs().is_multiple_of(10) {
                             info!("WS Hub: no messages yet, still waiting...");
                         }
                     }
@@ -212,7 +212,7 @@ let mut binance_rx = connector.subscribe();
                         match msg {
                             Ok(market_msg) => {
                                 msg_count += 1;
-                                if msg_count % 50 == 0 {
+                                if msg_count.is_multiple_of(50) {
                                     info!("WS Hub processed {} messages (Kline={})",
                                         msg_count,
                                         std::matches!(market_msg, MarketMessage::Kline {..}));

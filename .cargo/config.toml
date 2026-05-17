@@ -1,11 +1,10 @@
 # .cargo/config.toml
 [source.crates-io]
-replace-with = 'ustc'  # 优先用中科大镜像
+replace-with = 'bytedance'  # 中科大镜像
 
-# 中科大镜像
+# 中科大镜像（sparse）
 [source.ustc]
 registry = "sparse+https://mirrors.ustc.edu.cn/crates.io-index/"
 
-# 备用：清华镜像（如果中科大慢就换这个）
-# [source.tsinghua]
-# registry = "sparse+https://mirrors.tuna.tsinghua.edu.cn/crates.io-index/"
+[source.bytedance]
+registry = "sparse+https://rsproxy.cn/index/"

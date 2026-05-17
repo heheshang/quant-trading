@@ -45,13 +45,15 @@ pub struct PnLQuery {
 
 // ─── Helper: format f64 as financial string ────────────────────
 
-fn fmt_money(v: f64) -> String {
-    format!("{:.2}", v)
-}
+    #[allow(dead_code)]
+    fn fmt_money(v: f64) -> String {
+        format!("{:.2}", v)
+    }
 
-fn fmt_pct(v: f64) -> String {
-    format!("{:.2}", v)
-}
+    #[allow(dead_code)]
+    fn fmt_pct(v: f64) -> String {
+        format!("{:.2}", v)
+    }
 
 // ─── Service Functions ──────────────────────────────────────────
 

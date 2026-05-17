@@ -4,12 +4,14 @@
 [[disallowed-methods]]
 path = "std::fs::DirBuilder"
 replacement = "tokio::fs::DirBuilder"
+allow-invalid = true
 [[disallowed-methods]]
 path = "std::fs::DirEntry"
 replacement = "tokio::fs::DirEntry"
 [[disallowed-methods]]
 path = "std::fs::File"
 replacement = "tokio::fs::File"
+allow-invalid = true
 [[disallowed-methods]]
 path = "std::fs::OpenOptions"
 replacement = "tokio::fs::OpenOptions"
@@ -19,3 +21,4 @@ replacement = "tokio::fs::ReadDir"
 [[disallowed-methods]]
 path = "std::process::Command"
 replacement = "tokio::process::Command"
+allow-invalid = true
