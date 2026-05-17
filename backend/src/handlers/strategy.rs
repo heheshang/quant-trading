@@ -9,10 +9,10 @@ use crate::services::strategy;
 use crate::utils::error::AppError;
 use crate::utils::response::ApiResponse;
 use axum::{
+    Json,
     extract::{Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
-    Json,
 };
 use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
@@ -43,15 +43,18 @@ pub async fn upload_strategy_code(
     let mut file_name = String::new();
     let mut file_content = String::new();
 
-    while let Some(field) = multipart.next_field().await.map_err(|e| {
-        AppError::Internal(format!("Failed to read multipart field: {}", e))
-    })? {
+    while let Some(field) = multipart
+        .next_field()
+        .await
+        .map_err(|e| AppError::Internal(format!("Failed to read multipart field: {}", e)))?
+    {
         let name = field.name().unwrap_or("").to_string();
         if name == "file" {
             file_name = field.file_name().unwrap_or("strategy.py").to_string();
-            file_content = field.text().await.map_err(|e| {
-                AppError::Internal(format!("Failed to read file content: {}", e))
-            })?;
+            file_content = field
+                .text()
+                .await
+                .map_err(|e| AppError::Internal(format!("Failed to read file content: {}", e)))?;
         }
     }
 
@@ -94,7 +97,10 @@ pub async fn create_strategy(
     Json(body): Json<CreateStrategyRequest>,
 ) -> Result<(StatusCode, Json<ApiResponse<StrategyCreateResponse>>), AppError> {
     let result = strategy::create_strategy(&db, user.user_id, body).await?;
-    Ok((StatusCode::CREATED, Json(ApiResponse::success(StrategyCreateResponse(result)))))
+    Ok((
+        StatusCode::CREATED,
+        Json(ApiResponse::success(StrategyCreateResponse(result))),
+    ))
 }
 
 /// GET /api/v1/strategies/{id}
@@ -147,7 +153,9 @@ pub async fn bulk_update_status(
     Json(body): Json<BulkUpdateStatusRequest>,
 ) -> Result<Json<ApiResponse<StrategyBulkUpdateResponse>>, AppError> {
     let result = strategy::bulk_update_status(&db, user.user_id, body).await?;
-    Ok(Json(ApiResponse::success(StrategyBulkUpdateResponse(result))))
+    Ok(Json(ApiResponse::success(StrategyBulkUpdateResponse(
+        result,
+    ))))
 }
 
 /// GET /api/v1/strategies/export
@@ -167,7 +175,10 @@ pub async fn import_strategy(
     Json(body): Json<ImportStrategyRequest>,
 ) -> Result<(StatusCode, Json<ApiResponse<StrategyCreateResponse>>), AppError> {
     let result = strategy::import_strategy(&db, user.user_id, body).await?;
-    Ok((StatusCode::CREATED, Json(ApiResponse::success(StrategyCreateResponse(result)))))
+    Ok((
+        StatusCode::CREATED,
+        Json(ApiResponse::success(StrategyCreateResponse(result))),
+    ))
 }
 
 /// POST /api/v1/strategies/import (batch, JSON array body)

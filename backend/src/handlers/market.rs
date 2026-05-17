@@ -1,7 +1,7 @@
 use crate::middleware::auth::AuthenticatedUser;
 use crate::models::schemas::{
-    DepthQueryParams, DepthResponse, KlineQueryParams, KlineQueryResponse, TickerHistoryQueryParams,
-    TickerHistoryResponse, TickerQueryParams, TickerResponse,
+    DepthQueryParams, DepthResponse, KlineQueryParams, KlineQueryResponse,
+    TickerHistoryQueryParams, TickerHistoryResponse, TickerQueryParams, TickerResponse,
 };
 use crate::services::binance_rest::BinanceRestClient;
 use crate::services::market_data;
@@ -9,8 +9,8 @@ use crate::services::redis_cache::RedisCache;
 use crate::utils::error::AppError;
 use crate::utils::response::ApiResponse;
 use axum::{
-    extract::{Query, State},
     Extension, Json,
+    extract::{Query, State},
 };
 use sea_orm::DatabaseConnection;
 use std::sync::Arc;
@@ -62,10 +62,7 @@ pub async fn get_depth(
     }
 
     // RBAC check: trader can only access up to 20 levels
-    if levels > MAX_FREE_DEPTH_LEVELS
-        && user.role != "pro-trader"
-        && user.role != "admin"
-    {
+    if levels > MAX_FREE_DEPTH_LEVELS && user.role != "pro-trader" && user.role != "admin" {
         return Err(AppError::Forbidden(
             "当前角色仅支持 20 档深度，升级至 pro-trader 可查看 50 档".into(),
         ));

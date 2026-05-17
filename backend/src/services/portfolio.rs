@@ -5,14 +5,14 @@
 
 use chrono::{NaiveDate, TimeZone, Utc};
 use sea_orm::{
-    ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder,
-    Set, ActiveModelTrait,
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter,
+    QueryOrder, Set,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::db::order::{self, OrderSide, OrderStatus, PositionSide};
 use crate::db::backtest_results;
+use crate::db::order::{self, OrderSide, OrderStatus, PositionSide};
 use crate::db::portfolio;
 use crate::db::strategy;
 use crate::utils::error::AppError;
@@ -144,17 +144,20 @@ pub async fn get_summary(
         .await
         .map_err(|e| AppError::Database(e.to_string()))?;
 
-    let daily_pnl: f64 = today_orders.iter().map(|o| {
-        let sign = match o.side {
-            OrderSide::Buy => 1.0,
-            OrderSide::Sell => -1.0,
-        };
-        if let Some(avg_price) = o.avg_fill_price {
-            sign * (avg_price - o.price.unwrap_or(0.0)) * o.filled_quantity - o.fee
-        } else {
-            -o.fee
-        }
-    }).sum();
+    let daily_pnl: f64 = today_orders
+        .iter()
+        .map(|o| {
+            let sign = match o.side {
+                OrderSide::Buy => 1.0,
+                OrderSide::Sell => -1.0,
+            };
+            if let Some(avg_price) = o.avg_fill_price {
+                sign * (avg_price - o.price.unwrap_or(0.0)) * o.filled_quantity - o.fee
+            } else {
+                -o.fee
+            }
+        })
+        .sum();
 
     // 4. Calculate rates
     let daily_pnl_rate = if initial_balance > 0.0 {
@@ -190,8 +193,8 @@ pub async fn list_positions(
     let page = params.page.unwrap_or(1).max(1);
     let size = params.size.unwrap_or(20).clamp(1, 100);
 
-    let mut query = order::positions::Entity::find()
-        .filter(order::positions::Column::UserId.eq(user_id));
+    let mut query =
+        order::positions::Entity::find().filter(order::positions::Column::UserId.eq(user_id));
 
     if let Some(ref symbol) = params.symbol {
         query = query.filter(order::positions::Column::Symbol.eq(symbol));
@@ -331,22 +334,19 @@ pub async fn get_equity_curve(
     user_id: Uuid,
     params: &EquityCurveQuery,
 ) -> Result<EquityCurve, AppError> {
-    let mut query = portfolio::Entity::find()
-        .filter(portfolio::Column::UserId.eq(user_id));
+    let mut query = portfolio::Entity::find().filter(portfolio::Column::UserId.eq(user_id));
 
     // Date range filter
     if let Some(ref start_date) = params.start_date {
         if let Ok(dt) = NaiveDate::parse_from_str(start_date, "%Y-%m-%d") {
-            let start_utc = Utc
-                .from_utc_datetime(&dt.and_hms_opt(0, 0, 0).unwrap_or_default());
+            let start_utc = Utc.from_utc_datetime(&dt.and_hms_opt(0, 0, 0).unwrap_or_default());
             query = query.filter(portfolio::Column::Timestamp.gte(start_utc));
         }
     }
 
     if let Some(ref end_date) = params.end_date {
         if let Ok(dt) = NaiveDate::parse_from_str(end_date, "%Y-%m-%d") {
-            let end_utc = Utc
-                .from_utc_datetime(&dt.and_hms_opt(23, 59, 59).unwrap_or_default());
+            let end_utc = Utc.from_utc_datetime(&dt.and_hms_opt(23, 59, 59).unwrap_or_default());
             query = query.filter(portfolio::Column::Timestamp.lte(end_utc));
         }
     }
@@ -586,14 +586,12 @@ mod tests {
         let quantity: f64 = 0.5;
         let side_sign: f64 = 1.0; // long
         let current_price: f64 = 66000.0;
-        let unrealized_pnl: f64 =
-            (current_price - avg_entry_price) * quantity * side_sign;
+        let unrealized_pnl: f64 = (current_price - avg_entry_price) * quantity * side_sign;
         assert!((unrealized_pnl - 500.0_f64).abs() < f64::EPSILON);
 
         // Short position
         let side_sign: f64 = -1.0;
-        let unrealized_pnl: f64 =
-            (current_price - avg_entry_price) * quantity * side_sign;
+        let unrealized_pnl: f64 = (current_price - avg_entry_price) * quantity * side_sign;
         assert!((unrealized_pnl - (-500.0_f64)).abs() < f64::EPSILON);
     }
 

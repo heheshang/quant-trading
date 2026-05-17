@@ -8,8 +8,8 @@ use tracing::{debug, info, warn};
 
 /// Supported trading symbols
 const SUPPORTED_SYMBOLS: &[&str] = &[
-    "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "DOGEUSDT",
-    "ADAUSDT", "AVAXUSDT", "DOTUSDT", "LINKUSDT",
+    "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "DOGEUSDT", "ADAUSDT", "AVAXUSDT",
+    "DOTUSDT", "LINKUSDT",
 ];
 
 /// Mock ticker base prices (price, volume, high, low)
@@ -278,9 +278,7 @@ pub async fn get_ticker_history(
 ///
 /// 每 60s 将内存 ticker_cache 中所有 symbol 的 Ticker
 /// 批量 INSERT INTO ticker_snapshots
-pub async fn snapshot_tickers(
-    _db: &sea_orm::DatabaseConnection,
-) -> Result<(), AppError> {
+pub async fn snapshot_tickers(_db: &sea_orm::DatabaseConnection) -> Result<(), AppError> {
     // TODO: P1 implementation
     info!("snapshot_tickers called (TODO: P1 implementation)");
     Ok(())
@@ -289,9 +287,7 @@ pub async fn snapshot_tickers(
 /// 清理过期快照 (P1) — 每天执行
 ///
 /// DELETE FROM ticker_snapshots WHERE created_at < NOW() - INTERVAL '90 days'
-pub async fn cleanup_expired_snapshots(
-    _db: &sea_orm::DatabaseConnection,
-) -> Result<u64, AppError> {
+pub async fn cleanup_expired_snapshots(_db: &sea_orm::DatabaseConnection) -> Result<u64, AppError> {
     // TODO: P1 implementation
     info!("cleanup_expired_snapshots called (TODO: P1 implementation)");
     Ok(0)
@@ -316,12 +312,16 @@ mod tests {
     async fn test_supported_symbols_defined() {
         // Verify all expected symbols are supported
         let expected = vec![
-            "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "DOGEUSDT",
-            "ADAUSDT", "AVAXUSDT", "DOTUSDT", "LINKUSDT",
+            "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "DOGEUSDT", "ADAUSDT",
+            "AVAXUSDT", "DOTUSDT", "LINKUSDT",
         ];
         assert_eq!(SUPPORTED_SYMBOLS.len(), expected.len());
         for symbol in expected {
-            assert!(SUPPORTED_SYMBOLS.contains(&symbol), "Missing symbol: {}", symbol);
+            assert!(
+                SUPPORTED_SYMBOLS.contains(&symbol),
+                "Missing symbol: {}",
+                symbol
+            );
         }
     }
 

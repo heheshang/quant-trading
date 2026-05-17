@@ -1175,7 +1175,7 @@ fn template_type_to_uuid(template_type: &str) -> Uuid {
     let d4: [u8; 8] = [
         (hash >> 8) as u8,
         hash as u8,
-        ((hash >> 56) ^ 0x40) as u8,  // set version = 4
+        ((hash >> 56) ^ 0x40) as u8, // set version = 4
         ((hash >> 48) ^ 0x80) as u8, // set variant
         ((hash >> 40) & 0xff) as u8,
         ((hash >> 32) & 0xff) as u8,
@@ -1237,13 +1237,12 @@ pub async fn create_strategy(
         tt.clone()
     } else {
         // Otherwise resolve from template_id
-        resolve_template_type_from_id(&req.template_id)
-            .ok_or_else(|| {
-                AppError::Validation(format!(
-                    "Invalid template_id: {}. Could not resolve to a valid template_type",
-                    req.template_id
-                ))
-            })?
+        resolve_template_type_from_id(&req.template_id).ok_or_else(|| {
+            AppError::Validation(format!(
+                "Invalid template_id: {}. Could not resolve to a valid template_type",
+                req.template_id
+            ))
+        })?
     };
 
     // Log the template_id being used
@@ -1254,9 +1253,8 @@ pub async fn create_strategy(
     );
 
     // Validate template exists
-    let template = get_template(&template_type).ok_or_else(|| {
-        AppError::Validation(format!("Unknown template type: {}", template_type))
-    })?;
+    let template = get_template(&template_type)
+        .ok_or_else(|| AppError::Validation(format!("Unknown template type: {}", template_type)))?;
 
     // Validate parameters
     template
@@ -1278,7 +1276,9 @@ pub async fn create_strategy(
         return Err(AppError::Validation("Symbol cannot be empty".into()));
     }
     if req.symbol.len() > 20 {
-        return Err(AppError::Validation("Symbol must be <= 20 characters".into()));
+        return Err(AppError::Validation(
+            "Symbol must be <= 20 characters".into(),
+        ));
     }
 
     // Validate timeframe (allowed values)
@@ -1291,7 +1291,13 @@ pub async fn create_strategy(
     }
 
     // Validate strategy_type
-    let allowed_types = ["trend_following", "mean_reversion", "grid_trading", "arbitrage", "custom"];
+    let allowed_types = [
+        "trend_following",
+        "mean_reversion",
+        "grid_trading",
+        "arbitrage",
+        "custom",
+    ];
     if !allowed_types.contains(&req.strategy_type.as_str()) {
         return Err(AppError::Validation(format!(
             "Invalid strategy_type: {}. Allowed: trend_following/mean_reversion/grid_trading/arbitrage/custom",
@@ -1536,13 +1542,12 @@ pub async fn import_strategy(
         tt.clone()
     } else {
         // Otherwise resolve from template_id
-        resolve_template_type_from_id(&req.template_id)
-            .ok_or_else(|| {
-                AppError::Validation(format!(
-                    "Invalid template_id: {}. Could not resolve to a valid template_type",
-                    req.template_id
-                ))
-            })?
+        resolve_template_type_from_id(&req.template_id).ok_or_else(|| {
+            AppError::Validation(format!(
+                "Invalid template_id: {}. Could not resolve to a valid template_type",
+                req.template_id
+            ))
+        })?
     };
 
     // Log the template_id being used
@@ -1553,9 +1558,8 @@ pub async fn import_strategy(
     );
 
     // Validate template exists
-    let template = get_template(&template_type).ok_or_else(|| {
-        AppError::Validation(format!("Unknown template type: {}", template_type))
-    })?;
+    let template = get_template(&template_type)
+        .ok_or_else(|| AppError::Validation(format!("Unknown template type: {}", template_type)))?;
 
     // Validate parameters
     template
@@ -1587,7 +1591,13 @@ pub async fn import_strategy(
     }
 
     // Validate strategy_type
-    let allowed_types = ["trend_following", "mean_reversion", "grid_trading", "arbitrage", "custom"];
+    let allowed_types = [
+        "trend_following",
+        "mean_reversion",
+        "grid_trading",
+        "arbitrage",
+        "custom",
+    ];
     if !allowed_types.contains(&req.strategy_type.as_str()) {
         return Err(AppError::Validation(format!(
             "Invalid strategy_type: {}",
@@ -1681,13 +1691,12 @@ async fn import_single_strategy(
         tt.clone()
     } else {
         // Otherwise resolve from template_id
-        resolve_template_type_from_id(&req.template_id)
-            .ok_or_else(|| {
-                AppError::Validation(format!(
-                    "Invalid template_id: {}. Could not resolve to a valid template_type",
-                    req.template_id
-                ))
-            })?
+        resolve_template_type_from_id(&req.template_id).ok_or_else(|| {
+            AppError::Validation(format!(
+                "Invalid template_id: {}. Could not resolve to a valid template_type",
+                req.template_id
+            ))
+        })?
     };
 
     // Validate template exists
@@ -1820,7 +1829,7 @@ pub async fn bulk_delete_strategies(
 
 /// Store strategy code content (simple file-based storage)
 pub async fn store_strategy_code(
-    db: &DatabaseConnection,
+    _db: &DatabaseConnection,
     user_id: Uuid,
     file_name: &str,
     content: &str,
@@ -1828,13 +1837,12 @@ pub async fn store_strategy_code(
     use std::fs;
 
     // Determine storage directory
-    let storage_dir = std::env::var("STRATEGY_CODE_DIR")
-        .unwrap_or_else(|_| "/tmp/strategy_codes".to_string());
+    let storage_dir =
+        std::env::var("STRATEGY_CODE_DIR").unwrap_or_else(|_| "/tmp/strategy_codes".to_string());
 
     let user_dir = format!("{}/{}", storage_dir, user_id);
-    fs::create_dir_all(&user_dir).map_err(|e| {
-        AppError::Internal(format!("Failed to create strategy directory: {}", e))
-    })?;
+    fs::create_dir_all(&user_dir)
+        .map_err(|e| AppError::Internal(format!("Failed to create strategy directory: {}", e)))?;
 
     let safe_name = file_name
         .chars()
@@ -1842,9 +1850,8 @@ pub async fn store_strategy_code(
         .collect::<String>();
 
     let path = format!("{}/{}", user_dir, safe_name);
-    fs::write(&path, content).map_err(|e| {
-        AppError::Internal(format!("Failed to write strategy code file: {}", e))
-    })?;
+    fs::write(&path, content)
+        .map_err(|e| AppError::Internal(format!("Failed to write strategy code file: {}", e)))?;
 
     Ok(path)
 }
@@ -1885,37 +1892,44 @@ mod tests {
     #[test]
     fn test_ma_crossover_boundary() {
         let t = MaCrossoverTemplate;
-        assert!(t
-            .validate(&serde_json::json!({"fast_period": 5, "slow_period": 10}))
-            .is_ok());
-        assert!(t
-            .validate(&serde_json::json!({"fast_period": 50, "slow_period": 200}))
-            .is_ok());
+        assert!(
+            t.validate(&serde_json::json!({"fast_period": 5, "slow_period": 10}))
+                .is_ok()
+        );
+        assert!(
+            t.validate(&serde_json::json!({"fast_period": 50, "slow_period": 200}))
+                .is_ok()
+        );
     }
 
     #[test]
     fn test_ma_crossover_fast_gte_slow() {
         let t = MaCrossoverTemplate;
-        assert!(t
-            .validate(&serde_json::json!({"fast_period": 30, "slow_period": 10}))
-            .is_err());
-        assert!(t
-            .validate(&serde_json::json!({"fast_period": 10, "slow_period": 10}))
-            .is_err());
+        assert!(
+            t.validate(&serde_json::json!({"fast_period": 30, "slow_period": 10}))
+                .is_err()
+        );
+        assert!(
+            t.validate(&serde_json::json!({"fast_period": 10, "slow_period": 10}))
+                .is_err()
+        );
     }
 
     #[test]
     fn test_ma_crossover_invalid_values() {
         let t = MaCrossoverTemplate;
-        assert!(t
-            .validate(&serde_json::json!({"fast_period": 0, "slow_period": 30}))
-            .is_err());
-        assert!(t
-            .validate(&serde_json::json!({"fast_period": 10, "slow_period": 5}))
-            .is_err());
-        assert!(t
-            .validate(&serde_json::json!({"fast_period": 100, "slow_period": 30}))
-            .is_err());
+        assert!(
+            t.validate(&serde_json::json!({"fast_period": 0, "slow_period": 30}))
+                .is_err()
+        );
+        assert!(
+            t.validate(&serde_json::json!({"fast_period": 10, "slow_period": 5}))
+                .is_err()
+        );
+        assert!(
+            t.validate(&serde_json::json!({"fast_period": 100, "slow_period": 30}))
+                .is_err()
+        );
     }
 
     #[test]
@@ -1959,23 +1973,27 @@ mod tests {
     #[test]
     fn test_triple_ma_ordering() {
         let t = TripleMaTemplate;
-        assert!(t
-            .validate(&serde_json::json!({"short": 10, "medium": 5, "long": 50}))
-            .is_err());
-        assert!(t
-            .validate(&serde_json::json!({"short": 5, "medium": 10, "long": 5}))
-            .is_err());
+        assert!(
+            t.validate(&serde_json::json!({"short": 10, "medium": 5, "long": 50}))
+                .is_err()
+        );
+        assert!(
+            t.validate(&serde_json::json!({"short": 5, "medium": 10, "long": 5}))
+                .is_err()
+        );
     }
 
     #[test]
     fn test_triple_ma_boundary() {
         let t = TripleMaTemplate;
-        assert!(t
-            .validate(&serde_json::json!({"short": 5, "medium": 10, "long": 20}))
-            .is_ok());
-        assert!(t
-            .validate(&serde_json::json!({"short": 20, "medium": 50, "long": 200}))
-            .is_ok());
+        assert!(
+            t.validate(&serde_json::json!({"short": 5, "medium": 10, "long": 20}))
+                .is_ok()
+        );
+        assert!(
+            t.validate(&serde_json::json!({"short": 20, "medium": 50, "long": 200}))
+                .is_ok()
+        );
     }
 
     // ===== MACD Tests =====
@@ -1988,23 +2006,27 @@ mod tests {
     #[test]
     fn test_macd_fast_lt_slow() {
         let t = MacdTemplate;
-        assert!(t
-            .validate(&serde_json::json!({"fast": 26, "slow": 12, "signal": 9}))
-            .is_err());
-        assert!(t
-            .validate(&serde_json::json!({"fast": 12, "slow": 12, "signal": 9}))
-            .is_err());
+        assert!(
+            t.validate(&serde_json::json!({"fast": 26, "slow": 12, "signal": 9}))
+                .is_err()
+        );
+        assert!(
+            t.validate(&serde_json::json!({"fast": 12, "slow": 12, "signal": 9}))
+                .is_err()
+        );
     }
 
     #[test]
     fn test_macd_signal_range() {
         let t = MacdTemplate;
-        assert!(t
-            .validate(&serde_json::json!({"fast": 12, "slow": 26, "signal": 1}))
-            .is_err());
-        assert!(t
-            .validate(&serde_json::json!({"fast": 12, "slow": 26, "signal": 50}))
-            .is_err());
+        assert!(
+            t.validate(&serde_json::json!({"fast": 12, "slow": 26, "signal": 1}))
+                .is_err()
+        );
+        assert!(
+            t.validate(&serde_json::json!({"fast": 12, "slow": 26, "signal": 50}))
+                .is_err()
+        );
     }
 
     // ===== Bollinger Tests =====
@@ -2017,15 +2039,18 @@ mod tests {
     #[test]
     fn test_bollinger_std_dev_range() {
         let t = BollingerTemplate;
-        assert!(t
-            .validate(&serde_json::json!({"period": 20, "std_dev": 0.5}))
-            .is_err());
-        assert!(t
-            .validate(&serde_json::json!({"period": 20, "std_dev": 5.0}))
-            .is_err());
-        assert!(t
-            .validate(&serde_json::json!({"period": 20, "std_dev": 1.5}))
-            .is_ok());
+        assert!(
+            t.validate(&serde_json::json!({"period": 20, "std_dev": 0.5}))
+                .is_err()
+        );
+        assert!(
+            t.validate(&serde_json::json!({"period": 20, "std_dev": 5.0}))
+                .is_err()
+        );
+        assert!(
+            t.validate(&serde_json::json!({"period": 20, "std_dev": 1.5}))
+                .is_ok()
+        );
     }
 
     // ===== RSI Tests =====
@@ -2038,12 +2063,14 @@ mod tests {
     #[test]
     fn test_rsi_overbought_oversold() {
         let t = RsiTemplate;
-        assert!(t
-            .validate(&serde_json::json!({"period": 14, "overbought": 70, "oversold": 30}))
-            .is_ok());
-        assert!(t
-            .validate(&serde_json::json!({"period": 14, "overbought": 70, "oversold": 75}))
-            .is_err());
+        assert!(
+            t.validate(&serde_json::json!({"period": 14, "overbought": 70, "oversold": 30}))
+                .is_ok()
+        );
+        assert!(
+            t.validate(&serde_json::json!({"period": 14, "overbought": 70, "oversold": 75}))
+                .is_err()
+        );
     }
 
     // ===== Keltner Tests =====
@@ -2056,12 +2083,14 @@ mod tests {
     #[test]
     fn test_keltner_atr_range() {
         let t = KeltnerTemplate;
-        assert!(t
-            .validate(&serde_json::json!({"period": 20, "atr_multiplier": 0.5}))
-            .is_err());
-        assert!(t
-            .validate(&serde_json::json!({"period": 20, "atr_multiplier": 4.0}))
-            .is_err());
+        assert!(
+            t.validate(&serde_json::json!({"period": 20, "atr_multiplier": 0.5}))
+                .is_err()
+        );
+        assert!(
+            t.validate(&serde_json::json!({"period": 20, "atr_multiplier": 4.0}))
+                .is_err()
+        );
     }
 
     // ===== ATR Stop Tests =====
@@ -2074,12 +2103,14 @@ mod tests {
     #[test]
     fn test_atr_stop_multiplier_range() {
         let t = AtrStopTemplate;
-        assert!(t
-            .validate(&serde_json::json!({"period": 14, "multiplier": 0.5}))
-            .is_err());
-        assert!(t
-            .validate(&serde_json::json!({"period": 14, "multiplier": 6.0}))
-            .is_err());
+        assert!(
+            t.validate(&serde_json::json!({"period": 14, "multiplier": 0.5}))
+                .is_err()
+        );
+        assert!(
+            t.validate(&serde_json::json!({"period": 14, "multiplier": 6.0}))
+                .is_err()
+        );
     }
 
     // ===== Mean Reversion Tests =====
@@ -2092,12 +2123,14 @@ mod tests {
     #[test]
     fn test_mean_reversion_std_ordering() {
         let t = MeanReversionTemplate;
-        assert!(t
-            .validate(&serde_json::json!({"period": 20, "entry_std": 1.0, "exit_std": 1.5}))
-            .is_err());
-        assert!(t
-            .validate(&serde_json::json!({"period": 20, "entry_std": 1.0, "exit_std": 1.0}))
-            .is_err());
+        assert!(
+            t.validate(&serde_json::json!({"period": 20, "entry_std": 1.0, "exit_std": 1.5}))
+                .is_err()
+        );
+        assert!(
+            t.validate(&serde_json::json!({"period": 20, "entry_std": 1.0, "exit_std": 1.0}))
+                .is_err()
+        );
     }
 
     // ===== Ichimoku Tests =====
@@ -2110,12 +2143,16 @@ mod tests {
     #[test]
     fn test_ichimoku_boundary() {
         let t = IchimokuTemplate;
-        assert!(t
-            .validate(&serde_json::json!({"conversion": 5, "base": 10, "span": 20, "displ": 5}))
-            .is_ok());
-        assert!(t
-            .validate(&serde_json::json!({"conversion": 20, "base": 60, "span": 120, "displ": 60}))
-            .is_ok());
+        assert!(
+            t.validate(&serde_json::json!({"conversion": 5, "base": 10, "span": 20, "displ": 5}))
+                .is_ok()
+        );
+        assert!(
+            t.validate(
+                &serde_json::json!({"conversion": 20, "base": 60, "span": 120, "displ": 60})
+            )
+            .is_ok()
+        );
     }
 
     // ===== Double Bollinger Tests =====
@@ -2128,12 +2165,14 @@ mod tests {
     #[test]
     fn test_double_bollinger_inner_lt_outer() {
         let t = DoubleBollingerTemplate;
-        assert!(t
-            .validate(&serde_json::json!({"period": 20, "inner_std": 2.5, "outer_std": 1.5}))
-            .is_err());
-        assert!(t
-            .validate(&serde_json::json!({"period": 20, "inner_std": 2.0, "outer_std": 2.0}))
-            .is_err());
+        assert!(
+            t.validate(&serde_json::json!({"period": 20, "inner_std": 2.5, "outer_std": 1.5}))
+                .is_err()
+        );
+        assert!(
+            t.validate(&serde_json::json!({"period": 20, "inner_std": 2.0, "outer_std": 2.0}))
+                .is_err()
+        );
     }
 
     // ===== All Templates Tests =====

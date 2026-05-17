@@ -2,17 +2,17 @@ use crate::middleware::auth::AuthenticatedUser;
 use crate::models::schemas::{
     KlineCleanRequest, KlineCleanResponse, KlineCsvImportResponse, KlineExportParams,
     KlineFetchResponse, KlineImportHistoryResponse, KlineImportRequest, KlineImportResponse,
-    KlineLatestResponse, KlineQueryParams, KlineQualityResponse, KlineQueryResponse,
+    KlineLatestResponse, KlineQualityResponse, KlineQueryParams, KlineQueryResponse,
     KlineRollbackResponse, KlineSymbolListResponse,
 };
 use crate::services::kline;
 use crate::utils::error::AppError;
 use crate::utils::response::ApiResponse;
 use axum::{
+    Json,
     extract::{Query, State},
     http::HeaderMap,
     response::IntoResponse,
-    Json,
 };
 use sea_orm::DatabaseConnection;
 use serde::Deserialize;
@@ -88,26 +88,31 @@ pub async fn import_csv(
     let mut interval = String::new();
     let mut csv_content = String::new();
 
-    while let Some(field) = multipart.next_field().await.map_err(|e| {
-        AppError::Internal(format!("Failed to read multipart field: {}", e))
-    })? {
+    while let Some(field) = multipart
+        .next_field()
+        .await
+        .map_err(|e| AppError::Internal(format!("Failed to read multipart field: {}", e)))?
+    {
         let name = field.name().unwrap_or("").to_string();
-        
+
         match name.as_str() {
             "symbol" => {
-                symbol = field.text().await.map_err(|e| {
-                    AppError::Internal(format!("Failed to read symbol: {}", e))
-                })?;
+                symbol = field
+                    .text()
+                    .await
+                    .map_err(|e| AppError::Internal(format!("Failed to read symbol: {}", e)))?;
             }
             "interval" => {
-                interval = field.text().await.map_err(|e| {
-                    AppError::Internal(format!("Failed to read interval: {}", e))
-                })?;
+                interval = field
+                    .text()
+                    .await
+                    .map_err(|e| AppError::Internal(format!("Failed to read interval: {}", e)))?;
             }
             "file" => {
-                csv_content = field.text().await.map_err(|e| {
-                    AppError::Internal(format!("Failed to read CSV file: {}", e))
-                })?;
+                csv_content = field
+                    .text()
+                    .await
+                    .map_err(|e| AppError::Internal(format!("Failed to read CSV file: {}", e)))?;
             }
             _ => {}
         }
@@ -153,7 +158,9 @@ pub async fn import_history(
     State(db): State<Arc<DatabaseConnection>>,
 ) -> Result<Json<ApiResponse<KlineImportHistoryResponse>>, AppError> {
     let result = kline::import_history(&db, user.user_id).await?;
-    Ok(Json(ApiResponse::success(KlineImportHistoryResponse(result))))
+    Ok(Json(ApiResponse::success(KlineImportHistoryResponse(
+        result,
+    ))))
 }
 
 /// GET /api/v1/kline/quality

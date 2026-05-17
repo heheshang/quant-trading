@@ -19,8 +19,13 @@ pub enum OrderSide {
 
 impl Serialize for OrderSide {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where S: serde::Serializer {
-        serializer.serialize_str(match self { OrderSide::Buy => "buy", OrderSide::Sell => "sell" })
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(match self {
+            OrderSide::Buy => "buy",
+            OrderSide::Sell => "sell",
+        })
     }
 }
 
@@ -35,8 +40,13 @@ pub enum OrderType {
 
 impl Serialize for OrderType {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where S: serde::Serializer {
-        serializer.serialize_str(match self { OrderType::Limit => "limit", OrderType::Market => "market" })
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(match self {
+            OrderType::Limit => "limit",
+            OrderType::Market => "market",
+        })
     }
 }
 
@@ -66,7 +76,9 @@ pub enum OrderStatus {
 
 impl Serialize for OrderStatus {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where S: serde::Serializer {
+    where
+        S: serde::Serializer,
+    {
         let s = match self {
             OrderStatus::Pending => "pending",
             OrderStatus::PartialFilled => "partial_filled",
@@ -122,8 +134,13 @@ pub enum TradeMode {
 
 impl Serialize for TradeMode {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where S: serde::Serializer {
-        serializer.serialize_str(match self { TradeMode::Paper => "paper", TradeMode::Live => "live" })
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(match self {
+            TradeMode::Paper => "paper",
+            TradeMode::Live => "live",
+        })
     }
 }
 
@@ -149,8 +166,13 @@ pub enum PositionSide {
 
 impl Serialize for PositionSide {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where S: serde::Serializer {
-        serializer.serialize_str(match self { PositionSide::Long => "long", PositionSide::Short => "short" })
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(match self {
+            PositionSide::Long => "long",
+            PositionSide::Short => "short",
+        })
     }
 }
 

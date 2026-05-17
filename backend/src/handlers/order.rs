@@ -6,9 +6,9 @@
 #![allow(clippy::explicit_auto_deref)]
 
 use axum::{
+    Extension, Json,
     extract::{Path, Query, State},
     http::StatusCode,
-    Extension, Json,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -19,8 +19,8 @@ use crate::services::matching_engine::MatchingEngine;
 use crate::utils::error::AppError;
 use crate::utils::response::ApiResponse;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait,
-    QueryFilter, QueryOrder, QuerySelect, Set,
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter,
+    QueryOrder, QuerySelect, Set,
 };
 use std::sync::Arc;
 
@@ -258,8 +258,7 @@ async fn unfreeze_on_cancel(
                 .map_err(|e| AppError::Database(e.to_string()))?
                 .ok_or_else(|| AppError::NotFound("Paper account not found".to_string()))?;
             let mut acc_active: crate::db::order::paper_accounts::ActiveModel = account.into();
-            acc_active.frozen_balance =
-                Set(acc_active.frozen_balance.unwrap() - unfilled_notional);
+            acc_active.frozen_balance = Set(acc_active.frozen_balance.unwrap() - unfilled_notional);
             acc_active.balance = Set(acc_active.balance.unwrap() + unfilled_notional);
             acc_active.updated_at = Set(chrono::Utc::now());
             acc_active.update(db).await.map_err(|e| {
@@ -316,7 +315,9 @@ pub async fn create_order(
         .map_err(|_| AppError::BadRequest("Invalid quantity format".to_string()))?;
 
     if quantity <= 0.0 {
-        return Err(AppError::BadRequest("Quantity must be positive".to_string()));
+        return Err(AppError::BadRequest(
+            "Quantity must be positive".to_string(),
+        ));
     }
 
     let price: Option<f64> = match order_type {
@@ -341,9 +342,7 @@ pub async fn create_order(
         .one(&*db)
         .await
         .map_err(|e| AppError::Database(e.to_string()))?
-        .ok_or_else(|| {
-            AppError::SymbolNotTradable(format!("Symbol not found: {}", req.symbol))
-        })?;
+        .ok_or_else(|| AppError::SymbolNotTradable(format!("Symbol not found: {}", req.symbol)))?;
 
     if !symbol_config.enabled {
         return Err(AppError::SymbolNotTradable(format!(
@@ -540,8 +539,8 @@ pub async fn list_orders(
     let page = query.page.unwrap_or(1).max(1);
     let size = query.size.unwrap_or(20).clamp(1, 100);
 
-    let mut find_query = crate::db::order::Entity::find()
-        .filter(crate::db::order::Column::UserId.eq(user.user_id));
+    let mut find_query =
+        crate::db::order::Entity::find().filter(crate::db::order::Column::UserId.eq(user.user_id));
 
     if let Some(ref status) = query.status {
         let status_enum: OrderStatus =
@@ -590,7 +589,9 @@ pub async fn get_order(
         .ok_or_else(|| AppError::NotFound(format!("Order not found: {}", order_id)))?;
 
     if order.user_id != user.user_id {
-        return Err(AppError::Forbidden("No permission to access this order".to_string()));
+        return Err(AppError::Forbidden(
+            "No permission to access this order".to_string(),
+        ));
     }
 
     Ok(Json(ApiResponse::success(order_to_response(&order))))
@@ -615,7 +616,9 @@ pub async fn cancel_order(
         .ok_or_else(|| AppError::NotFound(format!("Order not found: {}", order_id)))?;
 
     if order.user_id != user.user_id {
-        return Err(AppError::Forbidden("No permission to cancel this order".to_string()));
+        return Err(AppError::Forbidden(
+            "No permission to cancel this order".to_string(),
+        ));
     }
 
     if order.status.is_terminal() {
@@ -666,10 +669,10 @@ pub async fn cancel_all_orders(
 ) -> Result<Json<ApiResponse<CancelAllResult>>, AppError> {
     let mut find_query = crate::db::order::Entity::find()
         .filter(crate::db::order::Column::UserId.eq(user.user_id))
-        .filter(crate::db::order::Column::Status.is_in(vec![
-            OrderStatus::Pending,
-            OrderStatus::PartialFilled,
-        ]));
+        .filter(
+            crate::db::order::Column::Status
+                .is_in(vec![OrderStatus::Pending, OrderStatus::PartialFilled]),
+        );
 
     if let Some(ref symbol) = req.symbol {
         find_query = find_query.filter(crate::db::order::Column::Symbol.eq(symbol));
@@ -740,8 +743,7 @@ pub async fn list_trades(
         .filter(crate::db::order::trades::Column::UserId.eq(user.user_id));
 
     if let Some(ref symbol) = query.symbol {
-        find_query =
-            find_query.filter(crate::db::order::trades::Column::Symbol.eq(symbol));
+        find_query = find_query.filter(crate::db::order::trades::Column::Symbol.eq(symbol));
     }
 
     let paginator = find_query
@@ -933,8 +935,12 @@ pub async fn close_position(
             let filled_qty = result.filled_quantity;
             let fill_price = result.avg_fill_price.unwrap_or(0.0);
             let is_long = position.side == PositionSide::Long;
-            let realized_pnl =
-                MatchingEngine::calculate_realized_pnl(position.avg_entry_price, fill_price, filled_qty, is_long);
+            let realized_pnl = MatchingEngine::calculate_realized_pnl(
+                position.avg_entry_price,
+                fill_price,
+                filled_qty,
+                is_long,
+            );
 
             // D3: 更新持仓 — 减少数量
             let position_id = position.id;
@@ -1021,10 +1027,10 @@ pub async fn get_account(
 
     let active_orders = crate::db::order::Entity::find()
         .filter(crate::db::order::Column::UserId.eq(user.user_id))
-        .filter(crate::db::order::Column::Status.is_in(vec![
-            OrderStatus::Pending,
-            OrderStatus::PartialFilled,
-        ]))
+        .filter(
+            crate::db::order::Column::Status
+                .is_in(vec![OrderStatus::Pending, OrderStatus::PartialFilled]),
+        )
         .count(&*db)
         .await
         .map_err(|e| AppError::Database(e.to_string()))?;
@@ -1149,10 +1155,7 @@ mod tests {
     #[test]
     fn test_parse_order_type_valid() {
         assert!(matches!(parse_order_type("limit"), Ok(OrderType::Limit)));
-        assert!(matches!(
-            parse_order_type("market"),
-            Ok(OrderType::Market)
-        ));
+        assert!(matches!(parse_order_type("market"), Ok(OrderType::Market)));
     }
 
     #[test]

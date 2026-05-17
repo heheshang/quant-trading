@@ -1,9 +1,9 @@
 [package]
 name = "quant-trading-backend"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 description = "Quantitative Trading System Backend"
-rust-version = "1.85"
+rust-version = "1.95"
 
 [dependencies]
 # Web framework
@@ -43,7 +43,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
 
 # WebSocket
-tokio-tungstenite = { version = "0.26", features = ["__rustls-tls"] }
+tokio-tungstenite = { version = "0.26", default-features = false, features = ["connect", "rustls", "native-tls"] }
 
 # UUID
 uuid = { version = "1", features = ["v4", "serde"] }

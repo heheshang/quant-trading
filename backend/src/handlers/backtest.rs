@@ -14,8 +14,8 @@
 //! the response. No business logic lives here.
 
 use axum::{
-    extract::{Path, Query, State},
     Json,
+    extract::{Path, Query, State},
 };
 use sea_orm::DatabaseConnection;
 use serde::Deserialize;
@@ -89,7 +89,8 @@ pub async fn get_backtest_trades(
     Path(id): Path<Uuid>,
     Query(pagination): Query<PaginationQuery>,
 ) -> Result<Json<ApiResponse<PaginatedResponse<TradeRecord>>>, AppError> {
-    let result = BacktestService::get_backtest_trades(&db, id, pagination.page(), pagination.size()).await?;
+    let result =
+        BacktestService::get_backtest_trades(&db, id, pagination.page(), pagination.size()).await?;
     Ok(Json(ApiResponse::success(result)))
 }
 
@@ -104,7 +105,8 @@ pub async fn get_backtest_equity(
     Path(id): Path<Uuid>,
     Query(pagination): Query<PaginationQuery>,
 ) -> Result<Json<ApiResponse<PaginatedResponse<EquityPoint>>>, AppError> {
-    let result = BacktestService::get_backtest_equity(&db, id, pagination.page(), pagination.size()).await?;
+    let result =
+        BacktestService::get_backtest_equity(&db, id, pagination.page(), pagination.size()).await?;
     Ok(Json(ApiResponse::success(result)))
 }
 

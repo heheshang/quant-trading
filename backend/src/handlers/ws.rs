@@ -2,8 +2,8 @@ use crate::services::exchange::ws_hub::{HubMessage, WsHub};
 use crate::utils::error::AppError;
 use axum::{
     extract::{
-        ws::{Message, WebSocket, WebSocketUpgrade},
         Extension, Query,
+        ws::{Message, WebSocket, WebSocketUpgrade},
     },
     response::IntoResponse,
 };
@@ -25,43 +25,58 @@ struct WsJsonMessage<'a> {
 /// Serialize HubMessage → JSON string for WS client
 fn serialize_hub_message(msg: HubMessage) -> String {
     match msg {
-        HubMessage::Ticker { symbol, price, change, change_pct, volume, high, low, bid, ask } => {
-            serde_json::to_string(&WsJsonMessage {
-                channel: "market:ticker",
-                symbol: &symbol,
-                data: serde_json::json!({
-                    "price": price,
-                    "change": change,
-                    "changePercent": change_pct,
-                    "volume": volume,
-                    "high": high,
-                    "low": low,
-                    "bid": bid,
-                    "ask": ask,
-                }),
-            }).unwrap_or_default()
-        }
-        HubMessage::Depth { symbol, bids, asks } => {
-            serde_json::to_string(&WsJsonMessage {
-                channel: "market:depth",
-                symbol: &symbol,
-                data: serde_json::json!({ "bids": bids, "asks": asks }),
-            }).unwrap_or_default()
-        }
-        HubMessage::Kline { symbol, interval, open, high, low, close, volume } => {
-            serde_json::to_string(&WsJsonMessage {
-                channel: "market:kline",
-                symbol: &symbol,
-                data: serde_json::json!({
-                    "interval": interval,
-                    "open": open,
-                    "high": high,
-                    "low": low,
-                    "close": close,
-                    "volume": volume,
-                }),
-            }).unwrap_or_default()
-        }
+        HubMessage::Ticker {
+            symbol,
+            price,
+            change,
+            change_pct,
+            volume,
+            high,
+            low,
+            bid,
+            ask,
+        } => serde_json::to_string(&WsJsonMessage {
+            channel: "market:ticker",
+            symbol: &symbol,
+            data: serde_json::json!({
+                "price": price,
+                "change": change,
+                "changePercent": change_pct,
+                "volume": volume,
+                "high": high,
+                "low": low,
+                "bid": bid,
+                "ask": ask,
+            }),
+        })
+        .unwrap_or_default(),
+        HubMessage::Depth { symbol, bids, asks } => serde_json::to_string(&WsJsonMessage {
+            channel: "market:depth",
+            symbol: &symbol,
+            data: serde_json::json!({ "bids": bids, "asks": asks }),
+        })
+        .unwrap_or_default(),
+        HubMessage::Kline {
+            symbol,
+            interval,
+            open,
+            high,
+            low,
+            close,
+            volume,
+        } => serde_json::to_string(&WsJsonMessage {
+            channel: "market:kline",
+            symbol: &symbol,
+            data: serde_json::json!({
+                "interval": interval,
+                "open": open,
+                "high": high,
+                "low": low,
+                "close": close,
+                "volume": volume,
+            }),
+        })
+        .unwrap_or_default(),
     }
 }
 

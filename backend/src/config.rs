@@ -26,9 +26,8 @@ pub struct Config {
 
 impl Config {
     pub fn from_env() -> Self {
-        let database_url = env::var("DATABASE_URL").unwrap_or_else(|_| {
-            "postgres://postgres:***@localhost:5432/quant_trading".to_string()
-        });
+        let database_url = env::var("DATABASE_URL")
+            .unwrap_or_else(|_| "postgres://postgres:***@localhost:5432/quant_trading".to_string());
 
         let jwt_secret = env::var("JWT_SECRET")
             .unwrap_or_else(|_| "super-secret-key-change-in-production".to_string());

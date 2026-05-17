@@ -1,0 +1,105 @@
+# Pre-commit hooks configuration
+# https://pre-commit.com
+#
+# Install: pre-commit install --install-hooks
+# Run manually: pre-commit run --all-files
+
+fail_fast: false
+default_install_hook_types: [pre-commit, commit-msg]
+default_stages: [pre-commit, manual]
+
+repos:
+  # ─── Generic pre-commit hooks ────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-case-conflict       # Warn on case-only filenames
+      - id: check-merge-conflict      # Warn on unmerged conflicts
+      - id: check-symlinks           # Warn on broken symlinks
+      - id: check-yaml               # Validate YAML syntax
+      - id: end-of-file-fixer        # Ensure files end with newline
+      - id: mixed-line-ending        # Normalize line endings
+      - id: trailing-whitespace      # Trim trailing whitespace
+
+  # ─── Rust: rustfmt ────
+  - repo: local
+    hooks:
+      - id: cargo-fmt
+        name: cargo fmt
+        description: Format Rust sources with rustfmt (nightly)
+        entry: bash -c 'cd backend && cargo +nightly fmt -- --check'
+        language: system
+        files: \.rs$
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # ─── Rust: clippy ────
+      - id: cargo-clippy
+        name: cargo clippy
+        description: Lint Rust sources with clippy (warnings as errors)
+        entry: bash -c 'cd backend && cargo clippy --all-targets --all-features --tests --benches -- -D warnings'
+        language: system
+        files: \.rs$
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # ─── Rust: deny (licenses/advisories/bans) ────
+      - id: cargo-deny
+        name: cargo deny check
+        description: Check cargo dependencies (licenses, security advisories, duplicates)
+        entry: bash -c 'cd backend && cargo deny check -d'
+        language: system
+        files: \.rs$
+        pass_filenames: false
+        stages: [pre-commit, manual]
+
+      # ─── Typo check ────
+      - id: typos
+        name: typos
+        description: Check for typos in source files
+        entry: bash -c 'typos --format downstream'
+        language: system
+        files: \.*$
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # ─── Backend: cargo check ────
+      - id: cargo-check
+        name: cargo check
+        description: Check the backend package for errors (compiles without running)
+        entry: bash -c 'cd backend && cargo check --all'
+        language: system
+        files: \.rs$
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # ─── Backend: cargo test ────
+      - id: cargo-test
+        name: cargo test
+        description: Run backend unit tests
+        entry: bash -c 'cd backend && cargo test'
+        language: system
+        files: \.rs$
+        pass_filenames: false
+        stages: [pre-commit, manual]
+        # Use manual stage so tests don't block commit, but can be triggered manually
+
+      # ─── Frontend: vue-tsc type check ────
+      - id: frontend-typecheck
+        name: frontend typecheck
+        description: Check frontend TypeScript types with vue-tsc
+        entry: bash -c 'cd frontend && bunx vue-tsc --noEmit'
+        language: system
+        files: \.ts$|\.vue$
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # ─── Frontend: ESLint ────
+      - id: frontend-lint
+        name: frontend lint
+        description: Lint frontend with ESLint
+        entry: bash -c 'cd frontend && bun run lint'
+        language: system
+        files: \.ts$|\.vue$
+        pass_filenames: false
+        stages: [pre-commit]

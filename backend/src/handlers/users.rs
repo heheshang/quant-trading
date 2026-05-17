@@ -8,8 +8,8 @@ use crate::services::auth;
 use crate::utils::error::AppError;
 use crate::utils::response::ApiResponse;
 use axum::{
-    extract::{Path, Query, State},
     Json,
+    extract::{Path, Query, State},
 };
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait, PaginatorTrait,
@@ -26,10 +26,7 @@ fn require_admin(user: &AuthenticatedUser) -> Result<(), AppError> {
 }
 
 /// Helper to build UserResponse from user model + role
-fn build_user_response(
-    user_model: &user::Model,
-    role_model: &role::Model,
-) -> UserResponse {
+fn build_user_response(user_model: &user::Model, role_model: &role::Model) -> UserResponse {
     UserResponse {
         id: user_model.id,
         username: user_model.username.clone(),
@@ -98,14 +95,14 @@ pub async fn list_users(
         user_list.push(build_user_response(&u, &role));
     }
 
-    Ok(Json(ApiResponse::success(crate::models::schemas::UserListResponse(
-        PaginatedResponse {
+    Ok(Json(ApiResponse::success(
+        crate::models::schemas::UserListResponse(PaginatedResponse {
             items: user_list,
             total,
             page,
             size,
-        },
-    ))))
+        }),
+    )))
 }
 
 /// Get current user profile
@@ -160,7 +157,9 @@ pub async fn update_me(
         .await?
         .ok_or_else(|| AppError::Internal("Role not found".into()))?;
 
-    Ok(Json(ApiResponse::success(UserUpdateResponse(build_user_response(&updated, &role)))))
+    Ok(Json(ApiResponse::success(UserUpdateResponse(
+        build_user_response(&updated, &role),
+    ))))
 }
 
 /// Change current user password
@@ -193,9 +192,11 @@ pub async fn change_password(
     active.updated_at = sea_orm::Set(chrono::Utc::now());
     active.update(&*db).await?;
 
-    Ok(Json(ApiResponse::success(crate::models::schemas::ChangePasswordResponse {
-        message: "Password changed successfully".into(),
-    })))
+    Ok(Json(ApiResponse::success(
+        crate::models::schemas::ChangePasswordResponse {
+            message: "Password changed successfully".into(),
+        },
+    )))
 }
 
 /// Admin: update user (including role)
@@ -253,7 +254,9 @@ pub async fn admin_update_user(
         .await?
         .ok_or_else(|| AppError::Internal("Role not found".into()))?;
 
-    Ok(Json(ApiResponse::success(build_user_response(&updated, &role))))
+    Ok(Json(ApiResponse::success(build_user_response(
+        &updated, &role,
+    ))))
 }
 
 /// Admin: delete user
@@ -278,9 +281,11 @@ pub async fn admin_delete_user(
 
     user_model.delete(&*db).await?;
 
-    Ok(Json(ApiResponse::success(crate::models::schemas::ChangePasswordResponse {
-        message: "User deleted successfully".into(),
-    })))
+    Ok(Json(ApiResponse::success(
+        crate::models::schemas::ChangePasswordResponse {
+            message: "User deleted successfully".into(),
+        },
+    )))
 }
 
 /// List all roles
@@ -305,5 +310,7 @@ pub async fn list_roles(
         })
         .collect();
 
-    Ok(Json(ApiResponse::success(crate::models::schemas::RoleListResponse(role_list))))
+    Ok(Json(ApiResponse::success(
+        crate::models::schemas::RoleListResponse(role_list),
+    )))
 }

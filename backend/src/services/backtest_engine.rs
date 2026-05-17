@@ -7,8 +7,8 @@
 //! - O(n) equity_curve traversal for metrics
 //! - [`CancellationToken`] + [`Arc<AtomicU32>`] for progress/cancel
 
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
 use tokio_util::sync::CancellationToken;
 
 use crate::models::backtest::{

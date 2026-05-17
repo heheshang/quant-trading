@@ -172,10 +172,7 @@ mod tests {
             AppError::InsufficientBalance("x".into()),
             StatusCode::BAD_REQUEST,
         );
-        assert_status(
-            AppError::RiskRejected("x".into()),
-            StatusCode::BAD_REQUEST,
-        );
+        assert_status(AppError::RiskRejected("x".into()), StatusCode::BAD_REQUEST);
         assert_status(
             AppError::SymbolNotTradable("x".into()),
             StatusCode::BAD_REQUEST,

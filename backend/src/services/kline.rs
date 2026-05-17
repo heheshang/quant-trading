@@ -1,13 +1,13 @@
 use crate::db::kline::{self, Entity as Kline};
 use crate::models::schemas::{
-    KlineCleanRequest, KlineCleanResult, KlineExportParams, KlineImportItem, KlineImportRequest,
-    KlineImportResult, KlineImportLogResponse, KlineListResponse, KlineListMeta, KlineQualityAnomaly,
-    KlineQualityReport, KlineQueryParams, KlineResponse,
+    KlineCleanRequest, KlineCleanResult, KlineExportParams, KlineImportItem,
+    KlineImportLogResponse, KlineImportRequest, KlineImportResult, KlineListMeta,
+    KlineListResponse, KlineQualityAnomaly, KlineQualityReport, KlineQueryParams, KlineResponse,
 };
 use crate::utils::error::AppError;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, PaginatorTrait,
-    QueryFilter, QueryOrder, QuerySelect,
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait,
+    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -141,8 +141,8 @@ pub async fn import_klines(
 
     // Process in batches of BATCH_SIZE
     for chunk in req.data.chunks(BATCH_SIZE) {
-        let (imp, dup, fail) = import_batch(db, user_id, &req.symbol, &req.interval, &req.source, chunk)
-            .await?;
+        let (imp, dup, fail) =
+            import_batch(db, user_id, &req.symbol, &req.interval, &req.source, chunk).await?;
         imported += imp;
         duplicates += dup;
         failed += fail;
@@ -175,7 +175,9 @@ fn validate_import_request(req: &KlineImportRequest) -> Result<(), AppError> {
         return Err(AppError::Validation("data cannot be empty".into()));
     }
     if req.data.len() > 100_000 {
-        return Err(AppError::Validation("data exceeds maximum of 100,000 rows per import".into()));
+        return Err(AppError::Validation(
+            "data exceeds maximum of 100,000 rows per import".into(),
+        ));
     }
     Ok(())
 }
@@ -313,7 +315,9 @@ pub async fn import_history(
             let interval: String = row.try_get_by_index::<String>(1).ok()?;
             let source: String = row.try_get_by_index::<String>(2).ok()?;
             let total_rows: i64 = row.try_get_by_index::<i64>(3).ok()?;
-            let created_at: chrono::DateTime<chrono::Utc> = row.try_get_by_index::<chrono::DateTime<chrono::Utc>>(4).ok()?;
+            let created_at: chrono::DateTime<chrono::Utc> = row
+                .try_get_by_index::<chrono::DateTime<chrono::Utc>>(4)
+                .ok()?;
 
             Some(ImportSummary {
                 symbol,
@@ -591,11 +595,7 @@ pub async fn clean_klines(
             let low_p = parse_f64(&k.low);
             let close_p = parse_f64(&k.close);
 
-            if open_p.is_err()
-                || high_p.is_err()
-                || low_p.is_err()
-                || close_p.is_err()
-            {
+            if open_p.is_err() || high_p.is_err() || low_p.is_err() || close_p.is_err() {
                 should_delete = true;
             } else if let (Ok(o), Ok(h), Ok(l), Ok(c)) = (open_p, high_p, low_p, close_p) {
                 if h < o || h < l || h < c || l > o || l > c || c <= 0.0 || o <= 0.0 {
@@ -617,7 +617,9 @@ pub async fn clean_klines(
         }
     }
 
-    Ok(KlineCleanResult { removed_count: removed })
+    Ok(KlineCleanResult {
+        removed_count: removed,
+    })
 }
 
 // ============ Latest Kline ============
@@ -663,9 +665,9 @@ pub async fn list_symbols(
 
     // Get distinct symbol/interval combinations with aggregated stats
     let raw_sql = r#"
-        SELECT 
-            symbol, 
-            interval, 
+        SELECT
+            symbol,
+            interval,
             COUNT(*) as data_points,
             MIN(open_time) as coverage_start,
             MAX(open_time) as coverage_end,
@@ -693,7 +695,9 @@ pub async fn list_symbols(
             let data_points: i64 = row.try_get_by_index::<i64>(2).ok()?;
             let coverage_start: i64 = row.try_get_by_index::<i64>(3).ok()?;
             let coverage_end: i64 = row.try_get_by_index::<i64>(4).ok()?;
-            let last_updated: chrono::DateTime<chrono::Utc> = row.try_get_by_index::<chrono::DateTime<chrono::Utc>>(5).ok()?;
+            let last_updated: chrono::DateTime<chrono::Utc> = row
+                .try_get_by_index::<chrono::DateTime<chrono::Utc>>(5)
+                .ok()?;
             let source: Option<String> = row.try_get_by_index::<String>(6).ok();
 
             Some(KlineSymbolOverview {
@@ -723,7 +727,7 @@ pub async fn fetch_klines(
     // Re-fetch klines from stored source - we re-import all data for this symbol/interval
     // Since we don't have separate source storage, we just return the current count
     // The frontend can use this to trigger a re-import from the original source
-    
+
     let klines = Kline::find()
         .filter(kline::Column::UserId.eq(user_id))
         .filter(kline::Column::Symbol.eq(symbol))
@@ -793,12 +797,11 @@ pub async fn import_csv(
         .from_reader(csv_content.as_bytes());
 
     let mut items: Vec<KlineImportItem> = Vec::new();
-    
+
     for result in reader.deserialize() {
-        let row: KlineCsvRow = result.map_err(|e| {
-            AppError::Validation(format!("CSV parse error: {}", e))
-        })?;
-        
+        let row: KlineCsvRow =
+            result.map_err(|e| AppError::Validation(format!("CSV parse error: {}", e)))?;
+
         items.push(KlineImportItem {
             open_time: row.open_time,
             open: row.open,
@@ -813,11 +816,15 @@ pub async fn import_csv(
     }
 
     if items.is_empty() {
-        return Err(AppError::Validation("CSV file is empty or has no valid data".into()));
+        return Err(AppError::Validation(
+            "CSV file is empty or has no valid data".into(),
+        ));
     }
 
     if items.len() > 100_000 {
-        return Err(AppError::Validation("CSV exceeds maximum of 100,000 rows per import".into()));
+        return Err(AppError::Validation(
+            "CSV exceeds maximum of 100,000 rows per import".into(),
+        ));
     }
 
     let mut imported = 0_i64;
@@ -828,7 +835,8 @@ pub async fn import_csv(
     for chunk in items.chunks(BATCH_SIZE) {
         let batch_symbol = symbol.to_string();
         let batch_interval = interval.to_string();
-        let (imp, dup, fail) = import_batch(db, user_id, &batch_symbol, &batch_interval, "csv", chunk).await?;
+        let (imp, dup, fail) =
+            import_batch(db, user_id, &batch_symbol, &batch_interval, "csv", chunk).await?;
         imported += imp;
         duplicates += dup;
         failed += fail;
@@ -863,7 +871,8 @@ pub async fn export_klines(
         .all(db)
         .await?;
 
-    let mut csv = String::from("open_time,open,high,low,close,volume,close_time,quote_volume,trades\n");
+    let mut csv =
+        String::from("open_time,open,high,low,close,volume,close_time,quote_volume,trades\n");
     for k in klines {
         csv.push_str(&format!(
             "{},{},{},{},{},{},{},{},{}\n",

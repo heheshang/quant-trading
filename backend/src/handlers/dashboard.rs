@@ -5,10 +5,9 @@
 //!   GET /api/v1/dashboard/pnl?range=7d|30d|90d
 
 use axum::{
-    extract::{Query, State},
     Json,
+    extract::{Query, State},
 };
-use serde::Deserialize;
 
 use crate::middleware::auth::AuthenticatedUser;
 use crate::services::dashboard::{self, PnLHistory, PnLQuery};

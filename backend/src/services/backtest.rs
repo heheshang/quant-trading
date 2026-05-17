@@ -21,7 +21,7 @@ use crate::models::backtest::{
     TradeRecord,
 };
 use crate::models::schemas::PaginatedResponse;
-use crate::services::backtest_engine::{build_kline_query, sample_equity_curve, BacktestEngine};
+use crate::services::backtest_engine::{BacktestEngine, build_kline_query, sample_equity_curve};
 use crate::services::strategy;
 use crate::utils::error::AppError;
 
@@ -99,9 +99,9 @@ impl BacktestService {
         }
 
         // 6. Try to acquire semaphore permit
-        let permit = BACKTEST_SEMAPHORE
-            .try_acquire()
-            .map_err(|_| AppError::TooManyRequests("backtest concurrency limit reached (5)".into()))?;
+        let permit = BACKTEST_SEMAPHORE.try_acquire().map_err(|_| {
+            AppError::TooManyRequests("backtest concurrency limit reached (5)".into())
+        })?;
 
         // 7. Use auth_user.user_id for the backtest run
         let user_id = user.user_id;
@@ -114,7 +114,8 @@ impl BacktestService {
 
         // 9. Create result record
         let result_id = Uuid::new_v4();
-        backtest_db::create_backtest_run(db, result_id, user_id, req.strategy_id, &req.config).await?;
+        backtest_db::create_backtest_run(db, result_id, user_id, req.strategy_id, &req.config)
+            .await?;
 
         tracing::info!(
             result_id = %result_id,
@@ -310,10 +311,7 @@ impl BacktestService {
     ///
     /// If the backtest is currently running, cancels it first via the
     /// CANCEL_TOKENS registry.
-    pub async fn delete_backtest(
-        db: &Arc<DatabaseConnection>,
-        id: Uuid,
-    ) -> Result<(), AppError> {
+    pub async fn delete_backtest(db: &Arc<DatabaseConnection>, id: Uuid) -> Result<(), AppError> {
         // Cancel if running
         if let Some(token) = CANCEL_TOKENS.lock().unwrap().remove(&id) {
             token.cancel();
@@ -329,10 +327,7 @@ impl BacktestService {
     ///
     /// Removes the cancellation token from the global registry and signals
     /// the engine to stop. Returns an error if no running backtest is found.
-    pub async fn cancel_backtest(
-        db: &Arc<DatabaseConnection>,
-        id: Uuid,
-    ) -> Result<(), AppError> {
+    pub async fn cancel_backtest(db: &Arc<DatabaseConnection>, id: Uuid) -> Result<(), AppError> {
         // Drop MutexGuard before any .await to keep future Send-compatible
         let token = CANCEL_TOKENS.lock().unwrap().remove(&id);
         match token {
@@ -489,12 +484,54 @@ mod tests {
     }
 
     #[rstest]
-    #[case("2024-06-01", "2024-01-01", 10000.0, 0.001, 0.0005, "start_date must be before end_date")]
-    #[case("2024-01-01", "2024-01-03", 10000.0, 0.001, 0.0005, "date range must be at least 7 days")]
-    #[case("2024-01-01", "2024-12-31", 50.0, 0.001, 0.0005, "initial_capital must be >= 100")]
-    #[case("2024-01-01", "2024-12-31", 10000.0, 0.02, 0.0005, "fee_rate must be 0..0.01")]
-    #[case("2024-01-01", "2024-12-31", 10000.0, 0.001, 0.02, "slippage_rate must be 0..0.01")]
-    #[case("not-a-date", "2024-12-31", 10000.0, 0.001, 0.0005, "start_date must be YYYY-MM-DD")]
+    #[case(
+        "2024-06-01",
+        "2024-01-01",
+        10000.0,
+        0.001,
+        0.0005,
+        "start_date must be before end_date"
+    )]
+    #[case(
+        "2024-01-01",
+        "2024-01-03",
+        10000.0,
+        0.001,
+        0.0005,
+        "date range must be at least 7 days"
+    )]
+    #[case(
+        "2024-01-01",
+        "2024-12-31",
+        50.0,
+        0.001,
+        0.0005,
+        "initial_capital must be >= 100"
+    )]
+    #[case(
+        "2024-01-01",
+        "2024-12-31",
+        10000.0,
+        0.02,
+        0.0005,
+        "fee_rate must be 0..0.01"
+    )]
+    #[case(
+        "2024-01-01",
+        "2024-12-31",
+        10000.0,
+        0.001,
+        0.02,
+        "slippage_rate must be 0..0.01"
+    )]
+    #[case(
+        "not-a-date",
+        "2024-12-31",
+        10000.0,
+        0.001,
+        0.0005,
+        "start_date must be YYYY-MM-DD"
+    )]
     fn test_config_validation_errors(
         #[case] start: &str,
         #[case] end: &str,

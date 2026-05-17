@@ -1,0 +1,7 @@
+# Typo checker configuration
+# https://github.com/crate-ci/typos
+
+[default.extend-words]
+
+[files]
+extend-exclude = ["CHANGELOG.md", "vendors/", "**/*.sql"]

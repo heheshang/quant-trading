@@ -5,13 +5,13 @@
 //! Receives KlineRecord via mpsc channel, buffers them, and bulk inserts to klines table.
 //! Uses ON CONFLICT DO NOTHING for idempotent inserts.
 
-use std::time::Instant;
-use rust_decimal::Decimal;
-use tokio::sync::mpsc;
-use tokio::time::{interval, Duration};
-use tracing::{error, info, warn};
-use sea_orm::{DatabaseConnection, EntityTrait, ActiveModelTrait, TryFromU64};
 use crate::models::kline_entity::ActiveModel as KlineActiveModel;
+use rust_decimal::Decimal;
+use sea_orm::{ActiveModelTrait, DatabaseConnection};
+use std::time::Instant;
+use tokio::sync::mpsc;
+use tokio::time::{Duration, interval};
+use tracing::{error, info};
 
 /// Maximum number of kline records to buffer before flushing
 const MAX_BUFFER_SIZE: usize = 100;
@@ -23,7 +23,7 @@ const FLUSH_INTERVAL_SECS: u64 = 5;
 pub struct KlineRecord {
     pub symbol: String,
     pub interval: String,
-    pub open_time: i64,   // milliseconds timestamp
+    pub open_time: i64, // milliseconds timestamp
     pub close_time: i64,
     pub open: Decimal,
     pub high: Decimal,
@@ -84,8 +84,10 @@ impl KlineWriter {
     pub async fn run(&mut self) {
         let mut flush_interval = interval(Duration::from_secs(FLUSH_INTERVAL_SECS));
 
-        info!("KlineWriter started with buffer size {} and flush interval {}s",
-              MAX_BUFFER_SIZE, FLUSH_INTERVAL_SECS);
+        info!(
+            "KlineWriter started with buffer size {} and flush interval {}s",
+            MAX_BUFFER_SIZE, FLUSH_INTERVAL_SECS
+        );
 
         loop {
             tokio::select! {
@@ -131,14 +133,16 @@ impl KlineWriter {
         let count = batch.len();
 
         // Convert to active models
-        let active_models: Vec<KlineActiveModel> = batch.into_iter()
-            .map(|r| r.to_active_model())
-            .collect();
+        let active_models: Vec<KlineActiveModel> =
+            batch.into_iter().map(|r| r.to_active_model()).collect();
 
         // Perform bulk insert
         match Self::bulk_insert(&self.db, active_models).await {
             Ok(inserted) => {
-                info!("KlineWriter: flushed {} records ({} inserted)", count, inserted);
+                info!(
+                    "KlineWriter: flushed {} records ({} inserted)",
+                    count, inserted
+                );
             }
             Err(e) => {
                 error!("KlineWriter: flush failed - {}", e);
@@ -151,7 +155,10 @@ impl KlineWriter {
     }
 
     /// Bulk insert multiple kline records using individual inserts with ON CONFLICT DO NOTHING
-    async fn bulk_insert(db: &DatabaseConnection, models: Vec<KlineActiveModel>) -> Result<usize, sea_orm::DbErr> {
+    async fn bulk_insert(
+        db: &DatabaseConnection,
+        models: Vec<KlineActiveModel>,
+    ) -> Result<usize, sea_orm::DbErr> {
         if models.is_empty() {
             return Ok(0);
         }

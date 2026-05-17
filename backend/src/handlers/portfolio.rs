@@ -8,8 +8,8 @@
 //!   GET /api/v1/portfolio/equity_curve
 
 use axum::{
-    extract::{Query, State},
     Json,
+    extract::{Query, State},
 };
 use serde::Deserialize;
 use uuid::Uuid;
@@ -66,10 +66,7 @@ pub async fn list_portfolio_positions(
     user: AuthenticatedUser,
     State(db): State<Arc<DatabaseConnection>>,
     Query(params): Query<PortfolioPositionsQuery>,
-) -> Result<
-    Json<ApiResponse<portfolio::Paginated<portfolio::PortfolioPosition>>>,
-    AppError,
-> {
+) -> Result<Json<ApiResponse<portfolio::Paginated<portfolio::PortfolioPosition>>>, AppError> {
     let user_id = params.user_id.unwrap_or(user.user_id);
     check_access(&user, user_id)?;
 

@@ -56,7 +56,8 @@ impl BinanceRestClient {
     pub async fn get_ticker(&self, symbol: &str) -> Result<TickerResponse, AppError> {
         let url = format!("{}/api/v3/ticker/24hr", self.base_url);
 
-        let response = self.client
+        let response = self
+            .client
             .get(&url)
             .query(&[("symbol", symbol)])
             .send()
@@ -66,13 +67,10 @@ impl BinanceRestClient {
                 AppError::Internal(format!("Binance API error: {}", e))
             })?;
 
-        let binance_ticker: BinanceTicker24hr = response
-            .json()
-            .await
-            .map_err(|e| {
-                error!(symbol = %symbol, error = %e, "Failed to parse Binance ticker response");
-                AppError::Internal(format!("Failed to parse Binance response: {}", e))
-            })?;
+        let binance_ticker: BinanceTicker24hr = response.json().await.map_err(|e| {
+            error!(symbol = %symbol, error = %e, "Failed to parse Binance ticker response");
+            AppError::Internal(format!("Failed to parse Binance response: {}", e))
+        })?;
 
         debug!(symbol = %symbol, price = %binance_ticker.last_price, "Fetched ticker from Binance");
         Ok(binance_ticker.into_ticker_response())
@@ -91,28 +89,22 @@ impl BinanceRestClient {
     pub async fn get_all_tickers(&self) -> Result<Vec<TickerResponse>, AppError> {
         let url = format!("{}/api/v3/ticker/24hr", self.base_url);
 
-        let response = self.client
-            .get(&url)
-            .send()
-            .await
-            .map_err(|e| {
-                error!(error = %e, "Failed to fetch all tickers from Binance");
-                AppError::Internal(format!("Binance API error: {}", e))
-            })?;
+        let response = self.client.get(&url).send().await.map_err(|e| {
+            error!(error = %e, "Failed to fetch all tickers from Binance");
+            AppError::Internal(format!("Binance API error: {}", e))
+        })?;
 
-        let binance_tickers: Vec<BinanceTicker24hr> = response
-            .json()
-            .await
-            .map_err(|e| {
-                error!(error = %e, "Failed to parse Binance tickers response");
-                AppError::Internal(format!("Failed to parse Binance response: {}", e))
-            })?;
+        let binance_tickers: Vec<BinanceTicker24hr> = response.json().await.map_err(|e| {
+            error!(error = %e, "Failed to parse Binance tickers response");
+            AppError::Internal(format!("Failed to parse Binance response: {}", e))
+        })?;
 
         // Supported symbols to filter
         let supported: std::collections::HashSet<&str> = [
-            "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "DOGEUSDT",
-            "ADAUSDT", "AVAXUSDT", "DOTUSDT", "LINKUSDT",
-        ].into();
+            "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "DOGEUSDT", "ADAUSDT",
+            "AVAXUSDT", "DOTUSDT", "LINKUSDT",
+        ]
+        .into();
 
         let tickers: Vec<TickerResponse> = binance_tickers
             .into_iter()
@@ -140,7 +132,8 @@ impl BinanceRestClient {
     pub async fn get_depth(&self, symbol: &str, levels: i32) -> Result<DepthResponse, AppError> {
         let url = format!("{}/api/v3/depth", self.base_url);
 
-        let response = self.client
+        let response = self
+            .client
             .get(&url)
             .query(&[("symbol", symbol), ("limit", &levels.to_string())])
             .send()
@@ -150,13 +143,10 @@ impl BinanceRestClient {
                 AppError::Internal(format!("Binance API error: {}", e))
             })?;
 
-        let binance_depth: BinanceDepth = response
-            .json()
-            .await
-            .map_err(|e| {
-                error!(symbol = %symbol, error = %e, "Failed to parse Binance depth response");
-                AppError::Internal(format!("Failed to parse Binance response: {}", e))
-            })?;
+        let binance_depth: BinanceDepth = response.json().await.map_err(|e| {
+            error!(symbol = %symbol, error = %e, "Failed to parse Binance depth response");
+            AppError::Internal(format!("Failed to parse Binance response: {}", e))
+        })?;
 
         debug!(symbol = %symbol, bids = %binance_depth.bids.len(), asks = %binance_depth.asks.len(), "Fetched depth from Binance");
         Ok(binance_depth.into_depth_response())
@@ -254,7 +244,8 @@ impl BinanceDepth {
     fn into_depth_response(self) -> DepthResponse {
         // Calculate cumulative totals for bids (descending price order)
         let mut bid_total = 0.0;
-        let bids: Vec<DepthLevel> = self.bids
+        let bids: Vec<DepthLevel> = self
+            .bids
             .into_iter()
             .map(|level| {
                 let qty: f64 = level.quantity.parse().unwrap_or(0.0);
@@ -269,7 +260,8 @@ impl BinanceDepth {
 
         // Calculate cumulative totals for asks (ascending price order)
         let mut ask_total = 0.0;
-        let asks: Vec<DepthLevel> = self.asks
+        let asks: Vec<DepthLevel> = self
+            .asks
             .into_iter()
             .map(|level| {
                 let qty: f64 = level.quantity.parse().unwrap_or(0.0);

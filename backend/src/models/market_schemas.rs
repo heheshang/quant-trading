@@ -188,12 +188,22 @@ mod tests {
     fn test_depth_response_serialization() {
         let depth = DepthResponse {
             bids: vec![
-                DepthLevel { price: 50499.0, quantity: 1.5, total: 1.5 },
-                DepthLevel { price: 50498.0, quantity: 2.3, total: 3.8 },
+                DepthLevel {
+                    price: 50499.0,
+                    quantity: 1.5,
+                    total: 1.5,
+                },
+                DepthLevel {
+                    price: 50498.0,
+                    quantity: 2.3,
+                    total: 3.8,
+                },
             ],
-            asks: vec![
-                DepthLevel { price: 50501.0, quantity: 1.2, total: 1.2 },
-            ],
+            asks: vec![DepthLevel {
+                price: 50501.0,
+                quantity: 1.2,
+                total: 1.2,
+            }],
             timestamp: 1715500000000,
         };
         let json = serde_json::to_value(&depth).unwrap();

@@ -1,16 +1,15 @@
 use axum::{
-    middleware,
-    routing::{get, post, delete},
-    Extension, Router,
+    Extension, Router, middleware,
+    routing::{delete, get, post},
 };
-use quant_trading_backend::db::{init_db, run_migrations, DbPool};
+use quant_trading_backend::CONFIG;
+use quant_trading_backend::db::{DbPool, init_db, run_migrations};
 use quant_trading_backend::handlers;
 use quant_trading_backend::services::binance_rest::BinanceRestClient;
 use quant_trading_backend::services::exchange::ws_hub::{WsHub, WsHubBuilder};
-use quant_trading_backend::services::kline_writer::{KlineWriter, KlineRecord};
+use quant_trading_backend::services::kline_writer::KlineWriter;
 use quant_trading_backend::services::matching_engine::MatchingEngine;
 use quant_trading_backend::services::redis_cache::RedisCache;
-use quant_trading_backend::CONFIG;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use tower_http::cors::{Any, CorsLayer};
@@ -74,14 +73,12 @@ async fn main() {
     // Initialize KlineWriter background task
     let (kline_tx, kline_rx) = mpsc::channel(100);
     let mut kline_writer = KlineWriter::new(kline_rx, db.as_ref().clone());
-    tokio::spawn(async move { kline_writer.run().await; });
+    tokio::spawn(async move {
+        kline_writer.run().await;
+    });
 
     // Initialize WebSocket Hub (singleton) with KlineWriter pre-wired
-    let ws_hub = Arc::new(
-        WsHubBuilder::new()
-            .with_kline_writer_tx(kline_tx)
-            .build()
-    );
+    let ws_hub = Arc::new(WsHubBuilder::new().with_kline_writer_tx(kline_tx).build());
     ws_hub.start();
 
     // Build application
@@ -184,14 +181,20 @@ fn create_router(
     let kline_routes = Router::new()
         .route("/kline/query", get(handlers::kline::query_klines))
         .route("/kline/import", post(handlers::kline::import_klines))
-        .route("/kline/import-history", get(handlers::kline::import_history))
+        .route(
+            "/kline/import-history",
+            get(handlers::kline::import_history),
+        )
         .route("/kline/quality", get(handlers::kline::quality_report))
         .route("/kline/clean", post(handlers::kline::clean_klines))
         .route("/kline/export", get(handlers::kline::export_klines))
         .route("/kline/latest", get(handlers::kline::get_latest_kline))
         .route("/kline/symbols", get(handlers::kline::list_symbols))
         .route("/kline/fetch", post(handlers::kline::fetch_klines))
-        .route("/kline/clean/rollback", delete(handlers::kline::rollback_clean))
+        .route(
+            "/kline/clean/rollback",
+            delete(handlers::kline::rollback_clean),
+        )
         .route("/kline/import/csv", post(handlers::kline::import_csv))
         .layer(middleware::from_fn(
             quant_trading_backend::middleware::auth::auth_middleware,
@@ -219,10 +222,16 @@ fn create_router(
         .route("/orders", get(handlers::order::list_orders))
         .route("/orders/{id}", get(handlers::order::get_order))
         .route("/orders/{id}/cancel", post(handlers::order::cancel_order))
-        .route("/orders/cancel-all", post(handlers::order::cancel_all_orders))
+        .route(
+            "/orders/cancel-all",
+            post(handlers::order::cancel_all_orders),
+        )
         .route("/trades", get(handlers::order::list_trades))
         .route("/positions", get(handlers::order::list_positions))
-        .route("/positions/{symbol}/close", post(handlers::order::close_position))
+        .route(
+            "/positions/{symbol}/close",
+            post(handlers::order::close_position),
+        )
         .route("/account", get(handlers::order::get_account))
         .route("/account/init", post(handlers::order::init_account))
         .route("/symbols", get(handlers::order::list_symbols))

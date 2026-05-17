@@ -10,9 +10,7 @@ use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, Qu
 use tokio::sync::mpsc;
 use tracing::{error, info, warn};
 
-use crate::db::order::{
-    self as order_model, OrderSide, OrderStatus, OrderType,
-};
+use crate::db::order::{self as order_model, OrderSide, OrderStatus, OrderType};
 use crate::utils::error::AppError;
 
 // ─── Types ──────────────────────────────────────────────────────
@@ -45,12 +43,16 @@ pub struct OrderedFloat(f64);
 impl Eq for OrderedFloat {}
 
 impl PartialOrd for OrderedFloat {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> { Some(self.cmp(other)) }
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 impl Ord for OrderedFloat {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.0.partial_cmp(&other.0).unwrap_or(std::cmp::Ordering::Equal)
+        self.0
+            .partial_cmp(&other.0)
+            .unwrap_or(std::cmp::Ordering::Equal)
     }
 }
 
@@ -151,10 +153,10 @@ impl MatchingEngine {
         info!("Rebuilding order book from PostgreSQL...");
 
         let orders = order_model::Entity::find()
-            .filter(order_model::Column::Status.is_in([
-                OrderStatus::Pending,
-                OrderStatus::PartialFilled,
-            ]))
+            .filter(
+                order_model::Column::Status
+                    .is_in([OrderStatus::Pending, OrderStatus::PartialFilled]),
+            )
             .filter(order_model::Column::OrderType.eq(OrderType::Limit))
             .all(&*self.db)
             .await
@@ -203,7 +205,10 @@ impl MatchingEngine {
         let price = match entry.price {
             Some(p) => p,
             None => {
-                warn!("Market order should not be inserted into order book, order_id={}", entry.order_id);
+                warn!(
+                    "Market order should not be inserted into order book, order_id={}",
+                    entry.order_id
+                );
                 return;
             }
         };
@@ -241,9 +246,10 @@ impl MatchingEngine {
         // 1. 获取深度数据
         let depth = {
             let cache = self.depth_cache.lock().unwrap();
-            cache.get(symbol).cloned().ok_or_else(|| {
-                AppError::Internal("行情数据暂不可用，无法提交市价单".to_string())
-            })?
+            cache
+                .get(symbol)
+                .cloned()
+                .ok_or_else(|| AppError::Internal("行情数据暂不可用，无法提交市价单".to_string()))?
         };
 
         // 2. 检查是否有对手盘
@@ -252,7 +258,9 @@ impl MatchingEngine {
             OrderSide::Sell => &depth.bids,
         };
         if levels.is_empty() {
-            return Err(AppError::Internal("当前市场无对手盘，市价单无法成交".to_string()));
+            return Err(AppError::Internal(
+                "当前市场无对手盘，市价单无法成交".to_string(),
+            ));
         }
 
         // 3. 逐档撮合
@@ -300,16 +308,19 @@ impl MatchingEngine {
 
         // 5. 异步写入成交记录
         for trade in &trades {
-            let _ = self.trade_sink.send(TradeRecord {
-                order_id,
-                user_id,
-                symbol: symbol.to_string(),
-                side: trade.side.clone(),
-                price: trade.price,
-                quantity: trade.quantity,
-                fee: trade.fee,
-                is_maker: trade.is_maker,
-            }).await;
+            let _ = self
+                .trade_sink
+                .send(TradeRecord {
+                    order_id,
+                    user_id,
+                    symbol: symbol.to_string(),
+                    side: trade.side.clone(),
+                    price: trade.price,
+                    quantity: trade.quantity,
+                    fee: trade.fee,
+                    is_maker: trade.is_maker,
+                })
+                .await;
         }
 
         Ok(MatchResult {
@@ -349,7 +360,7 @@ impl MatchingEngine {
         let mut matched_asks: Vec<(f64, f64, OrderEntry)> = Vec::new();
 
         for (price_key, queue) in book.bids.iter() {
-            let price = price_key.0 .0;
+            let price = price_key.0.0;
             if price >= best_ask_price {
                 for entry in queue.iter() {
                     matched_bids.push((price, entry.remaining_quantity, entry.clone()));
@@ -500,7 +511,9 @@ impl MatchingEngine {
             active_model.status = sea_orm::Set(OrderStatus::Expired);
             active_model.updated_at = sea_orm::Set(chrono::Utc::now());
 
-            active_model.update(self.db.as_ref()).await
+            active_model
+                .update(self.db.as_ref())
+                .await
                 .map_err(|e| AppError::Database(e.to_string()))?;
 
             // 3. 从内存订单簿移除
@@ -543,8 +556,8 @@ impl MatchingEngine {
         db: &Arc<DatabaseConnection>,
         records: &[TradeRecord],
     ) -> Result<(), sea_orm::DbErr> {
-        use crate::db::order::trades::Entity as TradeEntity;
         use crate::db::order::trades::ActiveModel as TradeActiveModel;
+        use crate::db::order::trades::Entity as TradeEntity;
 
         if records.is_empty() {
             return Ok(());
@@ -569,11 +582,14 @@ impl MatchingEngine {
             })
             .collect();
 
-        TradeEntity::insert_many(trade_models).exec(db.as_ref()).await?;
+        TradeEntity::insert_many(trade_models)
+            .exec(db.as_ref())
+            .await?;
 
         // 2. 批量 UPDATE orders 表（基于成交结果聚合）
         // 按 order_id 分组聚合
-        let mut order_fills: std::collections::HashMap<uuid::Uuid, (f64, f64, f64)> = std::collections::HashMap::new();
+        let mut order_fills: std::collections::HashMap<uuid::Uuid, (f64, f64, f64)> =
+            std::collections::HashMap::new();
         for r in records {
             let entry = order_fills.entry(r.order_id).or_insert((0.0, 0.0, 0.0));
             entry.0 += r.quantity;
@@ -585,7 +601,10 @@ impl MatchingEngine {
             let avg_price = total_cost / filled_qty;
 
             // 查询当前订单状态
-            if let Some(order) = order_model::Entity::find_by_id(order_id).one(db.as_ref()).await? {
+            if let Some(order) = order_model::Entity::find_by_id(order_id)
+                .one(db.as_ref())
+                .await?
+            {
                 let new_filled = order.filled_quantity + filled_qty;
                 let is_fully_filled = new_filled >= order.quantity - 1e-12;
                 let old_fee = order.fee;
@@ -720,7 +739,7 @@ mod tests {
         let books = engine.order_books.lock().unwrap();
         let book = books.get("BTCUSDT").unwrap();
         // BTreeMap with Reverse: highest price first
-        let prices: Vec<f64> = book.bids.keys().map(|k| k.0 .0).collect();
+        let prices: Vec<f64> = book.bids.keys().map(|k| k.0.0).collect();
         assert_eq!(prices, vec![51000.0, 50000.0, 49000.0]);
     }
 
@@ -755,8 +774,14 @@ mod tests {
         let engine = MatchingEngine::new(db, 0, 0.001);
 
         let depth = DepthData {
-            bids: vec![DepthLevel { price: 50000.0, quantity: 1.0 }],
-            asks: vec![DepthLevel { price: 50100.0, quantity: 0.5 }],
+            bids: vec![DepthLevel {
+                price: 50000.0,
+                quantity: 1.0,
+            }],
+            asks: vec![DepthLevel {
+                price: 50100.0,
+                quantity: 0.5,
+            }],
             timestamp: 1234567890,
         };
 

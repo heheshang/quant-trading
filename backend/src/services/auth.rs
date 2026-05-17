@@ -3,7 +3,7 @@ use crate::models::schemas::{
     AuthResponse, JwtClaims, LoginRequest, RegisterRequest, TokenResponse, UserResponse,
 };
 use crate::utils::error::AppError;
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
+use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set};
 use tracing::info;
 use uuid::Uuid;
@@ -408,7 +408,7 @@ pub fn to_user_response(user: &user::Model, role: &role::Model) -> UserResponse 
 mod tests {
     use super::*;
     use crate::models::schemas::JwtClaims;
-    use jsonwebtoken::{decode, DecodingKey, Validation};
+    use jsonwebtoken::{DecodingKey, Validation, decode};
     use uuid::Uuid;
 
     const TEST_JWT_SECRET: &str = "test-secret-key-for-unit-tests";

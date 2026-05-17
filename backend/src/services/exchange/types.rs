@@ -7,8 +7,8 @@ use serde_json::Value as JsonValue;
 
 /// Supported trading symbols (USDT perpetual).
 pub const SUPPORTED_SYMBOLS: &[&str] = &[
-    "btcusdt", "ethusdt", "solusdt", "bnbusdt", "xrpusdt",
-    "dogeusdt", "adausdt", "avaxusdt", "dotusdt", "linkusdt",
+    "btcusdt", "ethusdt", "solusdt", "bnbusdt", "xrpusdt", "dogeusdt", "adausdt", "avaxusdt",
+    "dotusdt", "linkusdt",
 ];
 
 /// Binance WebSocket stream message wrapper.

@@ -1,18 +1,14 @@
 //! Binance WebSocket Connector Implementation
 
-use std::sync::Arc;
 use std::time::Duration;
 
-use tokio::sync::{broadcast, mpsc};
+use futures_util::{SinkExt, StreamExt};
+use tokio::sync::broadcast;
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use tracing::{debug, error, info, warn};
-use futures_util::{SinkExt, StreamExt};
 
 use super::errors::ConnectorError;
-use super::types::{
-    BinanceData, BinanceStreamMessage, DepthData, KlineData, MarketMessage,
-    SUPPORTED_SYMBOLS, TickerData,
-};
+use super::types::{BinanceData, BinanceStreamMessage, MarketMessage, SUPPORTED_SYMBOLS};
 
 /// Binance WebSocket connector configuration.
 #[derive(Debug, Clone)]
@@ -79,7 +75,8 @@ impl BinanceConnector {
         let streams = self.build_stream_list();
         let subscribe_msg = self.build_subscribe_message(&streams);
 
-        self.connect_and_subscribe(&subscribe_msg, shutdown_rx).await
+        self.connect_and_subscribe(&subscribe_msg, shutdown_rx)
+            .await
     }
 
     /// Build the list of stream names to subscribe to.
@@ -109,10 +106,10 @@ impl BinanceConnector {
         subscribe_msg: &str,
         mut shutdown_rx: tokio::sync::oneshot::Receiver<()>,
     ) -> Result<(), ConnectorError> {
-        let url = format!("{}/stream", self.config.ws_url);
+        let url = self.config.ws_url.as_str();
         info!("Connecting to Binance WebSocket: {}", url);
 
-        let (ws_stream, _) = connect_async(&url)
+        let (ws_stream, _) = connect_async(url)
             .await
             .map_err(|e| ConnectorError::ConnectionFailed(e.to_string()))?;
 
@@ -195,25 +192,27 @@ impl BinanceConnector {
     /// Normalize Binance message to internal MarketMessage format.
     fn normalize_message(&self, msg: BinanceStreamMessage) -> Option<MarketMessage> {
         match msg.data {
-            BinanceData::Ticker(ticker) => {
-                Some(MarketMessage::Ticker {
-                    symbol: ticker.s.clone(),
-                    price: ticker.price().unwrap_or(0.0),
-                    change: ticker.p.parse().unwrap_or(0.0),
-                    change_percent: ticker.P.parse().unwrap_or(0.0),
-                    volume: ticker.volume().unwrap_or(0.0),
-                    high: ticker.h.parse().unwrap_or(0.0),
-                    low: ticker.l.parse().unwrap_or(0.0),
-                    bid: ticker.b.parse().unwrap_or(0.0),
-                    ask: ticker.a.parse().unwrap_or(0.0),
-                    timestamp: ticker.E,
-                })
-            }
+            BinanceData::Ticker(ticker) => Some(MarketMessage::Ticker {
+                symbol: ticker.s.clone(),
+                price: ticker.price().unwrap_or(0.0),
+                change: ticker.p.parse().unwrap_or(0.0),
+                change_percent: ticker.P.parse().unwrap_or(0.0),
+                volume: ticker.volume().unwrap_or(0.0),
+                high: ticker.h.parse().unwrap_or(0.0),
+                low: ticker.l.parse().unwrap_or(0.0),
+                bid: ticker.b.parse().unwrap_or(0.0),
+                ask: ticker.a.parse().unwrap_or(0.0),
+                timestamp: ticker.E,
+            }),
             BinanceData::Depth(depth) => {
-                let parse_bids = depth.b.iter()
+                let parse_bids = depth
+                    .b
+                    .iter()
                     .filter_map(|(p, q)| Some((p.parse().ok()?, q.parse().ok()?)))
                     .collect();
-                let parse_asks = depth.a.iter()
+                let parse_asks = depth
+                    .a
+                    .iter()
                     .filter_map(|(p, q)| Some((p.parse().ok()?, q.parse().ok()?)))
                     .collect();
 

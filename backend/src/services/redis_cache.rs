@@ -8,8 +8,8 @@
 //! Degradation strategy: Redis connection failure returns Ok(None), allowing
 //! callers to fall back to Binance REST API or mock data.
 
-use redis::aio::ConnectionManager;
 use redis::AsyncCommands;
+use redis::aio::ConnectionManager;
 use tracing::{debug, warn};
 
 use crate::models::schemas::{DepthResponse, TickerResponse};
@@ -66,18 +66,16 @@ impl RedisCache {
         let result: Result<std::collections::HashMap<String, String>, _> = conn.hgetall(&key).await;
 
         match result {
-            Ok(fields) if !fields.is_empty() => {
-                match deserialize_ticker_from_hash(&fields) {
-                    Some(ticker) => {
-                        debug!(symbol = %symbol, "Redis cache hit for ticker");
-                        Ok(Some(ticker))
-                    }
-                    None => {
-                        warn!(symbol = %symbol, "Redis cache hit but failed to deserialize ticker");
-                        Ok(None)
-                    }
+            Ok(fields) if !fields.is_empty() => match deserialize_ticker_from_hash(&fields) {
+                Some(ticker) => {
+                    debug!(symbol = %symbol, "Redis cache hit for ticker");
+                    Ok(Some(ticker))
                 }
-            }
+                None => {
+                    warn!(symbol = %symbol, "Redis cache hit but failed to deserialize ticker");
+                    Ok(None)
+                }
+            },
             Ok(_) => {
                 debug!(symbol = %symbol, "Redis cache miss for ticker");
                 Ok(None)
@@ -138,18 +136,16 @@ impl RedisCache {
         let result: Result<Option<String>, _> = conn.get(ALL_TICKERS_KEY).await;
 
         match result {
-            Ok(Some(json)) => {
-                match serde_json::from_str::<Vec<TickerResponse>>(&json) {
-                    Ok(tickers) => {
-                        debug!(count = tickers.len(), "Redis cache hit for all tickers");
-                        Ok(Some(tickers))
-                    }
-                    Err(e) => {
-                        warn!(error = %e, "Redis cache hit but failed to deserialize tickers");
-                        Ok(None)
-                    }
+            Ok(Some(json)) => match serde_json::from_str::<Vec<TickerResponse>>(&json) {
+                Ok(tickers) => {
+                    debug!(count = tickers.len(), "Redis cache hit for all tickers");
+                    Ok(Some(tickers))
                 }
-            }
+                Err(e) => {
+                    warn!(error = %e, "Redis cache hit but failed to deserialize tickers");
+                    Ok(None)
+                }
+            },
             Ok(None) => {
                 debug!("Redis cache miss for all tickers");
                 Ok(None)
@@ -176,7 +172,11 @@ impl RedisCache {
 
         match result {
             Ok(_) => {
-                debug!(count = tickers.len(), ttl = ALL_TICKERS_TTL, "Cached all tickers to Redis");
+                debug!(
+                    count = tickers.len(),
+                    ttl = ALL_TICKERS_TTL,
+                    "Cached all tickers to Redis"
+                );
                 Ok(())
             }
             Err(e) => {
@@ -201,18 +201,16 @@ impl RedisCache {
         let result: Result<Option<String>, _> = conn.get(&key).await;
 
         match result {
-            Ok(Some(json)) => {
-                match serde_json::from_str::<DepthResponse>(&json) {
-                    Ok(depth) => {
-                        debug!(symbol = %symbol, "Redis cache hit for depth");
-                        Ok(Some(depth))
-                    }
-                    Err(e) => {
-                        warn!(symbol = %symbol, error = %e, "Redis cache hit but failed to deserialize depth");
-                        Ok(None)
-                    }
+            Ok(Some(json)) => match serde_json::from_str::<DepthResponse>(&json) {
+                Ok(depth) => {
+                    debug!(symbol = %symbol, "Redis cache hit for depth");
+                    Ok(Some(depth))
                 }
-            }
+                Err(e) => {
+                    warn!(symbol = %symbol, error = %e, "Redis cache hit but failed to deserialize depth");
+                    Ok(None)
+                }
+            },
             Ok(None) => {
                 debug!(symbol = %symbol, "Redis cache miss for depth");
                 Ok(None)
@@ -254,7 +252,9 @@ impl RedisCache {
 // ========== Deserialization Helper ==========
 
 /// Deserialize HashMap from Redis HASH into TickerResponse
-fn deserialize_ticker_from_hash(fields: &std::collections::HashMap<String, String>) -> Option<TickerResponse> {
+fn deserialize_ticker_from_hash(
+    fields: &std::collections::HashMap<String, String>,
+) -> Option<TickerResponse> {
     Some(TickerResponse {
         symbol: fields.get("symbol")?.clone(),
         price: fields.get("price")?.parse().ok()?,

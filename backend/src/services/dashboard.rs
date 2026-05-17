@@ -58,10 +58,7 @@ fn fmt_pct(v: f64) -> String {
 /// GET /api/v1/dashboard/stats — Dashboard statistics
 ///
 /// Aggregates: total_users, active_strategies, orders_today, pnl_today, win_rate
-pub async fn get_stats(
-    db: &DatabaseConnection,
-    user_id: Uuid,
-) -> Result<DashboardStats, AppError> {
+pub async fn get_stats(db: &DatabaseConnection, user_id: Uuid) -> Result<DashboardStats, AppError> {
     // 1. Count total users (system-wide for admin, or just self)
     // For simplicity, we count all users in the system
     let total_users = user::Entity::find()
@@ -101,17 +98,20 @@ pub async fn get_stats(
         .await
         .map_err(|e| AppError::Database(e.to_string()))?;
 
-    let total_pnl_today: f64 = today_orders.iter().map(|o| {
-        let sign = match o.side {
-            OrderSide::Buy => 1.0,
-            OrderSide::Sell => -1.0,
-        };
-        if let Some(avg_price) = o.avg_fill_price {
-            sign * (avg_price - o.price.unwrap_or(0.0)) * o.filled_quantity - o.fee
-        } else {
-            -o.fee
-        }
-    }).sum();
+    let total_pnl_today: f64 = today_orders
+        .iter()
+        .map(|o| {
+            let sign = match o.side {
+                OrderSide::Buy => 1.0,
+                OrderSide::Sell => -1.0,
+            };
+            if let Some(avg_price) = o.avg_fill_price {
+                sign * (avg_price - o.price.unwrap_or(0.0)) * o.filled_quantity - o.fee
+            } else {
+                -o.fee
+            }
+        })
+        .sum();
 
     // 5. Calculate win rate from orders
     let all_orders = order::Entity::find()
@@ -122,18 +122,21 @@ pub async fn get_stats(
         .map_err(|e| AppError::Database(e.to_string()))?;
 
     let total_trades = all_orders.len() as i64;
-    let winning_trades = all_orders.iter().filter(|o| {
-        let sign = match o.side {
-            OrderSide::Buy => 1.0,
-            OrderSide::Sell => -1.0,
-        };
-        if let Some(avg_price) = o.avg_fill_price {
-            let pnl = sign * (avg_price - o.price.unwrap_or(0.0)) * o.filled_quantity - o.fee;
-            pnl > 0.0
-        } else {
-            false
-        }
-    }).count() as i64;
+    let winning_trades = all_orders
+        .iter()
+        .filter(|o| {
+            let sign = match o.side {
+                OrderSide::Buy => 1.0,
+                OrderSide::Sell => -1.0,
+            };
+            if let Some(avg_price) = o.avg_fill_price {
+                let pnl = sign * (avg_price - o.price.unwrap_or(0.0)) * o.filled_quantity - o.fee;
+                pnl > 0.0
+            } else {
+                false
+            }
+        })
+        .count() as i64;
 
     let win_rate = if total_trades > 0 {
         (winning_trades as f64 / total_trades as f64) * 100.0
@@ -213,7 +216,8 @@ async fn generate_pnl_from_orders(
         .map_err(|e| AppError::Database(e.to_string()))?;
 
     // Group by day and calculate daily PnL
-    let mut daily_pnl: std::collections::HashMap<String, (f64, f64)> = std::collections::HashMap::new();
+    let mut daily_pnl: std::collections::HashMap<String, (f64, f64)> =
+        std::collections::HashMap::new();
 
     for o in &orders {
         let day_key = o.updated_at.format("%Y-%m-%d").to_string();

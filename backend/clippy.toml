@@ -1,0 +1,21 @@
+# Clippy lint configuration
+# Enforce async alternatives to sync std library calls in tokio async context
+
+[[disallowed-paths]]
+path = "std::fs::DirBuilder"
+replacement = "tokio::fs::DirBuilder"
+[[disallowed-paths]]
+path = "std::fs::DirEntry"
+replacement = "tokio::fs::DirEntry"
+[[disallowed-paths]]
+path = "std::fs::File"
+replacement = "tokio::fs::File"
+[[disallowed-paths]]
+path = "std::fs::OpenOptions"
+replacement = "tokio::fs::OpenOptions"
+[[disallowed-paths]]
+path = "std::fs::ReadDir"
+replacement = "tokio::fs::ReadDir"
+[[disallowed-paths]]
+path = "std::process::Command"
+replacement = "tokio::process::Command"
