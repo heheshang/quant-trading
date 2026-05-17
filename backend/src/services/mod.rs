@@ -4,6 +4,7 @@ pub mod backtest_engine;
 pub mod dashboard;
 pub mod exchange;
 pub mod kline;
+pub mod kline_writer;
 pub mod market_data;
 pub mod matching_engine;
 pub mod portfolio;

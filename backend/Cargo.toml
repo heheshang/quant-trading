@@ -48,6 +48,10 @@ tokio-tungstenite = { version = "0.26", features = ["rustls"] }
 # UUID
 uuid = { version = "1", features = ["v4", "serde"] }
 
+# Decimal numeric storage
+rust_decimal = "1.36"
+bigdecimal = "0.4"  # kept for existing migrations
+
 # Date/Time
 chrono = { version = "0.4", features = ["serde"] }
 
