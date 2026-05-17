@@ -10,14 +10,21 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "typecheck": "vue-tsc --noEmit"
+    "typecheck": "npx vue-tsc --noEmit -p tsconfig.app.json",
+    "lint": "eslint . --ext .vue,.ts"
   },
   "dependencies": {
     "vue": "^3.5.34"
   },
   "devDependencies": {
+    "@babel/core": "^7.29.0",
+    "@babel/eslint-parser": "^7.28.6",
+    "@babel/preset-typescript": "^7.28.5",
     "@element-plus/icons-vue": "^2.3.1",
+    "@eslint/js": "^10.0.1",
     "@types/node": "^22.10.5",
+    "@typescript-eslint/parser": "^8.59.3",
+    "@typescript-eslint/typescript-estree": "^8.59.3",
     "@vitejs/plugin-vue": "^6.0.6",
     "@vitest/coverage-v8": "^3.2.4",
     "@vue/test-utils": "^2.4.6",
@@ -25,6 +32,9 @@
     "axios": "^1.7.9",
     "echarts": "^5.6.0",
     "element-plus": "^2.9.8",
+    "eslint": "^10.4.0",
+    "eslint-plugin-vue": "^10.9.1",
+    "globals": "^17.6.0",
     "jsdom": "^26.0.0",
     "lightweight-charts": "^4.2.1",
     "pinia": "^2.2.6",
@@ -32,6 +42,7 @@
     "typescript": "~6.0.2",
     "vite": "^8.0.12",
     "vitest": "^3.0.4",
+    "vue-eslint-parser": "^10.4.0",
     "vue-router": "^4.5.0",
     "vue-tsc": "^2.2.0"
   }

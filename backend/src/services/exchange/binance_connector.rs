@@ -92,12 +92,13 @@ impl BinanceConnector {
 
     /// Build the JSON subscription message for Binance WS.
     fn build_subscribe_message(&self, streams: &[String]) -> String {
-        serde_json::to_string(&serde_json::json!({
+        let msg = serde_json::to_string(&serde_json::json!({
             "method": "SUBSCRIBE",
             "params": streams,
             "id": 1
-        }))
-        .unwrap_or_default()
+        })).unwrap_or_default();
+        info!("Built subscription message ({} streams): {}", streams.len(), msg);
+        msg
     }
 
     /// Connect to Binance WebSocket and handle messages.
@@ -118,6 +119,7 @@ impl BinanceConnector {
         let (mut write, mut read) = ws_stream.split();
 
         // Send subscription message
+        info!("Sending subscription: {}", subscribe_msg);
         write
             .send(Message::Text(subscribe_msg.into()))
             .await

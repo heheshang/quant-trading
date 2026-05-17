@@ -24,6 +24,7 @@ const router = createRouter({
 const mockTemplates = [
   {
     id: 'trend_following',
+    template_id: 'trend_following',
     name: '趋势跟踪',
     description: '基于移动平均线交叉的趋势跟踪策略',
     category: '趋势跟踪',
@@ -37,6 +38,7 @@ const mockTemplates = [
   },
   {
     id: 'grid_trading',
+    template_id: 'grid_trading',
     name: '网格交易',
     description: '震荡行情网格交易策略',
     category: '网格交易',

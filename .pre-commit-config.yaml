@@ -84,11 +84,11 @@ repos:
         stages: [pre-commit, manual]
         # Use manual stage so tests don't block commit, but can be triggered manually
 
-      # ─── Frontend: vue-tsc type check ────
+      # ─── Frontend: type check ────
       - id: frontend-typecheck
         name: frontend typecheck
         description: Check frontend TypeScript types with vue-tsc
-        entry: bash -c 'cd frontend && bunx vue-tsc --noEmit'
+        entry: bash -c 'cd frontend && bun run typecheck'
         language: system
         files: \.ts$|\.vue$
         pass_filenames: false

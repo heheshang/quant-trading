@@ -48,14 +48,14 @@ function buildChartOptions() {
       mode: 1, // CrosshairMode.Normal
       vertLine: {
         color: 'rgba(113, 112, 255, 0.5)',
-        width: 1,
-        style: 2, // LineStyle.Dashed
+        width: 1 as const,
+        style: 2 as const, // LineStyle.Dashed
         labelBackgroundColor: '#7170ff',
       },
       horzLine: {
         color: 'rgba(113, 112, 255, 0.5)',
-        width: 1,
-        style: 2,
+        width: 1 as const,
+        style: 2 as const,
         labelBackgroundColor: '#7170ff',
       },
     },

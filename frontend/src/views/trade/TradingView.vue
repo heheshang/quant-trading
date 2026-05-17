@@ -224,7 +224,7 @@ async function loadKlineData() {
     const res = await queryKlines({
       symbol,
       interval: chartInterval.value,
-      limit: 200,
+      page_size: 200,
     })
     const r = res as any
     const bars: KlineBar[] = r?.items ?? r ?? []

@@ -121,6 +121,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_ticker_handler_found() {
+
         let db = Arc::new(sea_orm::DatabaseConnection::Disconnected);
         let user = make_auth_user("trader");
         let params = TickerQueryParams {

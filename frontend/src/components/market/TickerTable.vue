@@ -158,6 +158,14 @@ const headerCellStyle = {
 const cellStyle = {
   borderBottom: '1px solid var(--color-border)',
 }
+
+defineExpose({
+  formatSymbol,
+  getFlashClass,
+  formatVolume,
+  getChangeClass,
+  getArrow,
+})
 </script>
 
 <style scoped lang="scss">

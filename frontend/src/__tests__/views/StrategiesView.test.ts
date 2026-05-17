@@ -94,7 +94,7 @@ const mockPaginatedResponse = {
   code: 0,
   message: 'ok',
   meta: { page: 1, size: 20, total: 3 },
-}
+} as any
 
 const mockArchivedStrategy = {
   id: '4',
@@ -186,7 +186,7 @@ describe('StrategiesView', () => {
   })
 
   it('displays status labels correctly', async () => {
-    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockPaginatedWithArchived)
+    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockPaginatedWithArchived as any)
     const wrapper = await mountView()
     await flushPromises()
 
@@ -197,7 +197,7 @@ describe('StrategiesView', () => {
   })
 
   it('shows empty state when no strategies exist', async () => {
-    vi.mocked(strategiesApi.listStrategies).mockResolvedValue({ data: [], items: [], total: 0, meta: { page: 1, size: 20, total: 0 } })
+    vi.mocked(strategiesApi.listStrategies).mockResolvedValue({ data: [], items: [], total: 0, meta: { page: 1, size: 20, total: 0 } } as any)
     const wrapper = await mountView()
     await flushPromises()
 
@@ -233,7 +233,7 @@ describe('StrategiesView', () => {
   })
 
   it('shows filter pills for status filtering', async () => {
-    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockPaginatedWithArchived)
+    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockPaginatedWithArchived as any)
     const wrapper = await mountView()
     await flushPromises()
 
@@ -298,7 +298,7 @@ describe('StrategiesView', () => {
       }],
       total: 1,
       meta: { page: 1, size: 20, total: 1 },
-    })
+    } as any)
     const wrapper = await mountView()
     await flushPromises()
 

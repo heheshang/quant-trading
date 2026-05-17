@@ -17,8 +17,8 @@ vi.mock('@/api/order', () => ({
 
 function mockPosition(overrides?: Partial<Position>): Position {
   return {
-    id: 1,
-    user_id: 1,
+    id: '1',
+    user_id: '1',
     symbol: 'BTC/USDT',
     side: 'long',
     quantity: '0.3000',
@@ -35,7 +35,7 @@ function mockPosition(overrides?: Partial<Position>): Position {
 
 function mockAccount(overrides?: Partial<PaperAccount>): PaperAccount {
   return {
-    user_id: 1,
+    user_id: '1',
     balance: '55000.00',
     frozen_balance: '4950.00',
     initial_balance: '100000.00',
@@ -92,8 +92,8 @@ describe('PositionPanel', () => {
   it('should compute filteredPositions with side filter', () => {
     const wrapper = createWrapper({
       positions: [
-        mockPosition({ id: 1, side: 'long' }),
-        mockPosition({ id: 2, side: 'short', symbol: 'ETH/USDT' }),
+        mockPosition({ id: '1', side: 'long' }),
+        mockPosition({ id: '2', side: 'short', symbol: 'ETH/USDT' }),
       ],
     })
     const vm = wrapper.vm as any
@@ -105,8 +105,8 @@ describe('PositionPanel', () => {
   it('should compute filteredPositions with symbol filter', () => {
     const wrapper = createWrapper({
       positions: [
-        mockPosition({ id: 1, symbol: 'BTC/USDT' }),
-        mockPosition({ id: 2, symbol: 'ETH/USDT' }),
+        mockPosition({ id: '1', symbol: 'BTC/USDT' }),
+        mockPosition({ id: '2', symbol: 'ETH/USDT' }),
       ],
     })
     const vm = wrapper.vm as any
@@ -118,8 +118,8 @@ describe('PositionPanel', () => {
   it('should return all positions when no filters', () => {
     const wrapper = createWrapper({
       positions: [
-        mockPosition({ id: 1 }),
-        mockPosition({ id: 2, symbol: 'ETH/USDT' }),
+        mockPosition({ id: '1' }),
+        mockPosition({ id: '2', symbol: 'ETH/USDT' }),
       ],
     })
     const vm = wrapper.vm as any

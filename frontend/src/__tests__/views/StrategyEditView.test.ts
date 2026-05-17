@@ -55,6 +55,7 @@ const mockStrategy = {
 const mockTemplates = [
   {
     id: 'trend_following',
+    template_id: 'trend_following',
     name: '趋势跟踪',
     description: '基于移动平均线交叉的趋势跟踪策略',
     category: '趋势跟踪',

@@ -188,14 +188,35 @@ impl WsHub {
                 }
             }
 
-            let mut binance_rx = connector.subscribe();
+let mut binance_rx = connector.subscribe();
+            let mut msg_count: u64 = 0;
+            info!("WS Hub subscribed to BinanceConnector, waiting for messages...");
 
             loop {
                 tokio::select! {
+                    // Poll shutdown flag periodically
+                    _ = tokio::time::sleep(tokio::time::Duration::from_secs(1)) => {
+                        if shutdown.load(Ordering::SeqCst) {
+                            break;
+                        }
+                        // Debug: if no messages after 10s, warn
+                        if msg_count == 0 && std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap()
+                            .as_secs() % 10 == 0 {
+                            info!("WS Hub: no messages yet, still waiting...");
+                        }
+                    }
                     // Forward Binance messages → Hub
                     msg = binance_rx.recv() => {
                         match msg {
                             Ok(market_msg) => {
+                                msg_count += 1;
+                                if msg_count % 50 == 0 {
+                                    info!("WS Hub processed {} messages (Kline={})",
+                                        msg_count,
+                                        std::matches!(market_msg, MarketMessage::Kline {..}));
+                                }
                                 let hub_msg = Self::convert_message(market_msg.clone());
                                 if hub_tx.send(hub_msg).is_err() {
                                     // No subscribers, but that's ok

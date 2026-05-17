@@ -177,7 +177,7 @@ async function loadChartData() {
     const res = await queryKlines({
       symbol: chartSymbol.value.toLowerCase(),
       interval: chartInterval.value,
-      limit: 200,
+      page_size: 200,
     })
     const r = res as any
     const bars: KlineBar[] = r?.items ?? r ?? []

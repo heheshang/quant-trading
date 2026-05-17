@@ -54,7 +54,7 @@ const mockSymbolConfig: SymbolConfig = {
 }
 
 const mockAccount: PaperAccount = {
-  user_id: 1,
+  user_id: '1',
   balance: '100000.00',
   frozen_balance: '0',
   initial_balance: '100000.00',

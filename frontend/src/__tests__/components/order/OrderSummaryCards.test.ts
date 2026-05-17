@@ -13,7 +13,7 @@ const router = createRouter({
 /** Create a mock PaperAccount */
 function mockAccount(overrides?: Partial<PaperAccount>): PaperAccount {
   return {
-    user_id: 1,
+    user_id: '1',
     balance: '55050.00',
     frozen_balance: '4950.00',
     initial_balance: '100000.00',

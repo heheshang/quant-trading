@@ -34,6 +34,12 @@ function onClear() {
   searchValue.value = ''
   emit('search', '')
 }
+
+defineExpose({
+  searchValue,
+  onInput,
+  onClear,
+})
 </script>
 
 <style scoped lang="scss">

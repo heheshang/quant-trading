@@ -188,6 +188,7 @@ impl KlineWriter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rust_decimal_macros::dec;
 
     #[test]
     fn test_kline_record_to_active_model() {
@@ -196,12 +197,12 @@ mod tests {
             interval: "1m".to_string(),
             open_time: 1747500000000,
             close_time: 1747500060000,
-            open: 97000.0,
-            high: 97100.0,
-            low: 96900.0,
-            close: 97050.0,
-            volume: 100.5,
-            quote_volume: 9750000.0,
+            open: dec!(97000.0),
+            high: dec!(97100.0),
+            low: dec!(96900.0),
+            close: dec!(97050.0),
+            volume: dec!(100.5),
+            quote_volume: dec!(9750000.0),
             trades: 1500,
             source: "binance".to_string(),
         };
