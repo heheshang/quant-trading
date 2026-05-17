@@ -43,7 +43,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
 
 # WebSocket
-tokio-tungstenite = { version = "0.29", features = ["rustls"] }
+tokio-tungstenite = { version = "0.26", features = ["__rustls-tls"] }
 
 # UUID
 uuid = { version = "1", features = ["v4", "serde"] }
