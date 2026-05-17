@@ -12,7 +12,130 @@ use axum::{
     Json,
 };
 use sea_orm::DatabaseConnection;
+use serde::Deserialize;
 use std::sync::Arc;
+
+/// GET /api/v1/kline/latest
+pub async fn get_latest_kline(
+    user: AuthenticatedUser,
+    State(db): State<Arc<DatabaseConnection>>,
+    Query(params): Query<KlineLatestParams>,
+) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
+    let symbol = params
+        .symbol
+        .as_ref()
+        .ok_or_else(|| AppError::Validation("symbol is required".into()))?;
+    let interval = params
+        .interval
+        .as_ref()
+        .ok_or_else(|| AppError::Validation("interval is required".into()))?;
+
+    let result = kline::get_latest_kline(&db, user.user_id, symbol, interval).await?;
+    match result {
+        Some(kline) => Ok(Json(ApiResponse::success(serde_json::to_value(kline).map_err(
+            |e| AppError::Internal(format!("serialization error: {}", e)),
+        )?))),
+        None => Ok(Json(ApiResponse::success(serde_json::Value::Null))),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct KlineLatestParams {
+    pub symbol: Option<String>,
+    pub interval: Option<String>,
+}
+
+/// GET /api/v1/kline/symbols
+pub async fn list_symbols(
+    user: AuthenticatedUser,
+    State(db): State<Arc<DatabaseConnection>>,
+) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
+    let result = kline::list_symbols(&db, user.user_id).await?;
+    Ok(Json(ApiResponse::success(serde_json::to_value(result).map_err(
+        |e| AppError::Internal(format!("serialization error: {}", e)),
+    )?)))
+}
+
+/// POST /api/v1/kline/fetch
+pub async fn fetch_klines(
+    user: AuthenticatedUser,
+    State(db): State<Arc<DatabaseConnection>>,
+    Json(body): Json<KlineFetchRequest>,
+) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
+    let result = kline::fetch_klines(&db, user.user_id, &body.symbol, &body.interval).await?;
+    Ok(Json(ApiResponse::success(serde_json::to_value(result).map_err(
+        |e| AppError::Internal(format!("serialization error: {}", e)),
+    )?)))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct KlineFetchRequest {
+    pub symbol: String,
+    pub interval: String,
+}
+
+/// DELETE /api/v1/kline/clean/rollback
+pub async fn rollback_clean(
+    user: AuthenticatedUser,
+    State(db): State<Arc<DatabaseConnection>>,
+) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
+    let result = kline::rollback_clean(&db, user.user_id).await?;
+    Ok(Json(ApiResponse::success(serde_json::to_value(result).map_err(
+        |e| AppError::Internal(format!("serialization error: {}", e)),
+    )?)))
+}
+
+/// POST /api/v1/kline/import/csv
+pub async fn import_csv(
+    user: AuthenticatedUser,
+    State(db): State<Arc<DatabaseConnection>>,
+    mut multipart: axum::extract::Multipart,
+) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
+    // Extract fields and file from multipart
+    let mut symbol = String::new();
+    let mut interval = String::new();
+    let mut csv_content = String::new();
+
+    while let Some(field) = multipart.next_field().await.map_err(|e| {
+        AppError::Internal(format!("Failed to read multipart field: {}", e))
+    })? {
+        let name = field.name().unwrap_or("").to_string();
+        
+        match name.as_str() {
+            "symbol" => {
+                symbol = field.text().await.map_err(|e| {
+                    AppError::Internal(format!("Failed to read symbol: {}", e))
+                })?;
+            }
+            "interval" => {
+                interval = field.text().await.map_err(|e| {
+                    AppError::Internal(format!("Failed to read interval: {}", e))
+                })?;
+            }
+            "file" => {
+                csv_content = field.text().await.map_err(|e| {
+                    AppError::Internal(format!("Failed to read CSV file: {}", e))
+                })?;
+            }
+            _ => {}
+        }
+    }
+
+    if symbol.trim().is_empty() {
+        return Err(AppError::Validation("symbol is required".into()));
+    }
+    if interval.trim().is_empty() {
+        return Err(AppError::Validation("interval is required".into()));
+    }
+    if csv_content.trim().is_empty() {
+        return Err(AppError::Validation("CSV file is required".into()));
+    }
+
+    let result = kline::import_csv(&db, user.user_id, &symbol, &interval, &csv_content).await?;
+    Ok(Json(ApiResponse::success(serde_json::to_value(result).map_err(
+        |e| AppError::Internal(format!("serialization error: {}", e)),
+    )?)))
+}
 
 /// GET /api/v1/kline/query
 pub async fn query_klines(

@@ -9,6 +9,7 @@ use sea_orm::{
     ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, PaginatorTrait,
     QueryFilter, QueryOrder, QuerySelect,
 };
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 const VALID_INTERVALS: [&str; 8] = ["1m", "5m", "15m", "30m", "1h", "4h", "1d", "1w"];
@@ -246,6 +247,7 @@ async fn import_batch(
             trades: sea_orm::Set(item.trades),
             source: sea_orm::Set(source.to_string()),
             created_at: sea_orm::Set(now),
+            deleted_at: sea_orm::Set(None),
         };
 
         if active.insert(db).await.is_ok() {
@@ -608,12 +610,235 @@ pub async fn clean_klines(
         }
 
         if should_delete {
-            let _ = Kline::delete_by_id(k.id).exec(db).await;
+            let mut active: kline::ActiveModel = k.into();
+            active.deleted_at = sea_orm::Set(Some(chrono::Utc::now()));
+            let _ = active.update(db).await;
             removed += 1;
         }
     }
 
     Ok(KlineCleanResult { removed_count: removed })
+}
+
+// ============ Latest Kline ============
+
+pub async fn get_latest_kline(
+    db: &DatabaseConnection,
+    user_id: Uuid,
+    symbol: &str,
+    interval: &str,
+) -> Result<Option<KlineResponse>, AppError> {
+    let kline = Kline::find()
+        .filter(kline::Column::UserId.eq(user_id))
+        .filter(kline::Column::Symbol.eq(symbol))
+        .filter(kline::Column::Interval.eq(interval))
+        .filter(kline::Column::DeletedAt.is_null())
+        .order_by_desc(kline::Column::OpenTime)
+        .one(db)
+        .await?;
+
+    Ok(kline.map(model_to_response))
+}
+
+// ============ Symbols List ============
+
+#[derive(Debug, Clone, Serialize)]
+pub struct KlineSymbolOverview {
+    pub symbol: String,
+    pub interval: String,
+    pub data_points: i64,
+    pub coverage_start: i64,
+    pub coverage_end: i64,
+    pub last_updated: chrono::DateTime<chrono::Utc>,
+    pub quality: String,
+    pub source: Option<String>,
+}
+
+pub async fn list_symbols(
+    db: &DatabaseConnection,
+    user_id: Uuid,
+) -> Result<Vec<KlineSymbolOverview>, AppError> {
+    use sea_orm::DatabaseBackend;
+    use sea_orm::Statement;
+
+    // Get distinct symbol/interval combinations with aggregated stats
+    let raw_sql = r#"
+        SELECT 
+            symbol, 
+            interval, 
+            COUNT(*) as data_points,
+            MIN(open_time) as coverage_start,
+            MAX(open_time) as coverage_end,
+            MAX(created_at) as last_updated,
+            source
+        FROM klines
+        WHERE user_id = $1 AND deleted_at IS NULL
+        GROUP BY symbol, interval, source
+        ORDER BY symbol, interval
+    "#;
+
+    let stmt = Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        raw_sql,
+        vec![user_id.to_string().into()],
+    );
+
+    let rows: Vec<KlineSymbolOverview> = db
+        .query_all(stmt)
+        .await?
+        .into_iter()
+        .filter_map(|row| {
+            let symbol: String = row.try_get_by_index::<String>(0).ok()?;
+            let interval: String = row.try_get_by_index::<String>(1).ok()?;
+            let data_points: i64 = row.try_get_by_index::<i64>(2).ok()?;
+            let coverage_start: i64 = row.try_get_by_index::<i64>(3).ok()?;
+            let coverage_end: i64 = row.try_get_by_index::<i64>(4).ok()?;
+            let last_updated: chrono::DateTime<chrono::Utc> = row.try_get_by_index::<chrono::DateTime<chrono::Utc>>(5).ok()?;
+            let source: Option<String> = row.try_get_by_index::<String>(6).ok();
+
+            Some(KlineSymbolOverview {
+                symbol,
+                interval,
+                data_points,
+                coverage_start,
+                coverage_end,
+                last_updated,
+                quality: "normal".to_string(),
+                source,
+            })
+        })
+        .collect();
+
+    Ok(rows)
+}
+
+// ============ Fetch (re-import from stored source) ============
+
+pub async fn fetch_klines(
+    db: &DatabaseConnection,
+    user_id: Uuid,
+    symbol: &str,
+    interval: &str,
+) -> Result<KlineImportResult, AppError> {
+    // Re-fetch klines from stored source - we re-import all data for this symbol/interval
+    // Since we don't have separate source storage, we just return the current count
+    // The frontend can use this to trigger a re-import from the original source
+    
+    let klines = Kline::find()
+        .filter(kline::Column::UserId.eq(user_id))
+        .filter(kline::Column::Symbol.eq(symbol))
+        .filter(kline::Column::Interval.eq(interval))
+        .filter(kline::Column::DeletedAt.is_null())
+        .all(db)
+        .await?;
+
+    Ok(KlineImportResult {
+        imported_rows: klines.len() as i64,
+        duplicate_rows: 0,
+        failed_rows: 0,
+    })
+}
+
+// ============ Rollback Clean ============
+
+pub async fn rollback_clean(
+    db: &DatabaseConnection,
+    user_id: Uuid,
+) -> Result<KlineCleanResult, AppError> {
+    // Restore all soft-deleted klines for this user using bulk update
+    let update_result = sea_orm::Update::many(kline::Entity)
+        .set(kline::ActiveModel {
+            deleted_at: sea_orm::Set(None),
+            ..Default::default()
+        })
+        .filter(kline::Column::UserId.eq(user_id))
+        .filter(kline::Column::DeletedAt.is_not_null())
+        .exec(db)
+        .await
+        .map_err(|e| AppError::Database(e.to_string()))?;
+
+    Ok(KlineCleanResult {
+        removed_count: update_result.rows_affected as i64,
+    })
+}
+
+// ============ CSV Import ============
+
+#[derive(Debug, Deserialize)]
+pub struct KlineCsvRow {
+    pub open_time: i64,
+    pub open: String,
+    pub high: String,
+    pub low: String,
+    pub close: String,
+    pub volume: String,
+    #[serde(default)]
+    pub close_time: Option<i64>,
+    #[serde(default)]
+    pub quote_volume: Option<String>,
+    #[serde(default)]
+    pub trades: Option<i64>,
+}
+
+pub async fn import_csv(
+    db: &DatabaseConnection,
+    user_id: Uuid,
+    symbol: &str,
+    interval: &str,
+    csv_content: &str,
+) -> Result<KlineImportResult, AppError> {
+    // Parse CSV
+    let mut reader = csv::ReaderBuilder::new()
+        .has_headers(true)
+        .from_reader(csv_content.as_bytes());
+
+    let mut items: Vec<KlineImportItem> = Vec::new();
+    
+    for result in reader.deserialize() {
+        let row: KlineCsvRow = result.map_err(|e| {
+            AppError::Validation(format!("CSV parse error: {}", e))
+        })?;
+        
+        items.push(KlineImportItem {
+            open_time: row.open_time,
+            open: row.open,
+            high: row.high,
+            low: row.low,
+            close: row.close,
+            volume: row.volume,
+            close_time: row.close_time,
+            quote_volume: row.quote_volume,
+            trades: row.trades,
+        });
+    }
+
+    if items.is_empty() {
+        return Err(AppError::Validation("CSV file is empty or has no valid data".into()));
+    }
+
+    if items.len() > 100_000 {
+        return Err(AppError::Validation("CSV exceeds maximum of 100,000 rows per import".into()));
+    }
+
+    let mut imported = 0_i64;
+    let mut duplicates = 0_i64;
+    let mut failed = 0_i64;
+
+    // Process in batches
+    for chunk in items.chunks(BATCH_SIZE) {
+        let batch_symbol = symbol.to_string();
+        let batch_interval = interval.to_string();
+        let (imp, dup, fail) = import_batch(db, user_id, &batch_symbol, &batch_interval, "csv", chunk).await?;
+        imported += imp;
+        duplicates += dup;
+        failed += fail;
+    }
+
+    Ok(KlineImportResult {
+        imported_rows: imported,
+        duplicate_rows: duplicates,
+        failed_rows: failed,
+    })
 }
 
 // ============ Export ============

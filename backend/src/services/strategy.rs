@@ -1788,7 +1788,73 @@ async fn import_single_strategy(
     Ok(())
 }
 
-// ============ Tests ============
+// ============ Bulk Delete ============
+
+/// Delete multiple strategies by IDs for a user
+pub async fn bulk_delete_strategies(
+    db: &DatabaseConnection,
+    user_id: Uuid,
+    ids: &[Uuid],
+) -> Result<BulkDeleteResponse, AppError> {
+    if ids.is_empty() {
+        return Ok(BulkDeleteResponse { deleted: 0 });
+    }
+
+    let mut deleted = 0_i64;
+    for id in ids {
+        let strategy = strategy::Entity::find_by_id(*id)
+            .one(db)
+            .await?
+            .ok_or_else(|| AppError::NotFound("Strategy not found".into()))?;
+
+        if strategy.user_id != user_id {
+            return Err(AppError::NotFound("Strategy not found".into()));
+        }
+
+        strategy::Entity::delete_by_id(*id).exec(db).await?;
+        deleted += 1;
+    }
+
+    Ok(BulkDeleteResponse { deleted })
+}
+
+// ============ Strategy Code Storage ============
+
+/// Store strategy code content (simple file-based storage)
+pub async fn store_strategy_code(
+    db: &DatabaseConnection,
+    user_id: Uuid,
+    file_name: &str,
+    content: &str,
+) -> Result<String, AppError> {
+    use std::fs;
+
+    // Determine storage directory
+    let storage_dir = std::env::var("STRATEGY_CODE_DIR")
+        .unwrap_or_else(|_| "/tmp/strategy_codes".to_string());
+
+    let user_dir = format!("{}/{}", storage_dir, user_id);
+    fs::create_dir_all(&user_dir).map_err(|e| {
+        AppError::Internal(format!("Failed to create strategy directory: {}", e))
+    })?;
+
+    let safe_name = file_name
+        .chars()
+        .filter(|c| c.is_alphanumeric() || *c == '.' || *c == '_' || *c == '-')
+        .collect::<String>();
+
+    let path = format!("{}/{}", user_dir, safe_name);
+    fs::write(&path, content).map_err(|e| {
+        AppError::Internal(format!("Failed to write strategy code file: {}", e))
+    })?;
+
+    Ok(path)
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct BulkDeleteResponse {
+    pub deleted: i64,
+}
 
 #[cfg(test)]
 mod tests {

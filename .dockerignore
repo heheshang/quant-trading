@@ -1,10 +1,7 @@
 # ─── Docker build ignore rules ────
 .git
-.gitignore
 .github
 docs
-node_modules
-backend/target
 *.md
 .env
 .env.local
@@ -13,3 +10,27 @@ __pycache__
 *.pyc
 .idea
 .vscode
+
+# Exclude frontend build artifacts and source (only files needed for build are negated below)
+frontend/node_modules
+frontend/__tests__
+frontend/.git
+frontend/.env
+frontend/.env.local
+frontend/bun.lockb
+frontend/.eslintrc*
+frontend/.prettierrc*
+# frontend/src is excluded; negation below restores it entirely
+# frontend/index.html excluded; negation below restores it
+
+# Negate files needed for build (must come AFTER the exclusions above)
+!frontend/vite.config.ts
+!frontend/tsconfig*.json
+!frontend/package.json
+!frontend/package-lock.json
+!frontend/index.html
+!frontend/src
+!frontend/public
+
+# Backend
+backend/target

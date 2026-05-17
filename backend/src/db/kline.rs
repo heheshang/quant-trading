@@ -20,6 +20,8 @@ pub struct Model {
     pub trades: Option<i64>,
     pub source: String,
     pub created_at: DateTimeUtc,
+    /// Soft delete - if set, this kline has been logically deleted
+    pub deleted_at: Option<DateTimeUtc>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

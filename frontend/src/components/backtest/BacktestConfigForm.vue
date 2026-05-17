@@ -324,13 +324,13 @@ async function loadTemplateParams() {
     await loadTemplates()
   }
 
-  const strategy = strategies.value.find((s) => s.id === form.strategy_id)
+  const strategy = [...strategies.value].find((s) => s.id === form.strategy_id)
   if (!strategy) {
     selectedTemplate.value = null
     return
   }
 
-  const tpl = (templates.value ?? []).find((t) => t.id === strategy.template_type)
+  const tpl = Array.from(templates.value ?? []).find((t) => t.id === strategy.template_type)
   if (tpl) {
     selectedTemplate.value = tpl
     // Reset and populate params with defaults

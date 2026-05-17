@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import ElementPlus from 'element-plus'
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createMemoryHistory } from 'vue-router'
 import StrategiesView from '@/views/strategy/StrategiesView.vue'
 import * as strategiesApi from '@/api/strategies'
 
@@ -16,7 +16,7 @@ vi.mock('@/api/strategies', () => ({
 
 // Mock router
 const router = createRouter({
-  history: createWebHistory(),
+  history: createMemoryHistory(),
   routes: [
     { path: '/strategies', name: 'Strategies', component: { template: '<div>list</div>' } },
     { path: '/strategies/create', name: 'StrategyCreate', component: { template: '<div>create</div>' } },
@@ -89,6 +89,10 @@ const mockStrategies = [
 
 const mockPaginatedResponse = {
   data: mockStrategies,
+  items: mockStrategies,
+  total: 3,
+  code: 0,
+  message: 'ok',
   meta: { page: 1, size: 20, total: 3 },
 }
 
@@ -115,6 +119,10 @@ const mockArchivedStrategy = {
 
 const mockPaginatedWithArchived = {
   data: [...mockStrategies, mockArchivedStrategy],
+  items: [...mockStrategies, mockArchivedStrategy],
+  total: 4,
+  code: 0,
+  message: 'ok',
   meta: { page: 1, size: 20, total: 4 },
 }
 
@@ -189,7 +197,7 @@ describe('StrategiesView', () => {
   })
 
   it('shows empty state when no strategies exist', async () => {
-    vi.mocked(strategiesApi.listStrategies).mockResolvedValue({ data: [], meta: { page: 1, size: 20, total: 0 } })
+    vi.mocked(strategiesApi.listStrategies).mockResolvedValue({ data: [], items: [], total: 0, meta: { page: 1, size: 20, total: 0 } })
     const wrapper = await mountView()
     await flushPromises()
 
@@ -225,7 +233,7 @@ describe('StrategiesView', () => {
   })
 
   it('shows filter pills for status filtering', async () => {
-    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockPaginatedResponse)
+    vi.mocked(strategiesApi.listStrategies).mockResolvedValue(mockPaginatedWithArchived)
     const wrapper = await mountView()
     await flushPromises()
 
@@ -284,6 +292,11 @@ describe('StrategiesView', () => {
         ...mockStrategies[0],
         description: xssPayload,
       }],
+      items: [{
+        ...mockStrategies[0],
+        description: xssPayload,
+      }],
+      total: 1,
       meta: { page: 1, size: 20, total: 1 },
     })
     const wrapper = await mountView()

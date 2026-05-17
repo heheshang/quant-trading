@@ -103,10 +103,21 @@
     </div>
 
     <!-- 图表预览弹窗 -->
-    <el-dialog v-model="chartDialogVisible" title="图表预览" width="80%">
-      <div v-if="chartSymbol" style="text-align:center; padding: 40px;">
-        <p>交易对: <strong>{{ chartSymbol }}</strong></p>
-        <p>周期: <strong>{{ chartInterval }}</strong></p>
+    <el-dialog v-model="chartDialogVisible" title="图表预览" width="85%" draggable>
+      <div v-if="chartLoading" style="text-align:center;padding:40px;">
+        <el-icon class="is-loading" :size="32"><Loading /></el-icon>
+        <p style="margin-top:8px;color:#8a8f98;">加载中...</p>
+      </div>
+      <KlineChart
+        v-else-if="chartData.length > 0"
+        :data="chartData"
+        :symbol="chartSymbol"
+        :interval="chartInterval"
+        :dark-mode="true"
+        style="height: 480px;"
+      />
+      <div v-else style="text-align:center;padding:40px;color:#8a8f98;">
+        暂无数据
       </div>
     </el-dialog>
 
@@ -136,11 +147,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { MoreFilled, Document, DataLine, Edit, Delete } from '@element-plus/icons-vue'
+import { MoreFilled, Document, DataLine, Edit, Delete, Loading } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getKlineSymbols } from '@/api/kline'
+import { getKlineSymbols, queryKlines } from '@/api/kline'
 import { KLINE_INTERVALS } from '@/types/kline'
 import type { KlineSymbolOverview } from '@/types/kline'
+import KlineChart from '@/components/charts/KlineChart.vue'
+import type { KlineBar } from '@/components/charts/KlineChart.vue'
 
 const router = useRouter()
 const loading = ref(false)
@@ -154,6 +167,35 @@ const pagination = ref({ page: 1, pageSize: 20 })
 const chartDialogVisible = ref(false)
 const chartSymbol = ref('')
 const chartInterval = ref('')
+const chartData = ref<KlineBar[]>([])
+const chartLoading = ref(false)
+
+async function loadChartData() {
+  if (!chartSymbol.value) return
+  chartLoading.value = true
+  try {
+    const res = await queryKlines({
+      symbol: chartSymbol.value.toLowerCase(),
+      interval: chartInterval.value,
+      limit: 200,
+    })
+    const r = res as any
+    const bars: KlineBar[] = r?.items ?? r ?? []
+    chartData.value = bars.map((b: any) => ({
+      time: b.timestamp ?? b.time ?? Math.floor(new Date(b.open_time).getTime() / 1000),
+      open: parseFloat(b.open),
+      high: parseFloat(b.high),
+      low: parseFloat(b.low),
+      close: parseFloat(b.close),
+      volume: parseFloat(b.volume ?? 0),
+    }))
+  } catch {
+    chartData.value = []
+  } finally {
+    chartLoading.value = false
+  }
+}
+
 const tagDialogVisible = ref(false)
 const tagRow = ref<KlineSymbolOverview | null>(null)
 const tagForm = ref({ source: '' })
@@ -249,6 +291,7 @@ async function handleCommand(command: string, row: KlineSymbolOverview) {
       chartSymbol.value = row.symbol
       chartInterval.value = row.interval
       chartDialogVisible.value = true
+      await loadChartData()
       break
     case 'edit':
     case 'editTag':

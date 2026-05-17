@@ -1,11 +1,13 @@
 use axum::{
     middleware,
-    routing::{get, post},
-    Router,
+    routing::{get, post, delete},
+    Extension, Router,
 };
 use quant_trading_backend::db::{init_db, run_migrations, DbPool};
 use quant_trading_backend::handlers;
+use quant_trading_backend::services::binance_rest::BinanceRestClient;
 use quant_trading_backend::services::matching_engine::MatchingEngine;
+use quant_trading_backend::services::redis_cache::RedisCache;
 use quant_trading_backend::CONFIG;
 use std::sync::Arc;
 use tower_http::cors::{Any, CorsLayer};
@@ -56,8 +58,18 @@ async fn main() {
     // Create matching engine
     let matching_engine = Arc::new(MatchingEngine::new(db.clone(), 200, 0.001));
 
+    // Initialize Redis cache
+    let redis_cache = Arc::new(
+        RedisCache::new(&CONFIG.redis_url)
+            .await
+            .expect("Redis connect failed"),
+    );
+
+    // Initialize Binance REST client
+    let binance_rest = Arc::new(BinanceRestClient::new());
+
     // Build application
-    let app = create_router(db, cors, matching_engine);
+    let app = create_router(db, cors, matching_engine, redis_cache, binance_rest);
 
     // Start server
     let addr = CONFIG.server_addr();
@@ -70,7 +82,13 @@ async fn main() {
     axum::serve(listener, app).await.expect("Server failed");
 }
 
-fn create_router(db: DbPool, cors: CorsLayer, matching_engine: Arc<MatchingEngine>) -> Router {
+fn create_router(
+    db: DbPool,
+    cors: CorsLayer,
+    matching_engine: Arc<MatchingEngine>,
+    redis_cache: Arc<RedisCache>,
+    binance_rest: Arc<BinanceRestClient>,
+) -> Router {
     // Auth routes (no auth required)
     let auth_routes = Router::new()
         .route("/register", post(handlers::auth::register))
@@ -131,6 +149,14 @@ fn create_router(db: DbPool, cors: CorsLayer, matching_engine: Arc<MatchingEngin
             get(handlers::strategy::export_strategies),
         )
         .route(
+            "/strategies/bulk/delete",
+            post(handlers::strategy::bulk_delete_strategies),
+        )
+        .route(
+            "/strategies/code/upload",
+            post(handlers::strategy::upload_strategy_code),
+        )
+        .route(
             "/strategies/import",
             post(handlers::strategy::import_strategies_batch),
         )
@@ -145,6 +171,11 @@ fn create_router(db: DbPool, cors: CorsLayer, matching_engine: Arc<MatchingEngin
         .route("/kline/quality", get(handlers::kline::quality_report))
         .route("/kline/clean", post(handlers::kline::clean_klines))
         .route("/kline/export", get(handlers::kline::export_klines))
+        .route("/kline/latest", get(handlers::kline::get_latest_kline))
+        .route("/kline/symbols", get(handlers::kline::list_symbols))
+        .route("/kline/fetch", post(handlers::kline::fetch_klines))
+        .route("/kline/clean/rollback", delete(handlers::kline::rollback_clean))
+        .route("/kline/import/csv", post(handlers::kline::import_csv))
         .layer(middleware::from_fn(
             quant_trading_backend::middleware::auth::auth_middleware,
         ));
@@ -159,6 +190,8 @@ fn create_router(db: DbPool, cors: CorsLayer, matching_engine: Arc<MatchingEngin
             get(handlers::market::get_ticker_history),
         )
         .route("/market/kline", get(handlers::market::get_kline))
+        .layer(Extension(redis_cache.clone()))
+        .layer(Extension(binance_rest.clone()))
         .layer(middleware::from_fn(
             quant_trading_backend::middleware::auth::auth_middleware,
         ));
@@ -177,6 +210,14 @@ fn create_router(db: DbPool, cors: CorsLayer, matching_engine: Arc<MatchingEngin
         .route("/account/init", post(handlers::order::init_account))
         .route("/symbols", get(handlers::order::list_symbols))
         .layer(axum::Extension(matching_engine))
+        .layer(middleware::from_fn(
+            quant_trading_backend::middleware::auth::auth_middleware,
+        ));
+
+    // Dashboard routes (authenticated)
+    let dashboard_routes = Router::new()
+        .route("/dashboard/stats", get(handlers::dashboard::get_stats))
+        .route("/dashboard/pnl", get(handlers::dashboard::get_pnl))
         .layer(middleware::from_fn(
             quant_trading_backend::middleware::auth::auth_middleware,
         ));
@@ -251,6 +292,7 @@ fn create_router(db: DbPool, cors: CorsLayer, matching_engine: Arc<MatchingEngin
         .nest("/api/v1", market_routes)
         .nest("/api/v1", order_routes)
         .nest("/api/v1", portfolio_routes)
+        .nest("/api/v1", dashboard_routes)
         .nest("/api/v1", backtest_routes)
         .nest("/api/v1", cancel_routes)
         .nest("/api/v1", public_routes)

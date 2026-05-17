@@ -13,8 +13,59 @@ use axum::{
     Json,
 };
 use sea_orm::DatabaseConnection;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
+
+/// POST /api/v1/strategies/bulk/delete — Delete multiple strategies
+pub async fn bulk_delete_strategies(
+    user: AuthenticatedUser,
+    State(db): State<Arc<DatabaseConnection>>,
+    Json(body): Json<BulkDeleteRequest>,
+) -> Result<Json<ApiResponse<strategy::BulkDeleteResponse>>, AppError> {
+    let deleted = strategy::bulk_delete_strategies(&db, user.user_id, &body.ids).await?;
+    Ok(Json(ApiResponse::success(deleted)))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BulkDeleteRequest {
+    pub ids: Vec<Uuid>,
+}
+
+/// POST /api/v1/strategies/code/upload — Upload strategy code file
+pub async fn upload_strategy_code(
+    user: AuthenticatedUser,
+    State(db): State<Arc<DatabaseConnection>>,
+    mut multipart: axum::extract::Multipart,
+) -> Result<Json<ApiResponse<UploadCodeResponse>>, AppError> {
+    let mut file_name = String::new();
+    let mut file_content = String::new();
+
+    while let Some(field) = multipart.next_field().await.map_err(|e| {
+        AppError::Internal(format!("Failed to read multipart field: {}", e))
+    })? {
+        let name = field.name().unwrap_or("").to_string();
+        if name == "file" {
+            file_name = field.file_name().unwrap_or("strategy.py").to_string();
+            file_content = field.text().await.map_err(|e| {
+                AppError::Internal(format!("Failed to read file content: {}", e))
+            })?;
+        }
+    }
+
+    if file_content.trim().is_empty() {
+        return Err(AppError::Validation("File content is empty".into()));
+    }
+
+    let path = strategy::store_strategy_code(&db, user.user_id, &file_name, &file_content).await?;
+
+    Ok(Json(ApiResponse::success(UploadCodeResponse { path })))
+}
+
+#[derive(Debug, Serialize)]
+pub struct UploadCodeResponse {
+    pub path: String,
+}
 
 /// GET /api/v1/strategies/templates
 pub async fn list_templates(

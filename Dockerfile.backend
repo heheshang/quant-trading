@@ -1,12 +1,16 @@
 # ---- Builder Stage ----
 FROM rust:1.95-slim-bookworm AS builder
 
+RUN sed -i 's|http://deb.debian.org/|https://mirrors.aliyun.com/|g' /etc/apt/sources.list.d/debian.sources && \
+    apt-get clean && apt-get update -y
+    
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends pkg-config libssl-dev && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
+COPY .cargo /app/.cargo
 # Cache dependencies
 COPY backend/Cargo.toml backend/Cargo.lock* ./
 RUN mkdir src && echo "fn main() {}" > src/main.rs && \

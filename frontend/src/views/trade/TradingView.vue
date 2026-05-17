@@ -40,9 +40,16 @@
     <div class="trading-body">
       <!-- Left: Chart Area -->
       <div class="chart-area">
-        <div class="chart-placeholder">
+        <KlineChart
+          v-if="klineData.length > 0"
+          :data="klineData"
+          :symbol="selectedSymbol"
+          :interval="chartInterval"
+          :dark-mode="true"
+        />
+        <div v-else class="chart-placeholder">
           <el-icon :size="48" color="var(--color-text-tertiary, #64748B)"><TrendCharts /></el-icon>
-          <p>K线图区域 (复用行情模块组件)</p>
+          <p>加载K线数据中...</p>
           <div v-if="bestBid && bestAsk" class="ticker-price">
             <span class="ticker-bid">{{ bestBid }}</span>
             <span class="ticker-sep">/</span>
@@ -134,8 +141,11 @@ import OrderForm from '@/components/trade/OrderForm.vue'
 import OrderList from '@/components/trade/OrderList.vue'
 import PositionPanel from '@/components/order/PositionPanel.vue'
 import TradeRecordTab from '@/components/order/TradeRecordTab.vue'
+import KlineChart from '@/components/charts/KlineChart.vue'
 import type { SymbolConfig, PaperAccount, CreateOrderRequest, Trade, Position } from '@/types/order'
+import type { KlineBar } from '@/components/charts/KlineChart.vue'
 import { getSymbols, getAccount, getPositions, getTrades } from '@/api/order'
+import { queryKlines } from '@/api/kline'
 
 const selectedSymbol = ref('BTC/USDT')
 const symbolConfigs = ref<SymbolConfig[]>([])
@@ -144,6 +154,10 @@ const availablePositionQty = ref('0')
 const bestBid = ref<string | null>(null)
 const bestAsk = ref<string | null>(null)
 const activeOrderCount = ref(0)
+
+// Kline chart state
+const klineData = ref<KlineBar[]>([])
+const chartInterval = ref('1h')
 
 // Tab state
 const activeTab = ref<'current' | 'history' | 'positions' | 'trades'>('current')
@@ -203,6 +217,30 @@ async function loadSymbolConfigs() {
   }
 }
 
+async function loadKlineData() {
+  try {
+    // Map selectedSymbol like "BTC/USDT" to "btcusdt" for the backend
+    const symbol = selectedSymbol.value.replace('/', '').toLowerCase()
+    const res = await queryKlines({
+      symbol,
+      interval: chartInterval.value,
+      limit: 200,
+    })
+    const r = res as any
+    const bars: KlineBar[] = r?.items ?? r ?? []
+    klineData.value = bars.map((b: any) => ({
+      time: b.timestamp ?? b.time ?? Math.floor(new Date(b.open_time).getTime() / 1000),
+      open: parseFloat(b.open),
+      high: parseFloat(b.high),
+      low: parseFloat(b.low),
+      close: parseFloat(b.close),
+      volume: parseFloat(b.volume ?? 0),
+    }))
+  } catch {
+    klineData.value = []
+  }
+}
+
 async function loadAccount() {
   try {
     account.value = await getAccount()
@@ -248,6 +286,7 @@ function onSymbolChange() {
   bestBid.value = null
   bestAsk.value = null
   loadPositions()
+  loadKlineData()
   if (activeTab.value === 'trades') {
     loadTrades()
   }
@@ -312,7 +351,7 @@ function disconnectWebSocket() {
 }
 
 onMounted(async () => {
-  await Promise.all([loadSymbolConfigs(), loadAccount(), loadPositions(), loadTrades()])
+  await Promise.all([loadSymbolConfigs(), loadAccount(), loadPositions(), loadTrades(), loadKlineData()])
   connectWebSocket()
 })
 

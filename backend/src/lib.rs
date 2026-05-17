@@ -4,6 +4,7 @@ pub mod handlers;
 pub mod middleware;
 pub mod models;
 pub mod services;
+pub mod state;
 pub mod utils;
 
 pub use models::{backtest, schemas};

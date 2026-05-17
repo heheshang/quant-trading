@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod backtest;
+pub mod dashboard;
 pub mod kline;
 pub mod market;
 pub mod order;

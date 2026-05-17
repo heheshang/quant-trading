@@ -1,5 +1,6 @@
 pub mod backtest;
 pub mod backtest_results;
+pub mod dashboard;
 pub mod kline;
 pub mod order;
 pub mod permission;
@@ -104,6 +105,14 @@ pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), sea_orm::DbEr
     );
     db.execute(stmt).await?;
 
+    // Add deleted_at column to klines table for soft delete (migration for existing DBs)
+    let alter_sql = "ALTER TABLE klines ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ";
+    db.execute(sea_orm::Statement::from_string(
+        backend,
+        alter_sql.to_string(),
+    ))
+    .await?;
+
     // Create orders table (trading module)
     let stmt = backend.build(
         schema
@@ -140,6 +149,22 @@ pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), sea_orm::DbEr
     let stmt = backend.build(
         schema
             .create_table_from_entity(portfolio::Entity)
+            .if_not_exists(),
+    );
+    db.execute(stmt).await?;
+
+    // Create dashboard_stats table
+    let stmt = backend.build(
+        schema
+            .create_table_from_entity(dashboard::dashboard_stats::Entity)
+            .if_not_exists(),
+    );
+    db.execute(stmt).await?;
+
+    // Create pnl_history table
+    let stmt = backend.build(
+        schema
+            .create_table_from_entity(dashboard::pnl_history::Entity)
             .if_not_exists(),
     );
     db.execute(stmt).await?;

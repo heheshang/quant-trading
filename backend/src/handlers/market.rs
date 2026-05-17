@@ -3,12 +3,14 @@ use crate::models::schemas::{
     DepthQueryParams, DepthResponse, KlineQueryParams, TickerHistoryQueryParams, TickerQueryParams,
     TickerResponse,
 };
+use crate::services::binance_rest::BinanceRestClient;
 use crate::services::market_data;
+use crate::services::redis_cache::RedisCache;
 use crate::utils::error::AppError;
 use crate::utils::response::ApiResponse;
 use axum::{
     extract::{Query, State},
-    Json,
+    Extension, Json,
 };
 use sea_orm::DatabaseConnection;
 use std::sync::Arc;
@@ -22,8 +24,10 @@ const MAX_FREE_DEPTH_LEVELS: i32 = 20;
 pub async fn get_tickers(
     _user: AuthenticatedUser,
     State(db): State<Arc<DatabaseConnection>>,
+    Extension(redis): Extension<Arc<RedisCache>>,
+    Extension(binance): Extension<Arc<BinanceRestClient>>,
 ) -> Result<Json<ApiResponse<Vec<TickerResponse>>>, AppError> {
-    let tickers = market_data::get_all_tickers(&db).await?;
+    let tickers = market_data::get_all_tickers(&db, &redis, &binance).await?;
     Ok(Json(ApiResponse::success(tickers)))
 }
 
@@ -31,9 +35,11 @@ pub async fn get_tickers(
 pub async fn get_ticker(
     _user: AuthenticatedUser,
     State(db): State<Arc<DatabaseConnection>>,
+    Extension(redis): Extension<Arc<RedisCache>>,
+    Extension(binance): Extension<Arc<BinanceRestClient>>,
     Query(params): Query<TickerQueryParams>,
 ) -> Result<Json<ApiResponse<TickerResponse>>, AppError> {
-    let ticker = market_data::get_ticker_by_symbol(&db, &params.symbol).await?;
+    let ticker = market_data::get_ticker_by_symbol(&db, &redis, &binance, &params.symbol).await?;
     Ok(Json(ApiResponse::success(ticker)))
 }
 
@@ -41,6 +47,8 @@ pub async fn get_ticker(
 pub async fn get_depth(
     user: AuthenticatedUser,
     State(db): State<Arc<DatabaseConnection>>,
+    Extension(redis): Extension<Arc<RedisCache>>,
+    Extension(binance): Extension<Arc<BinanceRestClient>>,
     Query(params): Query<DepthQueryParams>,
 ) -> Result<Json<ApiResponse<DepthResponse>>, AppError> {
     // Validate levels parameter
@@ -63,7 +71,7 @@ pub async fn get_depth(
         ));
     }
 
-    let depth = market_data::get_depth(&db, &params.symbol, levels).await?;
+    let depth = market_data::get_depth(&db, &redis, &binance, &params.symbol, levels).await?;
     Ok(Json(ApiResponse::success(depth)))
 }
 
