@@ -56,7 +56,7 @@ TradingView.vue onMounted
 
 **行情推送（服务端 → 客户端）**
 ```json
-{"channel": "market:ticker", "symbol": "BTCUSDT", "data": {
+{"channel": "market:ticker:BTCUSDT", "symbol": "BTCUSDT", "data": {
   "price": "49500.00", "bid": "49499.00", "ask": "49501.00",
   "change": "+1.25", "changePercent": "+0.03",
   "volume": "12345.67", "high": "50000.00", "low": "49000.00"
@@ -64,7 +64,7 @@ TradingView.vue onMounted
 ```
 
 ```json
-{"channel": "market:depth", "symbol": "BTCUSDT", "data": {
+{"channel": "market:depth:BTCUSDT", "symbol": "BTCUSDT", "data": {
   "bids": [["49499.00", "10.5"], ...],
   "asks": [["49501.00", "8.3"], ...]
 }}
