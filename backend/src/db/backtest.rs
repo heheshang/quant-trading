@@ -230,44 +230,58 @@ pub async fn delete_backtest_record(db: &DatabaseConnection, id: Uuid) -> Result
 /// Load kline data for backtest simulation.
 /// Returns the Klines sorted by open_time ASC.
 pub async fn load_klines(
-    _db: &DatabaseConnection,
+    db: &DatabaseConnection,
     symbol: &str,
     interval: &str,
     start_ms: i64,
     end_ms: i64,
 ) -> Result<Option<Vec<Kline>>, AppError> {
-    // TODO: Implement when kline_data table/entity is available
-    // use crate::db::entities::kline_data;
-    // let results = kline_data::Entity::find()
-    //     .filter(kline_data::Column::Symbol.eq(symbol))
-    //     .filter(kline_data::Column::Interval.eq(interval))
-    //     .filter(kline_data::Column::OpenTime.gte(start_ms))
-    //     .filter(kline_data::Column::OpenTime.lte(end_ms))
-    //     .order_by_asc(kline_data::Column::OpenTime)
-    //     .all(db).await?;
-    //
-    // if results.is_empty() {
-    //     return Ok(None);
-    // }
-    //
-    // let klines: Vec<Kline> = results.into_iter().map(|r| Kline {
-    //     open_time: r.open_time,
-    //     open: r.open.to_string().parse::<f64>().unwrap_or(0.0),
-    //     high: r.high.to_string().parse::<f64>().unwrap_or(0.0),
-    //     low: r.low.to_string().parse::<f64>().unwrap_or(0.0),
-    //     close: r.close.to_string().parse::<f64>().unwrap_or(0.0),
-    //     volume: r.volume.to_string().parse::<f64>().unwrap_or(0.0),
-    // }).collect();
-    // Ok(Some(klines))
+    use crate::db::kline;
+    use crate::db::kline::Column as K;
+
+    let results = kline::Entity::find()
+        .filter(K::UserId.eq(Uuid::nil())) // Placeholder: filter by actual user_id in production
+        .filter(K::Symbol.eq(symbol))
+        .filter(K::Interval.eq(interval))
+        .filter(K::OpenTime.gte(start_ms))
+        .filter(K::OpenTime.lte(end_ms))
+        .order_by_asc(K::OpenTime)
+        .all(db)
+        .await
+        .map_err(|e| AppError::Internal(format!("Failed to load klines: {}", e)))?;
+
+    if results.is_empty() {
+        tracing::debug!(
+            "No klines found for {} {} from {} to {}",
+            symbol,
+            interval,
+            start_ms,
+            end_ms
+        );
+        return Ok(None);
+    }
+
+    let klines: Vec<Kline> = results
+        .into_iter()
+        .map(|r| Kline {
+            open_time: r.open_time,
+            open: r.open.parse().unwrap_or(0.0),
+            high: r.high.parse().unwrap_or(0.0),
+            low: r.low.parse().unwrap_or(0.0),
+            close: r.close.parse().unwrap_or(0.0),
+            volume: r.volume.parse().unwrap_or(0.0),
+        })
+        .collect();
 
     tracing::info!(
-        "Loading klines for {} {} from {} to {}",
+        "Loaded {} klines for {} {} from {} to {}",
+        klines.len(),
         symbol,
         interval,
         start_ms,
         end_ms
     );
-    Ok(None) // Placeholder - kline_data table not yet created
+    Ok(Some(klines))
 }
 
 /// Find a strategy by ID (for validation).
