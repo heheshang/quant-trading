@@ -146,6 +146,7 @@ import type { SymbolConfig, PaperAccount, CreateOrderRequest, Trade, Position } 
 import type { KlineBar } from '@/components/charts/KlineChart.vue'
 import { getSymbols, getAccount, getPositions, getTrades } from '@/api/order'
 import { queryKlines } from '@/api/kline'
+import { useTradingStore } from '@/stores/trading'
 
 const selectedSymbol = ref('BTC/USDT')
 const symbolConfigs = ref<SymbolConfig[]>([])
@@ -179,7 +180,7 @@ const tradesSize = ref(20)
 const tradesLoading = ref(false)
 
 // WebSocket status
-const wsConnected = ref(false)
+const tradingStore = useTradingStore()
 
 // Computed
 const symbolList = computed(() =>
@@ -191,12 +192,12 @@ const currentSymbolConfig = computed(() =>
 )
 
 const wsStatusClass = computed(() => ({
-  'ws-status--connected': wsConnected.value,
-  'ws-status--disconnected': !wsConnected.value,
+  'ws-status--connected': tradingStore.isConnected,
+  'ws-status--disconnected': !tradingStore.isConnected,
 }))
 
 const wsStatusText = computed(() =>
-  wsConnected.value ? '已连接' : '已断开',
+  tradingStore.isConnected ? '已连接' : '已断开',
 )
 
 // Formatters
@@ -283,8 +284,7 @@ async function loadTrades(filters?: { symbol: string; side: string; startDate: s
 
 // Event handlers
 function onSymbolChange() {
-  bestBid.value = null
-  bestAsk.value = null
+  tradingStore.switchSymbol(selectedSymbol.value)
   loadPositions()
   loadKlineData()
   if (activeTab.value === 'trades') {
@@ -327,32 +327,31 @@ function onTradePageChange(page: number, size: number) {
   loadTrades()
 }
 
-// WebSocket simulation (in real app, connect to ws://localhost:8080/ws/trade)
-let wsTimer: ReturnType<typeof setInterval> | null = null
-
+// Real WebSocket lifecycle
 function connectWebSocket() {
-  // Simulate WS connection status
-  wsConnected.value = true
-  // Simulate price updates every 5s
-  wsTimer = setInterval(() => {
-    if (selectedSymbol.value === 'BTC/USDT') {
-      bestBid.value = (49500 + Math.random() * 100).toFixed(2)
-      bestAsk.value = (49510 + Math.random() * 100).toFixed(2)
-    }
-  }, 5000)
+  tradingStore.connect()
 }
 
 function disconnectWebSocket() {
-  if (wsTimer) {
-    clearInterval(wsTimer)
-    wsTimer = null
+  tradingStore.disconnect()
+}
+
+// Watch for ticker updates from store
+function syncTickerFromStore() {
+  const ticker = tradingStore.currentTicker
+  if (ticker) {
+    bestBid.value = ticker.bid
+    bestAsk.value = ticker.ask
   }
-  wsConnected.value = false
 }
 
 onMounted(async () => {
   await Promise.all([loadSymbolConfigs(), loadAccount(), loadPositions(), loadTrades(), loadKlineData()])
   connectWebSocket()
+  // Sync ticker when store updates
+  tradingStore.$subscribe(() => {
+    syncTickerFromStore()
+  })
 })
 
 onUnmounted(() => {
