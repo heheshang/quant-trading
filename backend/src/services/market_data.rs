@@ -7,8 +7,8 @@ use crate::services::binance_rest::BinanceRestClient;
 use crate::services::redis_cache::RedisCache;
 use crate::utils::error::AppError;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseBackend, EntityTrait,
-    PaginatorTrait, QueryFilter, QueryOrder,
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseBackend, EntityTrait, PaginatorTrait,
+    QueryFilter, QueryOrder,
 };
 use tracing::{debug, info, warn};
 
@@ -280,8 +280,8 @@ pub async fn get_ticker_history(
     let page_size = params.page_size.unwrap_or(20).clamp(1, 100);
     let start_time = chrono::DateTime::from_timestamp(params.start / 1000, 0)
         .unwrap_or_else(|| chrono::Utc::now() - chrono::Duration::days(30));
-    let end_time = chrono::DateTime::from_timestamp(params.end / 1000, 0)
-        .unwrap_or(chrono::Utc::now());
+    let end_time =
+        chrono::DateTime::from_timestamp(params.end / 1000, 0).unwrap_or(chrono::Utc::now());
 
     // Query with filters for symbol and time range
     let query = ticker_snapshot::Entity::find()
@@ -291,15 +291,18 @@ pub async fn get_ticker_history(
         .order_by(ticker_snapshot::Column::Timestamp, Order::Desc);
 
     // Clone query for count since count takes ownership
-    let total = query.clone().count(db).await.map_err(|e| {
-        AppError::Internal(format!("Failed to count ticker history: {}", e))
-    })?;
+    let total = query
+        .clone()
+        .count(db)
+        .await
+        .map_err(|e| AppError::Internal(format!("Failed to count ticker history: {}", e)))?;
 
     // Fetch paginated results
     let paginator = query.paginate(db, page_size);
-    let snapshots = paginator.fetch_page(page - 1).await.map_err(|e| {
-        AppError::Internal(format!("Failed to fetch ticker history: {}", e))
-    })?;
+    let snapshots = paginator
+        .fetch_page(page - 1)
+        .await
+        .map_err(|e| AppError::Internal(format!("Failed to fetch ticker history: {}", e)))?;
 
     // Map to response format
     let items: Vec<TickerSnapshotResponse> = snapshots
@@ -397,7 +400,12 @@ pub async fn cleanup_expired_snapshots(db: &sea_orm::DatabaseConnection) -> Resu
     // Execute cleanup query with raw SQL
     let cleanup_sql = "DELETE FROM ticker_snapshots WHERE created_at < NOW() - INTERVAL '90 days'";
 
-    let result = db.execute(sea_orm::Statement::from_string(backend, cleanup_sql.to_string())).await
+    let result = db
+        .execute(sea_orm::Statement::from_string(
+            backend,
+            cleanup_sql.to_string(),
+        ))
+        .await
         .map_err(|e| AppError::Internal(format!("Failed to cleanup expired snapshots: {}", e)))?;
 
     let deleted = result.rows_affected();

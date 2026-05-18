@@ -297,7 +297,8 @@ impl BacktestEngine {
         // Check stop-loss / take-profit using bar high/low
         if let Some(sl) = position.stop_loss {
             match position.direction {
-                Direction::Long => {
+                Direction::Long =>
+                {
                     #[allow(clippy::collapsible_if)]
                     if kline.low <= sl {
                         if let Some(pos) = self.open_position.take() {
@@ -305,7 +306,8 @@ impl BacktestEngine {
                         }
                     }
                 }
-                Direction::Short => {
+                Direction::Short =>
+                {
                     #[allow(clippy::collapsible_if)]
                     if kline.high >= sl {
                         if let Some(pos) = self.open_position.take() {
@@ -317,7 +319,8 @@ impl BacktestEngine {
         }
         if let Some(tp) = position.take_profit {
             match position.direction {
-                Direction::Long => {
+                Direction::Long =>
+                {
                     #[allow(clippy::collapsible_if)]
                     if kline.high >= tp {
                         if let Some(pos) = self.open_position.take() {
@@ -325,7 +328,8 @@ impl BacktestEngine {
                         }
                     }
                 }
-                Direction::Short => {
+                Direction::Short =>
+                {
                     #[allow(clippy::collapsible_if)]
                     if kline.low <= tp {
                         if let Some(pos) = self.open_position.take() {

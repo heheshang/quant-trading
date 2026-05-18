@@ -5,9 +5,8 @@
 //! Receives KlineRecord via mpsc channel, buffers them, and bulk inserts to klines table.
 //! Uses ON CONFLICT DO NOTHING for idempotent inserts.
 
-use crate::models::kline_entity::ActiveModel as KlineActiveModel;
 use rust_decimal::Decimal;
-use sea_orm::{ActiveModelTrait, DatabaseConnection};
+use sea_orm::{ActiveModelTrait, DatabaseConnection, Set};
 use std::time::Instant;
 use tokio::sync::mpsc;
 use tokio::time::{Duration, interval};
@@ -38,10 +37,8 @@ pub struct KlineRecord {
 impl KlineRecord {
     /// Convert to sea_orm ActiveModel for insertion
     #[allow(clippy::wrong_self_convention)]
-    fn to_active_model(self) -> KlineActiveModel {
-        use sea_orm::Set;
-
-        KlineActiveModel {
+    fn to_active_model(self) -> crate::models::kline_entity::ActiveModel {
+        crate::models::kline_entity::ActiveModel {
             id: Set(uuid::Uuid::new_v4()),
             symbol: Set(self.symbol),
             interval: Set(self.interval),
@@ -135,7 +132,7 @@ impl KlineWriter {
         let count = batch.len();
 
         // Convert to active models
-        let active_models: Vec<KlineActiveModel> =
+        let active_models: Vec<crate::models::kline_entity::ActiveModel> =
             batch.into_iter().map(|r| r.to_active_model()).collect();
 
         // Perform bulk insert
@@ -159,7 +156,7 @@ impl KlineWriter {
     /// Bulk insert multiple kline records using individual inserts with ON CONFLICT DO NOTHING
     async fn bulk_insert(
         db: &DatabaseConnection,
-        models: Vec<KlineActiveModel>,
+        models: Vec<crate::models::kline_entity::ActiveModel>,
     ) -> Result<usize, sea_orm::DbErr> {
         if models.is_empty() {
             return Ok(0);

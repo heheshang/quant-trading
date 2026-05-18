@@ -188,7 +188,7 @@ impl WsHub {
                 }
             }
 
-let mut binance_rx = connector.subscribe();
+            let mut binance_rx = connector.subscribe();
             let mut msg_count: u64 = 0;
             info!("WS Hub subscribed to BinanceConnector, waiting for messages...");
 

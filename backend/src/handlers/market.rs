@@ -10,8 +10,8 @@ use crate::services::redis_cache::RedisCache;
 use crate::utils::error::AppError;
 use crate::utils::response::ApiResponse;
 use axum::{
-    extract::{Query, State},
     Extension, Json,
+    extract::{Query, State},
 };
 use sea_orm::DatabaseConnection;
 use std::sync::Arc;
@@ -122,8 +122,7 @@ mod tests {
         let db = Arc::new(sea_orm::DatabaseConnection::Disconnected);
         let (redis, binance) = make_test_deps().await;
         let user = make_auth_user("trader");
-        let result =
-            get_tickers(user, State(db), Extension(redis), Extension(binance)).await;
+        let result = get_tickers(user, State(db), Extension(redis), Extension(binance)).await;
         assert!(result.is_ok());
         let resp = result.unwrap();
         let body = serde_json::to_value(&*resp).unwrap();
@@ -140,7 +139,14 @@ mod tests {
         let params = TickerQueryParams {
             symbol: "BTCUSDT".to_string(),
         };
-        let result = get_ticker(user, State(db), Extension(redis), Extension(binance), Query(params)).await;
+        let result = get_ticker(
+            user,
+            State(db),
+            Extension(redis),
+            Extension(binance),
+            Query(params),
+        )
+        .await;
         assert!(result.is_ok());
         let resp = result.unwrap();
         let body = serde_json::to_value(&*resp).unwrap();
@@ -156,7 +162,14 @@ mod tests {
         let params = TickerQueryParams {
             symbol: "INVALID99".to_string(),
         };
-        let result = get_ticker(user, State(db), Extension(redis), Extension(binance), Query(params)).await;
+        let result = get_ticker(
+            user,
+            State(db),
+            Extension(redis),
+            Extension(binance),
+            Query(params),
+        )
+        .await;
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(matches!(err, AppError::NotFound(_)));
@@ -171,7 +184,14 @@ mod tests {
             symbol: "BTCUSDT".to_string(),
             levels: None, // default 10
         };
-        let result = get_depth(user, State(db), Extension(redis), Extension(binance), Query(params)).await;
+        let result = get_depth(
+            user,
+            State(db),
+            Extension(redis),
+            Extension(binance),
+            Query(params),
+        )
+        .await;
         assert!(result.is_ok());
         let resp = result.unwrap();
         let body = serde_json::to_value(&*resp).unwrap();
@@ -189,7 +209,14 @@ mod tests {
             symbol: "ETHUSDT".to_string(),
             levels: Some(20),
         };
-        let result = get_depth(user, State(db), Extension(redis), Extension(binance), Query(params)).await;
+        let result = get_depth(
+            user,
+            State(db),
+            Extension(redis),
+            Extension(binance),
+            Query(params),
+        )
+        .await;
         assert!(result.is_ok());
         let resp = result.unwrap();
         let body = serde_json::to_value(&*resp).unwrap();
@@ -206,7 +233,14 @@ mod tests {
             symbol: "BTCUSDT".to_string(),
             levels: Some(0),
         };
-        let result = get_depth(user, State(db), Extension(redis), Extension(binance), Query(params)).await;
+        let result = get_depth(
+            user,
+            State(db),
+            Extension(redis),
+            Extension(binance),
+            Query(params),
+        )
+        .await;
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(matches!(err, AppError::BadRequest(_)));
@@ -221,7 +255,14 @@ mod tests {
             symbol: "BTCUSDT".to_string(),
             levels: Some(50),
         };
-        let result = get_depth(user, State(db), Extension(redis), Extension(binance), Query(params)).await;
+        let result = get_depth(
+            user,
+            State(db),
+            Extension(redis),
+            Extension(binance),
+            Query(params),
+        )
+        .await;
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(matches!(err, AppError::Forbidden(_)));
@@ -236,7 +277,14 @@ mod tests {
             symbol: "BTCUSDT".to_string(),
             levels: Some(50),
         };
-        let result = get_depth(user, State(db), Extension(redis), Extension(binance), Query(params)).await;
+        let result = get_depth(
+            user,
+            State(db),
+            Extension(redis),
+            Extension(binance),
+            Query(params),
+        )
+        .await;
         assert!(result.is_ok());
         let resp = result.unwrap();
         let body = serde_json::to_value(&*resp).unwrap();
@@ -252,7 +300,14 @@ mod tests {
             symbol: "BTCUSDT".to_string(),
             levels: Some(50),
         };
-        let result = get_depth(user, State(db), Extension(redis), Extension(binance), Query(params)).await;
+        let result = get_depth(
+            user,
+            State(db),
+            Extension(redis),
+            Extension(binance),
+            Query(params),
+        )
+        .await;
         assert!(result.is_ok());
     }
 
@@ -265,10 +320,16 @@ mod tests {
             symbol: "BTCUSDT".to_string(),
             levels: Some(15), // not in [5,10,20,50]
         };
-        let result = get_depth(user, State(db), Extension(redis), Extension(binance), Query(params)).await;
+        let result = get_depth(
+            user,
+            State(db),
+            Extension(redis),
+            Extension(binance),
+            Query(params),
+        )
+        .await;
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(matches!(err, AppError::BadRequest(_)));
     }
-
-    }
+}

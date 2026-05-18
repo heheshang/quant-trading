@@ -96,8 +96,13 @@ impl BinanceConnector {
             "method": "SUBSCRIBE",
             "params": streams,
             "id": 1
-        })).unwrap_or_default();
-        info!("Built subscription message ({} streams): {}", streams.len(), msg);
+        }))
+        .unwrap_or_default();
+        info!(
+            "Built subscription message ({} streams): {}",
+            streams.len(),
+            msg
+        );
         msg
     }
 
