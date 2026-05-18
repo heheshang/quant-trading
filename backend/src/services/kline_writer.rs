@@ -9,7 +9,7 @@ use rust_decimal::Decimal;
 use sea_orm::{ActiveModelTrait, DatabaseConnection, Set};
 use std::time::Instant;
 use tokio::sync::mpsc;
-use tokio::time::{Duration, interval};
+use tokio::time::{interval, Duration};
 use tracing::{error, info};
 
 /// Maximum number of kline records to buffer before flushing
@@ -167,12 +167,9 @@ impl KlineWriter {
             // Try to insert, ignore if conflict (ON CONFLICT DO NOTHING)
             match model.insert(db).await {
                 Ok(_) => inserted += 1,
-                Err(sea_orm::DbErr::Exec(_e)) => {
-                    // Log but don't fail the entire batch - conflict is expected with ON CONFLICT DO NOTHING
-                    // In practice, the model.insert() with ON CONFLICT DO NOTHING would need
-                    // custom SQL to handle conflicts gracefully, so we just count as inserted
-                    // since the unique constraint handles deduplication
-                    inserted += 1;
+                Err(sea_orm::DbErr::Exec(_)) => {
+                    // Conflict is expected - unique constraint prevents duplicates
+                    // Don't count as inserted since row already exists
                 }
                 Err(e) => {
                     error!("KlineWriter: insert error: {}", e);
