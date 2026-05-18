@@ -57,7 +57,7 @@ repos:
       - id: typos
         name: typos
         description: Check for typos in source files
-        entry: bash -c 'typos --format downstream'
+        entry: bash -c 'typos --format brief'
         language: system
         files: \.*$
         pass_filenames: false
@@ -88,7 +88,7 @@ repos:
       - id: frontend-typecheck
         name: frontend typecheck
         description: Check frontend TypeScript types with vue-tsc
-        entry: bash -c 'cd frontend && bun run typecheck'
+        entry: bash -c 'cd frontend && npm run typecheck'
         language: system
         files: \.ts$|\.vue$
         pass_filenames: false
@@ -98,7 +98,7 @@ repos:
       - id: frontend-lint
         name: frontend lint
         description: Lint frontend with ESLint
-        entry: bash -c 'cd frontend && bun run lint'
+        entry: bash -c 'cd frontend && npm run lint'
         language: system
         files: \.ts$|\.vue$
         pass_filenames: false

@@ -1,0 +1,17 @@
+# Typos false positive whitelist
+# These are legitimate domain-specific abbreviations that trips up typos
+
+[default.extend-words]
+# Financial abbreviations
+Pn = "Pn"       # Profit and Loss (盈亏)
+PnL = "PnL"     # Profit and Loss
+BA = "BA"       # By Account / Batch Assign
+UE = "UE"       # Unrealized Equity
+RTO = "RTO"     # Return to Origin (websocket RTO scenario)
+strat = "strat" # abbreviation for strategy in test variables
+
+[files]
+extend-exclude = [
+  "kanban-archive/**",
+  "backup/**",
+]

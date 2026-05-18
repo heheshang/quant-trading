@@ -227,7 +227,7 @@ Feature: Portfolio Performance
 
 ### 5.1 关联表
 - `strategy` — 策略基础信息（name, user_id）
-- `order` — 订单表（symbol, side, price, quantity, status=fillled）
+- `order` — 订单表（symbol, side, price, quantity, status=filled）
 - `positions` — 持仓表（symbol, side, quantity, avg_price）
 - `backtest_results` — 回测结果（用于历史业绩）
 

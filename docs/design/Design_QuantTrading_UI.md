@@ -1284,7 +1284,7 @@
 | Checkbox | border, transparent | border-hover | accent bg + check | opacity 0.4 | N/A | N/A | N/A |
 | Table Row | transparent | bg rgba(255,255,255,0.02) | N/A | N/A | Skeleton rows x3 | "暂无数据" | "加载失败" |
 | Badge | bg + text per type | N/A | N/A | N/A | N/A | N/A | N/A |
-| Modal | centered, overlay | N/A | N/A | N/A | Confrim btn spinner | N/A | Error toast |
+| Modal | centered, overlay | N/A | N/A | N/A | Confirm btn spinner | N/A | Error toast |
 | Toast | per type (success/error/warning/info) | N/A | N/A | N/A | N/A | N/A | N/A |
 | Skeleton | shimmer animation (bg gradient) | N/A | N/A | N/A | N/A | N/A | N/A |
 
