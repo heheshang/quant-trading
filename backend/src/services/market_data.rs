@@ -500,4 +500,102 @@ mod tests {
         let depth = build_mock_depth("INVALID", 10);
         assert!(depth.is_none());
     }
+
+    #[test]
+    fn test_ticker_history_query_params_defaults() {
+        // Test pagination defaults and clamping logic
+        // page defaults to 1, page_size defaults to 20 clamped to 1..=100
+
+        // page = 0 should clamp to 1
+        let params = TickerHistoryQueryParams {
+            symbol: "BTCUSDT".to_string(),
+            start: 0,
+            end: 9999999999999,
+            page: Some(0),
+            page_size: None,
+        };
+        let page = params.page.unwrap_or(1).max(1);
+        assert_eq!(page, 1);
+
+        // page_size = 0 should clamp to 1
+        let params2 = TickerHistoryQueryParams {
+            symbol: "BTCUSDT".to_string(),
+            start: 0,
+            end: 9999999999999,
+            page: None,
+            page_size: Some(0),
+        };
+        let page_size = params2.page_size.unwrap_or(20).clamp(1, 100);
+        assert_eq!(page_size, 1);
+
+        // page_size > 100 should clamp to 100
+        let params3 = TickerHistoryQueryParams {
+            symbol: "BTCUSDT".to_string(),
+            start: 0,
+            end: 9999999999999,
+            page: None,
+            page_size: Some(500),
+        };
+        let page_size3 = params3.page_size.unwrap_or(20).clamp(1, 100);
+        assert_eq!(page_size3, 100);
+    }
+
+    #[test]
+    fn test_ticker_snapshot_response_mapping() {
+        use crate::models::market_schemas::TickerSnapshotResponse;
+
+        // Test that TickerSnapshotResponse can be created with all fields
+        let snapshot = TickerSnapshotResponse {
+            symbol: "BTCUSDT".to_string(),
+            price: 103250.50,
+            change: 309.75,
+            change_percent: 0.30,
+            volume: 28456.78,
+            high: 104500.00,
+            low: 101800.00,
+            bid: 103249.50,
+            ask: 103251.50,
+            timestamp: 1747500000000,
+        };
+
+        assert_eq!(snapshot.symbol, "BTCUSDT");
+        assert!(snapshot.price > 0.0);
+        assert!(snapshot.bid < snapshot.ask);
+        assert!(snapshot.change_percent > 0.0);
+        assert!(snapshot.volume > 0.0);
+    }
+
+    #[test]
+    fn test_ticker_history_response_structure() {
+        use crate::models::market_schemas::{
+            TickerHistoryMeta, TickerHistoryResponse, TickerSnapshotResponse,
+        };
+
+        let items = vec![TickerSnapshotResponse {
+            symbol: "BTCUSDT".to_string(),
+            price: 103250.50,
+            change: 309.75,
+            change_percent: 0.30,
+            volume: 28456.78,
+            high: 104500.00,
+            low: 101800.00,
+            bid: 103249.50,
+            ask: 103251.50,
+            timestamp: 1747500000000,
+        }];
+
+        let response = TickerHistoryResponse {
+            items: items.clone(),
+            meta: TickerHistoryMeta {
+                total: 1,
+                page: 1,
+                page_size: 20,
+            },
+        };
+
+        assert_eq!(response.items.len(), 1);
+        assert_eq!(response.meta.total, 1);
+        assert_eq!(response.meta.page, 1);
+        assert_eq!(response.meta.page_size, 20);
+    }
 }

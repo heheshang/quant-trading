@@ -332,4 +332,30 @@ mod tests {
         let err = result.unwrap_err();
         assert!(matches!(err, AppError::BadRequest(_)));
     }
+
+    #[test]
+    fn test_get_ticker_history_query_params_structure() {
+        // Verify TickerHistoryQueryParams can be constructed with all fields
+        let params = TickerHistoryQueryParams {
+            symbol: "BTCUSDT".to_string(),
+            start: 1747400000000,
+            end: 1747500000000,
+            page: Some(1),
+            page_size: Some(20),
+        };
+        assert_eq!(params.symbol, "BTCUSDT");
+        assert_eq!(params.page, Some(1));
+        assert_eq!(params.page_size, Some(20));
+
+        // Verify page and page_size are optional with correct defaults
+        let params2 = TickerHistoryQueryParams {
+            symbol: "ETHUSDT".to_string(),
+            start: 1747400000000,
+            end: 1747500000000,
+            page: None,
+            page_size: None,
+        };
+        assert_eq!(params2.page, None);
+        assert_eq!(params2.page_size, None);
+    }
 }

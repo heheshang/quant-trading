@@ -198,10 +198,8 @@ async fn handle_socket(
                                             }
                                         }
                                     }
-                                    if let Some(symbol) = client_msg.symbol {
-                                        if !symbol.is_empty() {
-                                            subscriptions.symbols.insert(symbol);
-                                        }
+                                    if let Some(symbol) = client_msg.symbol && !symbol.is_empty() {
+                                        subscriptions.symbols.insert(symbol);
                                     }
                                     info!("Client subscribed: channels={:?}, symbols={:?}",
                                         subscriptions.channels, subscriptions.symbols);

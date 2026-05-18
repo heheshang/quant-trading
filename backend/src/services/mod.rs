@@ -11,3 +11,4 @@ pub mod matching_engine;
 pub mod portfolio;
 pub mod redis_cache;
 pub mod strategy;
+pub mod ticker_snapshot_writer;
