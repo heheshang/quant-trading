@@ -141,7 +141,7 @@ describe('OrderList', () => {
     await flushPromises()
     expect(mockGetOrders).toHaveBeenCalledWith(
       expect.objectContaining({
-        status: 'active',
+        status: 'pending',
         page: 1,
         size: 100,
       }),
@@ -169,7 +169,7 @@ describe('OrderList', () => {
     expect(mockGetOrders).toHaveBeenCalledWith(
       expect.objectContaining({
         page: 1,
-        status: 'active',
+        status: 'pending',
       }),
     )
   })
