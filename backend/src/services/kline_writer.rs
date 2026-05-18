@@ -9,7 +9,7 @@ use rust_decimal::Decimal;
 use sea_orm::{ActiveModelTrait, DatabaseConnection, Set};
 use std::time::Instant;
 use tokio::sync::mpsc;
-use tokio::time::{interval, Duration};
+use tokio::time::{Duration, interval};
 use tracing::{error, info};
 
 /// Maximum number of kline records to buffer before flushing

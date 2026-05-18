@@ -123,8 +123,10 @@ pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), sea_orm::DbEr
     .await?;
 
     // Create klines_phase4 partitioned table (Phase 4 T4: Historical Kline Persistence)
-    // Using separate table to avoid conflict with production klines table
-    let create_klines_phase4_sql = r#"
+    // Each statement must be executed separately — PostgreSQL prepared statements support only one command.
+    db.execute(sea_orm::Statement::from_string(
+        backend,
+        r#"
         CREATE TABLE IF NOT EXISTS klines_phase4 (
             id              UUID        NOT NULL DEFAULT gen_random_uuid(),
             symbol          VARCHAR(20) NOT NULL,
@@ -142,30 +144,32 @@ pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), sea_orm::DbEr
             created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             deleted_at      TIMESTAMPTZ,
             UNIQUE (symbol, interval, open_time) DEFERRABLE INITIALLY DEFERRED
-        ) PARTITION BY RANGE (open_time);
-
-        -- Partitions for 2026-05, 2026-06, 2026-07, 2026-08, 2026-09, 2026-10
-        CREATE TABLE IF NOT EXISTS klines_phase4_202605 PARTITION OF klines_phase4
-            FOR VALUES FROM ('2026-05-01') TO ('2026-06-01');
-        CREATE TABLE IF NOT EXISTS klines_phase4_202606 PARTITION OF klines_phase4
-            FOR VALUES FROM ('2026-06-01') TO ('2026-07-01');
-        CREATE TABLE IF NOT EXISTS klines_phase4_202607 PARTITION OF klines_phase4
-            FOR VALUES FROM ('2026-07-01') TO ('2026-08-01');
-        CREATE TABLE IF NOT EXISTS klines_phase4_202608 PARTITION OF klines_phase4
-            FOR VALUES FROM ('2026-08-01') TO ('2026-09-01');
-        CREATE TABLE IF NOT EXISTS klines_phase4_202609 PARTITION OF klines_phase4
-            FOR VALUES FROM ('2026-09-01') TO ('2026-10-01');
-        CREATE TABLE IF NOT EXISTS klines_phase4_202610 PARTITION OF klines_phase4
-            FOR VALUES FROM ('2026-10-01') TO ('2026-11-01');
-
-        CREATE UNIQUE INDEX IF NOT EXISTS uq_klines_phase4 ON klines_phase4 (symbol, interval, open_time) DEFERRABLE;
-        CREATE INDEX IF NOT EXISTS idx_klines_phase4_lookup ON klines_phase4 (symbol, interval, open_time DESC);
-    "#;
-    db.execute(sea_orm::Statement::from_string(
-        backend,
-        create_klines_phase4_sql.to_string(),
+        ) PARTITION BY RANGE (open_time)
+    "#
+        .to_string(),
     ))
     .await?;
+
+    for (partition, start, end) in [
+        ("klines_phase4_202605", "2026-05-01", "2026-06-01"),
+        ("klines_phase4_202606", "2026-06-01", "2026-07-01"),
+        ("klines_phase4_202607", "2026-07-01", "2026-08-01"),
+        ("klines_phase4_202608", "2026-08-01", "2026-09-01"),
+        ("klines_phase4_202609", "2026-09-01", "2026-10-01"),
+        ("klines_phase4_202610", "2026-10-01", "2026-11-01"),
+    ] {
+        db.execute(sea_orm::Statement::from_string(backend, format!(
+            "CREATE TABLE IF NOT EXISTS {} PARTITION OF klines_phase4 FOR VALUES FROM ('{}') TO ('{}')",
+            partition, start, end
+        ))).await?;
+    }
+
+    db.execute(sea_orm::Statement::from_string(backend,
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_klines_phase4 ON klines_phase4 (symbol, interval, open_time)".to_string()
+    )).await?;
+    db.execute(sea_orm::Statement::from_string(backend,
+        "CREATE INDEX IF NOT EXISTS idx_klines_phase4_lookup ON klines_phase4 (symbol, interval, open_time DESC)".to_string()
+    )).await?;
 
     // Create orders table (trading module)
     let stmt = backend.build(
@@ -251,7 +255,9 @@ pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), sea_orm::DbEr
     db.execute(stmt).await?;
 
     // Create ticker_snapshots table using raw SQL (partitioned table not supported by SeaORM schema builder)
-    let create_ticker_snapshots_sql = r#"
+    db.execute(sea_orm::Statement::from_string(
+        backend,
+        r#"
         CREATE TABLE IF NOT EXISTS ticker_snapshots (
             id          UUID        NOT NULL DEFAULT gen_random_uuid(),
             symbol      VARCHAR(20) NOT NULL,
@@ -266,29 +272,29 @@ pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), sea_orm::DbEr
             timestamp   TIMESTAMPTZ NOT NULL,
             created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             PRIMARY KEY (id, timestamp)
-        ) PARTITION BY RANGE (timestamp);
-
-        -- Partitions for 2026-05, 2026-06, 2026-07, 2026-08, 2026-09, 2026-10
-        CREATE TABLE IF NOT EXISTS ticker_snapshots_202605 PARTITION OF ticker_snapshots
-            FOR VALUES FROM ('2026-05-01') TO ('2026-06-01');
-        CREATE TABLE IF NOT EXISTS ticker_snapshots_202606 PARTITION OF ticker_snapshots
-            FOR VALUES FROM ('2026-06-01') TO ('2026-07-01');
-        CREATE TABLE IF NOT EXISTS ticker_snapshots_202607 PARTITION OF ticker_snapshots
-            FOR VALUES FROM ('2026-07-01') TO ('2026-08-01');
-        CREATE TABLE IF NOT EXISTS ticker_snapshots_202608 PARTITION OF ticker_snapshots
-            FOR VALUES FROM ('2026-08-01') TO ('2026-09-01');
-        CREATE TABLE IF NOT EXISTS ticker_snapshots_202609 PARTITION OF ticker_snapshots
-            FOR VALUES FROM ('2026-09-01') TO ('2026-10-01');
-        CREATE TABLE IF NOT EXISTS ticker_snapshots_202610 PARTITION OF ticker_snapshots
-            FOR VALUES FROM ('2026-10-01') TO ('2026-11-01');
-
-        CREATE INDEX IF NOT EXISTS idx_ticker_snapshots_lookup ON ticker_snapshots (symbol, timestamp DESC);
-    "#;
-    db.execute(sea_orm::Statement::from_string(
-        backend,
-        create_ticker_snapshots_sql.to_string(),
+        ) PARTITION BY RANGE (timestamp)
+    "#
+        .to_string(),
     ))
     .await?;
+
+    for (partition, start, end) in [
+        ("ticker_snapshots_202605", "2026-05-01", "2026-06-01"),
+        ("ticker_snapshots_202606", "2026-06-01", "2026-07-01"),
+        ("ticker_snapshots_202607", "2026-07-01", "2026-08-01"),
+        ("ticker_snapshots_202608", "2026-08-01", "2026-09-01"),
+        ("ticker_snapshots_202609", "2026-09-01", "2026-10-01"),
+        ("ticker_snapshots_202610", "2026-10-01", "2026-11-01"),
+    ] {
+        db.execute(sea_orm::Statement::from_string(backend, format!(
+            "CREATE TABLE IF NOT EXISTS {} PARTITION OF ticker_snapshots FOR VALUES FROM ('{}') TO ('{}')",
+            partition, start, end
+        ))).await?;
+    }
+
+    db.execute(sea_orm::Statement::from_string(backend,
+        "CREATE INDEX IF NOT EXISTS idx_ticker_snapshots_lookup ON ticker_snapshots (symbol, timestamp DESC)".to_string()
+    )).await?;
 
     info!("Database migrations completed");
 
