@@ -48,7 +48,8 @@ function updateChart() {
   const values = props.data.map((d) => d.value)
 
   const isUp = values.length > 0 && values[values.length - 1] >= (values[0] || 0)
-  const lineColor = isUp ? 'var(--color-buy)' : 'var(--color-sell)'
+  // ECharts can't resolve CSS vars at runtime, use actual hex colors
+  const lineColor = isUp ? '#10b981' : '#e5484d'
 
   const option: echarts.EChartsOption = {
     backgroundColor: 'transparent',

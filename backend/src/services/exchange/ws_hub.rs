@@ -71,6 +71,8 @@ pub struct WsHub {
     hub_tx: broadcast::Sender<HubEvent>,
     /// Channel to KlineWriter for DB persistence (Send+Sync safe)
     kline_writer_tx: Arc<Mutex<Option<mpsc::Sender<KlineRecord>>>>,
+    /// Redis cache for ticker/depth data (updated on HubMessage::Ticker/Depth)
+    redis_cache: Arc<Mutex<Option<crate::services::redis_cache::RedisCache>>>,
 }
 
 /// Builder for WsHub to set kline_writer_tx before start
@@ -79,6 +81,7 @@ pub struct WsHubBuilder {
     tx: broadcast::Sender<HubMessage>,
     hub_tx: broadcast::Sender<HubEvent>,
     kline_writer_tx: Option<mpsc::Sender<KlineRecord>>,
+    redis_cache: Option<crate::services::redis_cache::RedisCache>,
 }
 
 impl WsHubBuilder {
@@ -90,11 +93,17 @@ impl WsHubBuilder {
             tx,
             hub_tx,
             kline_writer_tx: None,
+            redis_cache: None,
         }
     }
 
     pub fn with_kline_writer_tx(mut self, tx: mpsc::Sender<KlineRecord>) -> Self {
         self.kline_writer_tx = Some(tx);
+        self
+    }
+
+    pub fn with_redis_cache(mut self, redis: crate::services::redis_cache::RedisCache) -> Self {
+        self.redis_cache = Some(redis);
         self
     }
 
@@ -104,11 +113,18 @@ impl WsHubBuilder {
             tx: self.tx,
             hub_tx: self.hub_tx,
             kline_writer_tx: Arc::new(Mutex::new(self.kline_writer_tx)),
+            redis_cache: Arc::new(Mutex::new(self.redis_cache)),
         }
     }
 }
 
 impl Default for WsHubBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Default for WsHub {
     fn default() -> Self {
         Self::new()
     }
@@ -124,6 +140,7 @@ impl WsHub {
             tx,
             hub_tx,
             kline_writer_tx: Arc::new(Mutex::new(None)),
+            redis_cache: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -139,7 +156,10 @@ impl WsHub {
     }
 
     /// Broadcast a HubMessage to all subscribers
-    pub fn broadcast(&self, msg: HubMessage) -> Result<usize, broadcast::error::SendError<HubMessage>> {
+    pub fn broadcast(
+        &self,
+        msg: HubMessage,
+    ) -> Result<usize, broadcast::error::SendError<HubMessage>> {
         self.tx.send(msg)
     }
 
@@ -155,10 +175,11 @@ impl WsHub {
         let tx = self.tx.clone();
         let hub_tx = self.hub_tx.clone();
         let kline_writer_tx = self.kline_writer_tx.clone();
+        let redis_cache = self.redis_cache.clone();
 
         // Spawn connector + forwarder task
         tokio::spawn(async move {
-            Self::run_connector(shutdown, tx, hub_tx, kline_writer_tx).await;
+            Self::run_connector(shutdown, tx, hub_tx, kline_writer_tx, redis_cache).await;
         });
 
         info!("WebSocket Hub started");
@@ -175,6 +196,7 @@ impl WsHub {
         hub_tx: broadcast::Sender<HubMessage>,
         _event_tx: broadcast::Sender<HubEvent>,
         kline_writer_tx: Arc<Mutex<Option<mpsc::Sender<KlineRecord>>>>,
+        redis_cache: Arc<Mutex<Option<crate::services::redis_cache::RedisCache>>>,
     ) {
         let mut connector = BinanceConnector::new();
         let mut backoff_secs = 1u64;
@@ -258,6 +280,8 @@ impl WsHub {
                                         let _ = tx.try_send(record);
                                     }
                                 }
+                                // Update Redis cache for Ticker/Depth (best effort, non-blocking)
+                                Self::update_redis_cache(&redis_cache, &market_msg).await;
                             }
                             Err(broadcast::error::RecvError::Lagged(n)) => {
                                 warn!("WS Hub lagged {} messages, catching up", n);
@@ -328,11 +352,75 @@ impl WsHub {
             },
         }
     }
-}
 
-impl Default for WsHub {
-    fn default() -> Self {
-        Self::new()
+    /// Update Redis cache with latest ticker/depth data (best effort, non-blocking).
+    async fn update_redis_cache(
+        redis_cache: &Arc<Mutex<Option<crate::services::redis_cache::RedisCache>>>,
+        market_msg: &MarketMessage,
+    ) {
+        let redis_guard = redis_cache.lock().await;
+        let Some(ref redis) = *redis_guard else {
+            return;
+        };
+
+        match market_msg {
+            MarketMessage::Ticker {
+                symbol,
+                price,
+                change,
+                change_percent,
+                volume,
+                high,
+                low,
+                bid,
+                ask,
+                ..
+            } => {
+                let ticker = crate::models::schemas::TickerResponse {
+                    symbol: symbol.clone(),
+                    price: *price,
+                    change: *change,
+                    change_percent: *change_percent,
+                    volume: *volume,
+                    high: *high,
+                    low: *low,
+                    bid: *bid,
+                    ask: *ask,
+                    timestamp: chrono::Utc::now().timestamp_millis(),
+                };
+                if let Err(e) = redis.set_ticker(&ticker).await {
+                    warn!(error = %e, symbol = %symbol, "Failed to update ticker in Redis");
+                }
+            }
+            MarketMessage::Depth {
+                symbol, bids, asks, ..
+            } => {
+                use crate::models::market_schemas::DepthLevel;
+                let depth = crate::models::market_schemas::DepthResponse {
+                    bids: bids
+                        .iter()
+                        .map(|(p, q)| DepthLevel {
+                            price: *p,
+                            quantity: *q,
+                            total: 0.0,
+                        })
+                        .collect(),
+                    asks: asks
+                        .iter()
+                        .map(|(p, q)| DepthLevel {
+                            price: *p,
+                            quantity: *q,
+                            total: 0.0,
+                        })
+                        .collect(),
+                    timestamp: chrono::Utc::now().timestamp_millis(),
+                };
+                if let Err(e) = redis.set_depth(symbol, &depth).await {
+                    warn!(error = %e, symbol = %symbol, "Failed to update depth in Redis");
+                }
+            }
+            _ => {}
+        }
     }
 }
 
@@ -343,6 +431,7 @@ impl Clone for WsHub {
             tx: self.tx.clone(),
             hub_tx: self.hub_tx.clone(),
             kline_writer_tx: self.kline_writer_tx.clone(),
+            redis_cache: self.redis_cache.clone(),
         }
     }
 }

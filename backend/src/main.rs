@@ -77,8 +77,13 @@ async fn main() {
         kline_writer.run().await;
     });
 
-    // Initialize WebSocket Hub (singleton) with KlineWriter pre-wired
-    let ws_hub = Arc::new(WsHubBuilder::new().with_kline_writer_tx(kline_tx).build());
+    // Initialize WebSocket Hub (singleton) with KlineWriter + Redis cache
+    let ws_hub = Arc::new(
+        WsHubBuilder::new()
+            .with_kline_writer_tx(kline_tx)
+            .with_redis_cache((*redis_cache).clone())
+            .build(),
+    );
     ws_hub.start();
 
     // Build application
@@ -217,9 +222,12 @@ fn create_router(
         ));
 
     // Order/Trading routes (authenticated, with matching engine)
+    // Both /orders and /orders/ paths registered to avoid nginx 301 redirect issues
     let order_routes = Router::new()
         .route("/orders", post(handlers::order::create_order))
         .route("/orders", get(handlers::order::list_orders))
+        .route("/orders/", post(handlers::order::create_order))
+        .route("/orders/", get(handlers::order::list_orders))
         .route("/orders/{id}", get(handlers::order::get_order))
         .route("/orders/{id}/cancel", post(handlers::order::cancel_order))
         .route(
@@ -270,13 +278,17 @@ fn create_router(
             quant_trading_backend::middleware::auth::auth_middleware,
         ));
 
-    // Backtest routes (authenticated)
+    // Backtest routes (authenticated, cancel merged to avoid double-nest conflict)
     let backtest_routes = Router::new()
         .route("/backtest", post(handlers::backtest::run_backtest))
         .route("/backtest/{id}", get(handlers::backtest::get_backtest))
         .route(
             "/backtest/{id}",
             delete_handler(handlers::backtest::delete_backtest),
+        )
+        .route(
+            "/backtest/{id}/cancel",
+            post(handlers::backtest::cancel_backtest),
         )
         .route(
             "/backtest/{id}/trades",
@@ -294,20 +306,12 @@ fn create_router(
             quant_trading_backend::middleware::auth::auth_middleware,
         ));
 
-    // Cancel backtest endpoint (separate router to avoid matchit/axum handler type conflict)
-    let cancel_routes = Router::new()
-        .route(
-            "/backtest/{id}/cancel",
-            post(handlers::backtest::cancel_backtest),
-        )
-        .layer(middleware::from_fn(
-            quant_trading_backend::middleware::auth::auth_middleware,
-        ));
-
-    // Public routes
+    // Public routes — registered as direct path to avoid /api/v1 nesting shadowing
+    // Both /ws and /api/v1/ws registered (nginx regex proxy_pass preserves full path)
     let public_routes = Router::new()
         .route("/health", get(handlers::ws::health_check))
         .route("/ws", get(handlers::ws::ws_handler))
+        .route("/api/v1/ws", get(handlers::ws::ws_handler))
         .layer(Extension(ws_hub.clone()));
 
     Router::new()
@@ -321,8 +325,8 @@ fn create_router(
         .nest("/api/v1", portfolio_routes)
         .nest("/api/v1", dashboard_routes)
         .nest("/api/v1", backtest_routes)
-        .nest("/api/v1", cancel_routes)
-        .nest("/api/v1", public_routes)
+        // public_routes: /health and /ws — NOT nested under /api/v1 to avoid route shadowing
+        .merge(public_routes)
         .layer(cors)
         .layer(TraceLayer::new_for_http())
         .with_state(db)

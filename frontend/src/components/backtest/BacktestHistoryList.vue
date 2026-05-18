@@ -89,7 +89,7 @@
           sortable
         >
           <template #default="{ row }">
-            <span class="sharpe-value">{{ row.sharpe_ratio.toFixed(2) }}</span>
+            <span class="sharpe-value">{{ row.sharpe_ratio?.toFixed(2) ?? '--' }}</span>
           </template>
         </el-table-column>
         <el-table-column

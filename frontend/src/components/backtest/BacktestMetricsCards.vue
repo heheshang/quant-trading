@@ -43,7 +43,7 @@
       <div class="metric-card">
         <div class="metric-label">夏普比率</div>
         <div class="metric-value neutral">
-          {{ result.metrics.sharpe_ratio.toFixed(2) }}
+          {{ (result.metrics.sharpe_ratio ?? 0).toFixed(2) }}
         </div>
         <div class="metric-sub down">
           最大回撤 {{ formatPercent(result.metrics.max_drawdown_pct) }}
@@ -55,7 +55,7 @@
           {{ formatPercent(result.metrics.max_drawdown_pct) }}
         </div>
         <div class="metric-sub neutral">
-          夏普 {{ result.metrics.sharpe_ratio.toFixed(2) }}
+          夏普 {{ (result.metrics.sharpe_ratio ?? 0).toFixed(2) }}
         </div>
       </div>
       <div class="metric-card">

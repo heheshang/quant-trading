@@ -124,7 +124,7 @@ export class MarketWebSocket {
       // channel is already stored with internal symbol
     })
     if (this._currentSymbol) {
-      this.ws.sendSubscribe('subscribe', [
+      this.ws.subscribe([
         `market:ticker:${this._currentSymbol}`,
         `market:depth:${this._currentSymbol}`,
       ])

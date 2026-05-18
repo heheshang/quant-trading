@@ -179,7 +179,8 @@ async function fetchOrders() {
   loading.value = true
   try {
     const isCurrent = activeTab.value === 'current'
-    const status: OrderStatus | 'active' | undefined = isCurrent ? 'active' : undefined
+    // 'active' is not a backend enum — map to 'pending' (cancelable orders)
+    const status: OrderStatus | undefined = isCurrent ? 'pending' : undefined
 
     const res = await getOrders({
       status,

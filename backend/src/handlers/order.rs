@@ -15,8 +15,8 @@ use uuid::Uuid;
 
 use crate::db::order::{OrderSide, OrderStatus, OrderType, PositionSide, TimeInForce, TradeMode};
 use crate::middleware::auth::AuthenticatedUser;
-use crate::services::matching_engine::MatchingEngine;
 use crate::services::exchange::{HubMessage, WsHub};
+use crate::services::matching_engine::MatchingEngine;
 use crate::utils::error::AppError;
 use crate::utils::response::ApiResponse;
 use sea_orm::{
@@ -191,6 +191,21 @@ fn parse_order_type(s: &str) -> Result<OrderType, AppError> {
         "market" => Ok(OrderType::Market),
         _ => Err(AppError::BadRequest(format!(
             "Invalid order_type: {}, expected limit/market",
+            s
+        ))),
+    }
+}
+
+fn parse_order_status(s: &str) -> Result<OrderStatus, AppError> {
+    match s {
+        "pending" => Ok(OrderStatus::Pending),
+        "partial_filled" => Ok(OrderStatus::PartialFilled),
+        "filled" => Ok(OrderStatus::Filled),
+        "cancelled" => Ok(OrderStatus::Cancelled),
+        "expired" => Ok(OrderStatus::Expired),
+        "rejected" => Ok(OrderStatus::Rejected),
+        _ => Err(AppError::BadRequest(format!(
+            "Invalid status: {}, expected: pending/partial_filled/filled/cancelled/expired/rejected",
             s
         ))),
     }
@@ -544,9 +559,7 @@ pub async fn list_orders(
         crate::db::order::Entity::find().filter(crate::db::order::Column::UserId.eq(user.user_id));
 
     if let Some(ref status) = query.status {
-        let status_enum: OrderStatus =
-            serde_json::from_value(serde_json::Value::String(status.clone()))
-                .map_err(|_| AppError::BadRequest(format!("Invalid status: {}", status)))?;
+        let status_enum = parse_order_status(status)?;
         find_query = find_query.filter(crate::db::order::Column::Status.eq(status_enum));
     }
 

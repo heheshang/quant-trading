@@ -35,7 +35,7 @@
       <div class="report-row">
         <div class="report-label">夏普比率</div>
         <div class="report-value" :class="colorClass(result.metrics.sharpe_ratio, 'sharpe')">
-          {{ result.metrics.sharpe_ratio.toFixed(2) }}
+          {{ (result.metrics.sharpe_ratio ?? 0).toFixed(2) }}
         </div>
       </div>
 
@@ -43,7 +43,7 @@
       <div class="report-row">
         <div class="report-label">卡玛比率</div>
         <div class="report-value" :class="colorClass(result.metrics.calmar_ratio, 'sharpe')">
-          {{ result.metrics.calmar_ratio.toFixed(2) }}
+          {{ (result.metrics.calmar_ratio ?? 0).toFixed(2) }}
         </div>
       </div>
 
