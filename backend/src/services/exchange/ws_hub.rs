@@ -39,6 +39,17 @@ pub enum HubMessage {
         close: f64,
         volume: f64,
     },
+    /// Trade execution notification — routed to specific user only
+    TradeExecuted {
+        user_id: uuid::Uuid,
+        order_id: uuid::Uuid,
+        symbol: String,
+        side: String,
+        filled_quantity: f64,
+        avg_fill_price: f64,
+        is_fully_filled: bool,
+        realized_pnl: Option<f64>,
+    },
 }
 
 /// HubEvent - server lifecycle events
@@ -125,6 +136,11 @@ impl WsHub {
     /// Subscribe to market data (call from WS client handler).
     pub fn subscribe(&self) -> broadcast::Receiver<HubMessage> {
         self.tx.subscribe()
+    }
+
+    /// Broadcast a HubMessage to all subscribers
+    pub fn broadcast(&self, msg: HubMessage) -> Result<usize, broadcast::error::SendError<HubMessage>> {
+        self.tx.send(msg)
     }
 
     /// Subscribe to hub events (for monitoring/admin).

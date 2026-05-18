@@ -30,17 +30,26 @@ export interface Depth {
 
 // ===== WS Message Types (B3 对齐) =====
 
-export type WsMessageType = 'ticker' | 'depth' | 'depth_update' | 'kline' | 'heartbeat' | 'subscribed' | 'unsubscribed' | 'kick' | 'error'
+export type WsMessageType = 'ticker' | 'depth' | 'depth_update' | 'kline' | 'heartbeat' | 'subscribed' | 'unsubscribed' | 'kick' | 'error' | 'trade_executed'
 
 export interface WsMessage {
   type: WsMessageType
   symbol?: string
-  data?: Ticker | Depth
+  data?: Ticker | Depth | TradeExecutedData
   ts?: number
   channel?: string
   reason?: string
   code?: number
   message?: string
+}
+
+export interface TradeExecutedData {
+  order_id: string
+  side: string
+  filled_quantity: number
+  avg_fill_price: number
+  is_fully_filled: boolean
+  realized_pnl: number | null
 }
 
 export interface WsSubscribe {

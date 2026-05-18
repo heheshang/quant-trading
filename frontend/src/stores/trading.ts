@@ -188,6 +188,15 @@ export const useTradingStore = defineStore('trading', () => {
       }
       depths.value[symbolDisplay] = depths.value[internal]
     }
+
+    // Trade execution notification — refresh orders/positions
+    if (msg.type === 'trade_executed' && msg.data) {
+      const data = msg.data as { order_id: string; side: string; realized_pnl: number | null }
+      // Emit event for components listening to order changes
+      window.dispatchEvent(new CustomEvent('trade-executed', {
+        detail: { symbol: symbolDisplay, ...data }
+      }))
+    }
   }
 
   /**

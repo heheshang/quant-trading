@@ -27,6 +27,8 @@ struct WsJsonMessage<'a> {
 struct ClientSubscriptions {
     channels: HashSet<String>,
     symbols: HashSet<String>,
+    /// Subscribe to personal trade execution notifications
+    trade_subscribed: bool,
 }
 
 /// Subscribe/unsubscribe message from client
@@ -78,6 +80,21 @@ fn serialize_hub_message(msg: HubMessage) -> String {
             })
             .unwrap_or_default()
         }
+        HubMessage::TradeExecuted { order_id, symbol, side, filled_quantity, avg_fill_price, is_fully_filled, realized_pnl, .. } => {
+            serde_json::to_string(&serde_json::json!({
+                "type": "trade_executed",
+                "symbol": symbol,
+                "data": {
+                    "order_id": order_id.to_string(),
+                    "side": side,
+                    "filled_quantity": filled_quantity,
+                    "avg_fill_price": avg_fill_price,
+                    "is_fully_filled": is_fully_filled,
+                    "realized_pnl": realized_pnl,
+                }
+            }))
+            .unwrap_or_default()
+        }
     }
 }
 
@@ -86,6 +103,11 @@ fn message_matches_subscription(msg: &HubMessage, subs: &ClientSubscriptions) ->
     // If no subscriptions configured, receive everything
     if subs.channels.is_empty() && subs.symbols.is_empty() {
         return true;
+    }
+
+    // TradeExecuted is gated by trade_subscribed flag
+    if matches!(msg, HubMessage::TradeExecuted { .. }) {
+        return subs.trade_subscribed;
     }
 
     let (channel, symbol) = match msg {
@@ -101,6 +123,7 @@ fn message_matches_subscription(msg: &HubMessage, subs: &ClientSubscriptions) ->
             let channel = format!("market:kline:{}", symbol);
             (channel, symbol.as_str())
         }
+        HubMessage::TradeExecuted { .. } => unreachable!(),
     };
 
     let channel_match = subs.channels.is_empty() || subs.channels.contains(&channel);
@@ -117,18 +140,25 @@ pub async fn ws_handler(
 ) -> Result<impl IntoResponse, AppError> {
     // Validate JWT token from query param
     let claims = crate::services::auth::validate_token(&params.token, &crate::CONFIG.jwt_secret)?;
+    let user_id = uuid::Uuid::parse_str(&claims.sub)
+        .map_err(|_| AppError::TokenInvalid("Invalid user token".to_string()))?;
 
     info!("WebSocket authenticated for user: {}", claims.username);
 
-    Ok(ws.on_upgrade(move |socket| handle_socket(socket, claims.jti, ws_hub)))
+    Ok(ws.on_upgrade(move |socket| handle_socket(socket, claims.jti, user_id, ws_hub)))
 }
 
-async fn handle_socket(socket: WebSocket, _session_id: String, ws_hub: Arc<WsHub>) {
-    info!("WebSocket connection established");
+async fn handle_socket(
+    socket: WebSocket,
+    _session_id: String,
+    user_id: uuid::Uuid,
+    ws_hub: Arc<WsHub>,
+) {
+    info!("WebSocket connection established for user: {}", user_id);
 
     let (mut sender, mut receiver) = socket.split();
     let mut hub_rx = ws_hub.subscribe();
-    let mut subscriptions = ClientSubscriptions::default();
+    let mut subscriptions = ClientSubscriptions { trade_subscribed: true, ..Default::default() };
 
     loop {
         tokio::select! {
@@ -136,6 +166,11 @@ async fn handle_socket(socket: WebSocket, _session_id: String, ws_hub: Arc<WsHub
             msg = hub_rx.recv() => {
                 match msg {
                     Ok(hub_msg) => {
+                        // For TradeExecuted, route only to the target user
+                        if matches!(&hub_msg, HubMessage::TradeExecuted { user_id: uid, .. } if *uid != user_id) {
+                            continue;
+                        }
+
                         if message_matches_subscription(&hub_msg, &subscriptions) {
                             let text = serialize_hub_message(hub_msg);
                             if !text.is_empty() && sender.send(Message::Text(text.into())).await.is_err() {
@@ -188,12 +223,10 @@ async fn handle_socket(socket: WebSocket, _session_id: String, ws_hub: Arc<WsHub
                                     )).await;
                                 }
                                 _ => {
-                                    // Echo unknown messages
                                     let _ = sender.send(Message::Text(format!("echo: {}", text).into())).await;
                                 }
                             }
                         } else {
-                            // Echo non-JSON messages
                             let _ = sender.send(Message::Text(format!("echo: {}", text).into())).await;
                         }
                     }
@@ -208,7 +241,7 @@ async fn handle_socket(socket: WebSocket, _session_id: String, ws_hub: Arc<WsHub
         }
     }
 
-    info!("WebSocket connection closed");
+    info!("WebSocket connection closed for user: {}", user_id);
 }
 
 /// Health check endpoint

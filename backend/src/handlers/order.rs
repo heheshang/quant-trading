@@ -16,6 +16,7 @@ use uuid::Uuid;
 use crate::db::order::{OrderSide, OrderStatus, OrderType, PositionSide, TimeInForce, TradeMode};
 use crate::middleware::auth::AuthenticatedUser;
 use crate::services::matching_engine::MatchingEngine;
+use crate::services::exchange::{HubMessage, WsHub};
 use crate::utils::error::AppError;
 use crate::utils::response::ApiResponse;
 use sea_orm::{
@@ -832,6 +833,7 @@ pub async fn close_position(
     user: AuthenticatedUser,
     State(db): State<Arc<DatabaseConnection>>,
     Extension(engine): Extension<Arc<MatchingEngine>>,
+    Extension(ws_hub): Extension<Arc<WsHub>>,
     Path(symbol): Path<String>,
     Json(req): Json<ClosePositionRequest>,
 ) -> Result<(StatusCode, Json<ApiResponse<OrderResponse>>), AppError> {
@@ -989,6 +991,21 @@ pub async fn close_position(
                 realized_pnl = realized_pnl,
                 "Position closed"
             );
+
+            // Broadcast trade execution notification to the user's WS connection
+            let _ = ws_hub.broadcast(HubMessage::TradeExecuted {
+                user_id: user.user_id,
+                order_id: updated.id,
+                symbol: symbol.clone(),
+                side: match &reverse_side {
+                    OrderSide::Buy => "buy".to_string(),
+                    OrderSide::Sell => "sell".to_string(),
+                },
+                filled_quantity: updated.filled_quantity,
+                avg_fill_price: updated.avg_fill_price.unwrap_or(fill_price),
+                is_fully_filled: updated.status == OrderStatus::Filled,
+                realized_pnl: Some(realized_pnl),
+            });
 
             Ok((
                 StatusCode::CREATED,

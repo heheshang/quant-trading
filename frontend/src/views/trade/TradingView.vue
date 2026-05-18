@@ -352,11 +352,20 @@ onMounted(async () => {
   tradingStore.$subscribe(() => {
     syncTickerFromStore()
   })
+  // Listen for trade execution events to refresh order list
+  window.addEventListener('trade-executed', onTradeExecuted)
 })
 
 onUnmounted(() => {
   disconnectWebSocket()
+  window.removeEventListener('trade-executed', onTradeExecuted)
 })
+
+function onTradeExecuted() {
+  orderListRef.value?.fetchOrders()
+  loadAccount()
+  loadPositions()
+}
 </script>
 
 <style scoped lang="scss">
