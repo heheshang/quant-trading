@@ -13,6 +13,7 @@ use quant_trading_backend::services::exchange::{
 };
 use quant_trading_backend::services::kline_writer::KlineWriter;
 use quant_trading_backend::services::matching_engine::MatchingEngine;
+use quant_trading_backend::services::order_rate_limiter::OrderRateLimiter;
 use quant_trading_backend::services::redis_cache::RedisCache;
 use std::sync::Arc;
 use tokio::sync::mpsc;
@@ -64,6 +65,9 @@ async fn main() {
     // Create matching engine
     let matching_engine = Arc::new(MatchingEngine::new(db.clone(), 200, 0.001));
 
+    // Create order rate limiter (P1-F4)
+    let order_rate_limiter = Arc::new(OrderRateLimiter::new());
+
     // Initialize Redis cache
     let redis_cache = Arc::new(
         RedisCache::new(&CONFIG.redis_url)
@@ -100,6 +104,7 @@ async fn main() {
         db,
         cors,
         matching_engine,
+        order_rate_limiter,
         redis_cache,
         binance_rest,
         ws_hub,
@@ -121,6 +126,7 @@ fn create_router(
     db: DbPool,
     cors: CorsLayer,
     matching_engine: Arc<MatchingEngine>,
+    order_rate_limiter: Arc<OrderRateLimiter>,
     redis_cache: Arc<RedisCache>,
     binance_rest: Arc<BinanceRestClient>,
     ws_hub: Arc<WsHub>,
@@ -263,6 +269,7 @@ fn create_router(
         .route("/account/init", post(handlers::order::init_account))
         .route("/symbols", get(handlers::order::list_symbols))
         .layer(axum::Extension(matching_engine))
+        .layer(axum::Extension(order_rate_limiter))
         .layer(middleware::from_fn(
             quant_trading_backend::middleware::auth::auth_middleware,
         ));

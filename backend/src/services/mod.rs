@@ -9,6 +9,7 @@ pub mod kline;
 pub mod kline_writer;
 pub mod market_data;
 pub mod matching_engine;
+pub mod order_rate_limiter;
 pub mod portfolio;
 pub mod position_alert_monitor;
 pub mod position_alert_service;

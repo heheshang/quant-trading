@@ -8,7 +8,7 @@
 use axum::{
     Extension, Json,
     extract::{Path, Query, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -17,6 +17,7 @@ use crate::db::order::{OrderSide, OrderStatus, OrderType, PositionSide, TimeInFo
 use crate::middleware::auth::AuthenticatedUser;
 use crate::services::exchange::{HubMessage, WsHub};
 use crate::services::matching_engine::MatchingEngine;
+use crate::services::order_rate_limiter::OrderRateLimiter;
 use crate::utils::error::AppError;
 use crate::utils::response::ApiResponse;
 use sea_orm::{
@@ -324,8 +325,29 @@ pub async fn create_order(
     user: AuthenticatedUser,
     State(db): State<Arc<DatabaseConnection>>,
     Extension(engine): Extension<Arc<MatchingEngine>>,
+    Extension(rate_limiter): Extension<Arc<OrderRateLimiter>>,
     Json(req): Json<CreateOrderRequest>,
-) -> Result<(StatusCode, Json<ApiResponse<OrderResponse>>), AppError> {
+) -> Result<(StatusCode, HeaderMap, Json<ApiResponse<OrderResponse>>), AppError> {
+    // P1-F4: Check order rate limit before processing
+    let rate_limit_info = rate_limiter
+        .check(user.user_id, &req.symbol)
+        .await?;
+
+    // Build rate limit headers
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        axum::http::header::HeaderName::from_static("x-ratelimit-limit"),
+        rate_limit_info.limit.to_string().parse().unwrap(),
+    );
+    headers.insert(
+        axum::http::header::HeaderName::from_static("x-ratelimit-remaining"),
+        rate_limit_info.remaining.to_string().parse().unwrap(),
+    );
+    headers.insert(
+        axum::http::header::HeaderName::from_static("x-ratelimit-reset"),
+        rate_limit_info.reset_ms.to_string().parse().unwrap(),
+    );
+
     // 1. Validate and parse request
     let side = parse_side(&req.side)?;
     let order_type = parse_order_type(&req.order_type)?;
@@ -516,6 +538,7 @@ pub async fn create_order(
 
                 return Ok((
                     StatusCode::CREATED,
+                    headers.clone(),
                     Json(ApiResponse::success(order_to_response(&updated))),
                 ));
             }
@@ -546,6 +569,7 @@ pub async fn create_order(
 
     Ok((
         StatusCode::CREATED,
+        headers,
         Json(ApiResponse::success(order_to_response(&order))),
     ))
 }
