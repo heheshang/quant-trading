@@ -21,6 +21,7 @@ const navItems: NavItem[] = [
   { icon: 'switch', label: '交易', route: '/trading' },
   { icon: 'briefcase', label: '持仓', route: '/portfolio' },
   { icon: 'setting', label: '系统管理', route: '/admin' },
+  { icon: 'operation', label: '策略审核', route: '/strategy-review' },
 ]
 
 const activeRoute = computed(() => route.path)

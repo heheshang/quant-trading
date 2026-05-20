@@ -10,6 +10,7 @@ import StrategiesView from '@/views/strategy/StrategiesView.vue'
 import StrategyCreateView from '@/views/strategy/StrategyCreateView.vue'
 import StrategyEditView from '@/views/strategy/StrategyEditView.vue'
 import StrategyTemplateView from '@/views/strategy/StrategyTemplateView.vue'
+import StrategyReviewView from '@/views/strategy/StrategyReviewView.vue'
 import KlineDetailView from '@/views/kline/KlineDetailView.vue'
 import BacktestView from '@/views/backtest/BacktestView.vue'
 import TradingView from '@/views/trade/TradingView.vue'
@@ -138,6 +139,12 @@ const routes: RouteRecordRaw[] = [
         name: 'ApiKeyManagement',
         component: ApiKeyManagementView,
         meta: { requiresAuth: true, title: 'API密钥管理' },
+      },
+      {
+        path: 'strategy-review',
+        name: 'StrategyReview',
+        component: StrategyReviewView,
+        meta: { requiresAuth: true, title: '策略审核', roles: ['admin'] },
       },
     ],
   },
