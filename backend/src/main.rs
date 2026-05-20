@@ -270,6 +270,10 @@ fn create_router(
         .route("/account", get(handlers::order::get_account))
         .route("/account/init", post(handlers::order::init_account))
         .route("/symbols", get(handlers::order::list_symbols))
+        // Export routes
+        .route("/exports/orders", get(handlers::export::export_orders))
+        .route("/exports/trades", get(handlers::export::export_trades))
+        .route("/exports/account", get(handlers::export::export_account))
         .layer(axum::Extension(matching_engine))
         .layer(axum::Extension(order_rate_limiter))
         .layer(middleware::from_fn(

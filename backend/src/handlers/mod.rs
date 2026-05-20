@@ -3,6 +3,7 @@ pub mod auth;
 pub mod backtest;
 pub mod dashboard;
 pub mod exchange;
+pub mod export;
 pub mod indicator;
 pub mod kline;
 pub mod market;
