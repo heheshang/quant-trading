@@ -9,9 +9,7 @@ use axum::{
     response::IntoResponse,
     routing::{delete, get, post},
 };
-use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder,
-};
+use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
@@ -21,7 +19,7 @@ use crate::services::trigger_order::TriggerOrderService;
 use crate::utils::error::AppError;
 
 /// ==================== 请求/响应结构 ====================
-
+///
 /// 创建止损单请求
 #[derive(Debug, Deserialize)]
 pub struct CreateStopLossRequest {
@@ -148,7 +146,7 @@ pub struct CancelTriggerOrderRequest {
 }
 
 /// ==================== HTTP Handlers ====================
-
+///
 /// 创建止损单
 /// POST /api/v1/trigger-orders/stop-loss
 pub async fn create_stop_loss(
@@ -309,6 +307,6 @@ pub fn router() -> Router<Arc<DatabaseConnection>> {
         .route("/api/v1/trigger-orders/oco", post(create_oco))
         .route("/api/v1/trigger-orders/twap", post(create_twap))
         .route("/api/v1/trigger-orders", get(list_trigger_orders))
-        .route("/api/v1/trigger-orders/:id", get(get_trigger_order))
-        .route("/api/v1/trigger-orders/:id", delete(cancel_trigger_order))
+        .route("/api/v1/trigger-orders/{id}", get(get_trigger_order))
+        .route("/api/v1/trigger-orders/{id}", delete(cancel_trigger_order))
 }

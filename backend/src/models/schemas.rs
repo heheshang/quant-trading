@@ -638,18 +638,14 @@ mod tests {
 /// KDJ signal type
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum KdjSignal {
     GoldenCross,
     DeathCross,
     Overbought,
     Oversold,
+    #[default]
     None,
-}
-
-impl Default for KdjSignal {
-    fn default() -> Self {
-        KdjSignal::None
-    }
 }
 
 /// Single KDJ bar result

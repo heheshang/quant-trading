@@ -337,19 +337,17 @@ pub async fn get_equity_curve(
     let mut query = portfolio::Entity::find().filter(portfolio::Column::UserId.eq(user_id));
 
     // Date range filter
-    if let Some(ref start_date) = params.start_date {
-        if let Ok(dt) = NaiveDate::parse_from_str(start_date, "%Y-%m-%d") {
+    if let Some(ref start_date) = params.start_date
+        && let Ok(dt) = NaiveDate::parse_from_str(start_date, "%Y-%m-%d") {
             let start_utc = Utc.from_utc_datetime(&dt.and_hms_opt(0, 0, 0).unwrap_or_default());
             query = query.filter(portfolio::Column::Timestamp.gte(start_utc));
         }
-    }
 
-    if let Some(ref end_date) = params.end_date {
-        if let Ok(dt) = NaiveDate::parse_from_str(end_date, "%Y-%m-%d") {
+    if let Some(ref end_date) = params.end_date
+        && let Ok(dt) = NaiveDate::parse_from_str(end_date, "%Y-%m-%d") {
             let end_utc = Utc.from_utc_datetime(&dt.and_hms_opt(23, 59, 59).unwrap_or_default());
             query = query.filter(portfolio::Column::Timestamp.lte(end_utc));
         }
-    }
 
     let records = query
         .order_by_asc(portfolio::Column::Timestamp)

@@ -14,7 +14,7 @@ use tracing::{info, warn};
 use uuid::Uuid;
 
 use crate::db::order::positions::{Entity as PositionEntity, Model as Position};
-use crate::db::order::{OrderSide, OrderStatus, OrderType, PositionSide};
+use crate::db::order::PositionSide;
 use crate::db::position_alerts::{
     ActiveModel as AlertActive, AlertStatus, AlertType, Entity as AlertEntity, Model as AlertModel,
     TriggerMode,
@@ -475,8 +475,8 @@ impl PositionAlertService {
         user_id: Uuid,
         symbol: &str,
         current_price: f64,
-        high_24h: f64,
-        low_24h: f64,
+        _high_24h: f64,
+        _low_24h: f64,
     ) -> Vec<AlertCheckResult> {
         let alerts = match self
             .list_active_alerts(user_id, Some(symbol.to_string()))

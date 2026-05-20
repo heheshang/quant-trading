@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 /// GET /api/v1/kline/kdj
 pub async fn get_kdj(
-    user: AuthenticatedUser,
+    _user: AuthenticatedUser,
     State(db): State<Arc<DatabaseConnection>>,
     Query(params): Query<KdjQueryParams>,
 ) -> Result<Json<ApiResponse<KdjResponse>>, AppError> {

@@ -13,19 +13,18 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::mpsc;
-use tokio::time::{Duration, Instant};
+use tokio::time::Duration;
 use tracing::{error, info, warn};
 
 use crate::db::order::positions::Column as PosCol;
 use crate::db::order::positions::Entity as PosEntity;
 use crate::db::order::positions::Model as Position;
-use crate::db::order::{OrderSide, OrderStatus, OrderType, PositionSide};
+use crate::db::order::{OrderSide, PositionSide};
 use crate::db::position_alerts::{
     ActiveModel as AlertActive, AlertStatus, AlertType, Column as AlertCol, Entity as AlertEntity,
     Model as AlertModel, TriggerMode,
 };
-use crate::services::matching_engine::{DepthData, MatchingEngine};
+use crate::services::matching_engine::MatchingEngine;
 use crate::services::position_alert_service::PositionAlertService;
 use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use uuid::Uuid;
@@ -84,12 +83,12 @@ impl PositionAlertMonitor {
     /// 每隔 `interval_ms` 检查一次所有 symbol 的活跃 alerts
     pub fn spawn(self: Arc<Self>, interval_ms: u64) {
         let db = self.db.clone();
-        let symbol_cache = Arc::new(std::sync::Mutex::new(
+        let _symbol_cache = Arc::new(std::sync::Mutex::new(
             HashMap::<String, (f64, f64, f64)>::new(),
         )); // symbol → (price, high, low)
 
         // 定期刷新活跃 alert 列表
-        let alert_service = PositionAlertService::new(db.clone());
+        let _alert_service = PositionAlertService::new(db.clone());
 
         tokio::spawn(async move {
             let check_interval = Duration::from_millis(interval_ms.max(100).min(5000));
@@ -269,7 +268,7 @@ impl PositionAlertMonitor {
 
         match alert.alert_type {
             AlertType::TakeProfit => {
-                let (check_price, is_triggered) = match position.side {
+                let (_check_price, is_triggered) = match position.side {
                     PositionSide::Long => (high_24h, high_24h >= alert.trigger_price),
                     PositionSide::Short => (low_24h, low_24h <= alert.trigger_price),
                 };
@@ -280,7 +279,7 @@ impl PositionAlertMonitor {
                 }
             }
             AlertType::StopLoss => {
-                let (check_price, is_triggered) = match position.side {
+                let (_check_price, is_triggered) = match position.side {
                     PositionSide::Long => (low_24h, low_24h <= alert.trigger_price),
                     PositionSide::Short => (high_24h, high_24h >= alert.trigger_price),
                 };

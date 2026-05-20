@@ -3,24 +3,23 @@
 //! P1-F3: 条件触发单 - 止损单/止盈单/OCO/TWAP
 //! 依赖 P1-F2 实盘止盈止损
 
-use chrono::{DateTime, Duration as ChronoDuration, Utc};
+use chrono::{Duration as ChronoDuration, Utc};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, Set,
 };
 use std::sync::Arc;
-use tracing::{error, info, warn};
+use tracing::{error, info};
 use uuid::Uuid;
 
 use crate::db::order::positions::Entity as PositionEntity;
 use crate::db::order::{
-    Entity as OrderEntity, Model as Order, OrderSide, OrderStatus, OrderType, TimeInForce,
+    OrderSide, OrderStatus, OrderType, TimeInForce,
     TradeMode,
 };
 use crate::db::trigger_order::{
     ActiveModel as TriggerOrderActive, Entity as TriggerOrderEntity, Model as TriggerOrder,
     TriggerDirection, TriggerStatus, TriggerType, TwapSide,
 };
-use crate::services::matching_engine::MatchingEngine;
 use crate::utils::error::AppError;
 
 /// Trigger Order Service - 条件触发单服务
@@ -392,7 +391,7 @@ impl TriggerOrderService {
             twap_start_time: Set(Some(now)),
             twap_end_time: Set(Some(end_time)),
             twap_executed_slices: Set(0),
-            twap_max_slices: Set((duration_secs / interval_secs) as i32),
+            twap_max_slices: Set(((duration_secs / interval_secs))),
             oco_pair_id: Set(None),
             triggered_order_id: Set(None),
             trigger_reason: Set(None),
@@ -561,19 +560,19 @@ impl TriggerOrderService {
                 .await
                 .map_err(|e| AppError::Database(e.to_string()))?;
 
-            if let Some(pair_order) = pair {
-                if pair_order.status == TriggerStatus::Pending {
-                    let mut pair_active: TriggerOrderActive = pair_order.clone().into();
-                    pair_active.status = Set(TriggerStatus::Cancelled);
-                    pair_active.cancelled_at = Set(Some(now));
-                    pair_active.trigger_reason =
-                        Set(Some(format!("OCO cancelled by pair: {}", reason)));
-                    pair_active.updated_at = Set(now);
-                    pair_active
-                        .update(self.db.as_ref())
-                        .await
-                        .map_err(|e| AppError::Database(e.to_string()))?;
-                }
+            if let Some(pair_order) = pair
+                && pair_order.status == TriggerStatus::Pending
+            {
+                let mut pair_active: TriggerOrderActive = pair_order.clone().into();
+                pair_active.status = Set(TriggerStatus::Cancelled);
+                pair_active.cancelled_at = Set(Some(now));
+                pair_active.trigger_reason =
+                    Set(Some(format!("OCO cancelled by pair: {}", reason)));
+                pair_active.updated_at = Set(now);
+                pair_active
+                    .update(self.db.as_ref())
+                    .await
+                    .map_err(|e| AppError::Database(e.to_string()))?;
             }
         }
 
@@ -677,17 +676,17 @@ impl TriggerOrderService {
         }
 
         // 检查是否已超过结束时间
-        if let Some(end_time) = order.twap_end_time {
-            if Utc::now() > end_time {
-                let mut active: TriggerOrderActive = order.clone().into();
-                active.status = Set(TriggerStatus::Expired);
-                active.updated_at = Set(Utc::now());
-                active
-                    .update(self.db.as_ref())
-                    .await
-                    .map_err(|e| AppError::Database(e.to_string()))?;
-                return Ok(false);
-            }
+        if let Some(end_time) = order.twap_end_time
+            && Utc::now() > end_time
+        {
+            let mut active: TriggerOrderActive = order.clone().into();
+            active.status = Set(TriggerStatus::Expired);
+            active.updated_at = Set(Utc::now());
+            active
+                .update(self.db.as_ref())
+                .await
+                .map_err(|e| AppError::Database(e.to_string()))?;
+            return Ok(false);
         }
 
         // 检查是否达到最大切片数

@@ -12,7 +12,7 @@
 
 use axum::{
     Json, Router,
-    extract::{Extension, Path, Query, State},
+    extract::{Path, Query, State},
     http::StatusCode,
 };
 use serde::{Deserialize, Serialize};
@@ -21,12 +21,11 @@ use uuid::Uuid;
 
 use crate::db::position_alerts::{AlertStatus, AlertType, TriggerMode};
 use crate::middleware::auth::AuthenticatedUser;
-use crate::services::exchange::ws_hub::WsHub;
 use crate::services::position_alert_service::{
     AlertResponse, CreateAlertRequest, PositionAlertService, UpdateAlertRequest,
 };
 use crate::utils::error::AppError;
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder};
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 
 // ─── Schemas ───────────────────────────────────────────────────
 
@@ -208,7 +207,7 @@ pub async fn list_alerts(
     State(db): State<Arc<DatabaseConnection>>,
     Query(params): Query<ListAlertsQuery>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    use crate::db::position_alerts::Column as AlertCol;
+    
 
     let service = PositionAlertService::new(db);
 

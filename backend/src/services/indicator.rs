@@ -57,7 +57,7 @@ impl Kdjk {
         let rsv: Vec<f64> = klines
             .windows(n)
             .enumerate()
-            .map(|(i, window)| {
+            .map(|(_i, window)| {
                 let low_min = window.iter().map(|b| b.low).fold(f64::INFINITY, f64::min);
                 let high_max = window
                     .iter()
@@ -86,7 +86,7 @@ impl Kdjk {
 
         let rsv_len = rsv.len();
         let k_len = rsv_len.saturating_sub(m1.saturating_sub(1));
-        let d_len = k_len.saturating_sub(m2.saturating_sub(1));
+        let _d_len = k_len.saturating_sub(m2.saturating_sub(1));
 
         // K SMA
         let k_values: Vec<f64> = if m1 == 1 {
@@ -122,7 +122,7 @@ impl Kdjk {
 
         let mut results = Vec::with_capacity(klines.len() - first_valid_idx);
 
-        for i in first_valid_idx..klines.len() {
+        for (i, _item) in klines.iter().enumerate().skip(first_valid_idx) {
             // k_idx: position in k_values corresponding to klines[i]
             // klines[i] corresponds to rsv[i - (n - 1)]
             // k_values[i] is the SMA of rsv[max(0,i-m1+1)..=i]
