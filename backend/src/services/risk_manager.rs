@@ -132,13 +132,15 @@ impl RiskManager {
     }
 
     /// 前置风控检查 — 每次下单前必须调用
+    /// order_price: 下单价格（如限价单价格，市价单传当前市价）
+    /// stop_loss_price: 止损触发价（用于计算单笔最大潜在亏损）
     pub async fn check_order(
         &self,
         user_id: Uuid,
         order_side: &str, // "buy" or "sell"
-        _order_quantity: &str,
-        _order_price: Option<&str>,
-        _position_value: Decimal, // 当前持仓市值
+        order_quantity: &str,
+        order_price: Option<f64>,   // 改为真实 f64 类型
+        stop_loss_price: Option<f64>, // 止损触发价
     ) -> Result<(), AppError> {
         // 1. 加载风控规则
         let rules = self.get_rules_internal(user_id).await?;
@@ -168,7 +170,28 @@ impl RiskManager {
         let is_opening = order_side == "buy" || order_side == "sell";
         if is_opening {
             // 估算该订单的最大潜在亏损
-            let estimated_loss_ratio = Decimal::ZERO; // TODO: 计算：(开仓价 - 止损价) / 开仓价
+            // 计算: estimated_loss = |order_price - stop_loss_price| * quantity
+            // loss_ratio = estimated_loss / equity
+            let mut estimated_loss_ratio = Decimal::ZERO;
+
+            if let (Some(price), Some(sl_price)) = (order_price, stop_loss_price) {
+                if price > 0.0 && sl_price > 0.0 {
+                    let qty: f64 = order_quantity.parse().unwrap_or(0.0);
+                    if qty > 0.0 {
+                        let price_dec = Decimal::from_f64_retain(price).unwrap_or(Decimal::ZERO);
+                        let sl_dec = Decimal::from_f64_retain(sl_price).unwrap_or(Decimal::ZERO);
+                        let qty_dec = Decimal::from_f64_retain(qty).unwrap_or(Decimal::ZERO);
+
+                        // 估算最大潜在亏损 = |开仓价 - 止损价| * 数量
+                        let estimated_loss = (price_dec - sl_dec).abs() * qty_dec;
+
+                        // 损失比例 = 估算亏损 / 账户权益
+                        if snapshot.equity > Decimal::ZERO {
+                            estimated_loss_ratio = estimated_loss / snapshot.equity;
+                        }
+                    }
+                }
+            }
             if estimated_loss_ratio > rules.single_trade_loss_ratio {
                 self.log_risk_event(
                     user_id,
@@ -358,7 +381,18 @@ impl RiskManager {
     }
 
     /// 恢复交易
-    pub async fn resume(&self, _user_id: Uuid) -> Result<(), AppError> {
+    pub async fn resume(&self, user_id: Uuid) -> Result<(), AppError> {
+        // 记录恢复交易日志
+        self.log_risk_event(
+            user_id,
+            "resumed",
+            Decimal::ZERO,
+            Decimal::ZERO,
+            Decimal::ZERO,
+            "resumed",
+            None,
+        )
+        .await?;
         Ok(())
     }
 }

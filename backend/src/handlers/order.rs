@@ -18,6 +18,7 @@ use crate::middleware::auth::AuthenticatedUser;
 use crate::services::exchange::{HubMessage, WsHub};
 use crate::services::matching_engine::MatchingEngine;
 use crate::services::order_rate_limiter::OrderRateLimiter;
+use crate::services::risk_manager::RiskManager;
 use crate::utils::error::AppError;
 use crate::utils::response::ApiResponse;
 use sea_orm::{
@@ -326,8 +327,17 @@ pub async fn create_order(
     State(db): State<Arc<DatabaseConnection>>,
     Extension(engine): Extension<Arc<MatchingEngine>>,
     Extension(rate_limiter): Extension<Arc<OrderRateLimiter>>,
+    Extension(ws_hub): Extension<Arc<WsHub>>,
     Json(req): Json<CreateOrderRequest>,
 ) -> Result<(StatusCode, HeaderMap, Json<ApiResponse<OrderResponse>>), AppError> {
+    // F6: 断线暂停 — 拒绝新订单
+    if ws_hub.is_strategy_paused() {
+        return Err(AppError::RiskPaused(
+            crate::services::risk_manager::ERR_PAUSED.to_string(),
+            "策略已因断线暂停".to_string(),
+        ));
+    }
+
     // P1-F4: Check order rate limit before processing
     let rate_limit_info = rate_limiter
         .check(user.user_id, &req.symbol)
@@ -467,6 +477,28 @@ pub async fn create_order(
             AppError::Database(e.to_string())
         })?;
     }
+
+    // ── D8: 风控前置检查 ──
+    let rm = RiskManager::new(db.clone());
+    // 解析止损价格
+    let stop_loss_price: Option<f64> = req
+        .stop_loss_price
+        .as_ref()
+        .and_then(|s| s.parse::<f64>().ok());
+    // 使用持仓的 avg_entry_price 作为 order_price proxy（如有持仓）
+    let order_price_proxy = if side == OrderSide::Sell {
+        sell_position.as_ref().map(|p| p.avg_entry_price)
+    } else {
+        price
+    };
+    rm.check_order(
+        user.user_id,
+        &req.side,
+        &req.quantity,
+        order_price_proxy,
+        stop_loss_price,
+    )
+    .await?;
 
     // 2. Create order in DB
     let now = chrono::Utc::now();
