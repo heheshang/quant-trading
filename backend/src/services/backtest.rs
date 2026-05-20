@@ -507,6 +507,7 @@ mod tests {
             initial_capital: 10000.0,
             fee_rate: 0.001,
             slippage_rate: 0.0005,
+            ..Default::default()
         };
         assert!(config.validate().is_ok());
     }
@@ -576,6 +577,7 @@ mod tests {
             initial_capital: capital,
             fee_rate: fee,
             slippage_rate: slippage,
+            ..Default::default()
         };
         let err = config.validate().unwrap_err();
         assert!(
@@ -604,6 +606,8 @@ mod tests {
                 exit_reason: "signal".into(),
                 fee: 0.1,
                 slippage: 0.05,
+                hit_limit: false,
+                limit_type: None,
             })
             .collect();
 

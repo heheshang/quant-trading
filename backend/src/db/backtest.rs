@@ -187,6 +187,7 @@ pub async fn list_backtest_history(
                     initial_capital: 0.0,
                     fee_rate: 0.001,
                     slippage_rate: 0.0005,
+                    ..Default::default()
                 });
             let metrics_preview = m.metrics.as_ref().and_then(|v| {
                 serde_json::from_value::<BacktestMetrics>(v.clone())

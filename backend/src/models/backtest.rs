@@ -18,7 +18,7 @@ pub struct BacktestRunRequest {
 }
 
 /// Backtest configuration: symbol, date range, capital, and fee parameters.
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
 pub struct BacktestConfig {
     pub symbol: String,
     pub interval: String,
@@ -29,6 +29,10 @@ pub struct BacktestConfig {
     pub fee_rate: f64,
     #[serde(default = "default_slippage_rate")]
     pub slippage_rate: f64,
+    /// Price limit percentage for backtest (e.g. 0.10 = 10% limit).
+    /// Set to None or 0.0 to disable price limit enforcement.
+    #[serde(default)]
+    pub price_limit_pct: Option<f64>,
 }
 
 fn default_fee_rate() -> f64 {
@@ -149,6 +153,17 @@ pub struct Position {
     pub take_profit: Option<f64>,
     pub fee_paid: f64,
     pub slippage_paid: f64,
+    /// Limit type applied at entry (upper/lower), if any.
+    pub limit_type: Option<LimitType>,
+}
+
+/// Price limit type for backtest price limit enforcement.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum LimitType {
+    #[serde(rename = "upper")]
+    Upper, // 涨停
+    #[serde(rename = "lower")]
+    Lower, // 跌停
 }
 
 /// A completed trade record with entry/exit details and PnL.
@@ -163,9 +178,14 @@ pub struct TradeRecord {
     pub pnl_usdt: f64,
     pub pnl_pct: f64,
     pub holding_period_ms: i64,
-    pub exit_reason: String, // "signal" | "stop_loss" | "take_profit" | "liquidation"
+    pub exit_reason: String, // "signal" | "stop_loss" | "take_profit" | "liquidation" | "limit_hit"
     pub fee: f64,
     pub slippage: f64,
+    /// Whether the trade hit the price limit (upward or downward limit).
+    #[serde(default)]
+    pub hit_limit: bool,
+    /// The type of limit that was hit, if any.
+    pub limit_type: Option<LimitType>,
 }
 
 /// A single point on the equity curve with drawdown percentage.
@@ -227,6 +247,12 @@ impl BacktestConfig {
 
         if !(0.0..=0.01).contains(&self.slippage_rate) {
             return Err("slippage_rate must be 0..0.01".into());
+        }
+
+        if let Some(pct) = self.price_limit_pct {
+            if !(0.0..=0.5).contains(&pct) {
+                return Err("price_limit_pct must be 0..0.5".into());
+            }
         }
 
         Ok(())

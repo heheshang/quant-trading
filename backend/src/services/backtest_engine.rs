@@ -12,8 +12,8 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use tokio_util::sync::CancellationToken;
 
 use crate::models::backtest::{
-    Account, BacktestConfig, BacktestMetrics, Direction, EquityPoint, Kline, Position, Signal,
-    TradeRecord,
+    Account, BacktestConfig, BacktestMetrics, Direction, EquityPoint, Kline, LimitType, Position,
+    Signal, TradeRecord,
 };
 use crate::services::strategy::StrategyTemplate;
 use serde_json::Value;
@@ -34,6 +34,8 @@ pub struct BacktestEngine {
     trades: Vec<TradeRecord>,
     equity_points: Vec<EquityPoint>,
     peak_equity: f64, // running peak for drawdown calculation (Bug#7)
+    /// Previous bar's close price, used to compute price limits.
+    prev_close: f64,
     // Control
     progress: Arc<AtomicU32>,
     cancel_token: CancellationToken,
@@ -72,6 +74,7 @@ impl BacktestEngine {
             trades: Vec::new(),
             equity_points: Vec::with_capacity(kline_count),
             peak_equity: initial_capital, // Bug#7: track running peak
+            prev_close: 0.0,
             progress,
             cancel_token,
         }
@@ -116,7 +119,7 @@ impl BacktestEngine {
         // Close any open position at the last bar
         if let Some(pos) = self.open_position.take() {
             let last = &self.klines[self.klines.len() - 1];
-            self.close_position(last.open_time, last.close, "signal", pos);
+            self.close_position(last.open_time, last.close, "signal", pos, None);
         }
 
         // Final progress
@@ -134,6 +137,16 @@ impl BacktestEngine {
 
     /// Process a single kline bar: generate signal, manage position, record equity.
     fn process_bar(&mut self, idx: usize, kline: &Kline) {
+        let prev = self.prev_close;
+        self.prev_close = kline.close;
+
+        // Compute price limits for the current bar (based on previous close)
+        let price_limit = if prev > 0.0 {
+            self.price_limits(prev)
+        } else {
+            (None, None)
+        };
+
         let signal =
             self.strategy
                 .generate_signal(&self.klines[..=idx], idx, &self.strategy_params);
@@ -141,30 +154,30 @@ impl BacktestEngine {
         match signal {
             Signal::Hold => {
                 // Check stop-loss / take-profit if we have a position
-                self.check_sl_tp(kline);
+                self.check_sl_tp(kline, price_limit);
             }
             Signal::Buy { quantity_pct } => {
                 // If we have a short position, close it first
                 if let Some(pos) = self.open_position.take() {
-                    self.close_position(kline.open_time, kline.close, "signal", pos);
+                    self.close_position(kline.open_time, kline.close, "signal", pos, None);
                 }
                 // Only open if not already long
                 if self.open_position.is_none() {
-                    self.open_long(kline, quantity_pct);
+                    self.open_long(kline, quantity_pct, price_limit);
                 }
             }
             Signal::Sell { quantity_pct } => {
                 // If we have a long position, close it first
                 if let Some(pos) = self.open_position.take() {
-                    self.close_position(kline.open_time, kline.close, "signal", pos);
+                    self.close_position(kline.open_time, kline.close, "signal", pos, None);
                 }
                 if self.open_position.is_none() {
-                    self.open_short(kline, quantity_pct);
+                    self.open_short(kline, quantity_pct, price_limit);
                 }
             }
             Signal::CloseAll => {
                 if let Some(pos) = self.open_position.take() {
-                    self.close_position(kline.open_time, kline.close, "signal", pos);
+                    self.close_position(kline.open_time, kline.close, "signal", pos, None);
                 }
             }
         }
@@ -176,12 +189,21 @@ impl BacktestEngine {
     /// Open a long position using `pct` of available cash.
     ///
     /// Applies slippage (buy at ask) and deducts trading fees.
+    /// Enforces price limits: execution price must not exceed `upper_limit`.
     /// No-op if the allocated amount is insufficient for at least one unit.
-    fn open_long(&mut self, kline: &Kline, pct: f64) {
+    fn open_long(&mut self, kline: &Kline, pct: f64, (upper_limit, _): (Option<f64>, Option<f64>)) {
         let pct = pct.clamp(0.0, 1.0);
-        let allocated = self.account.cash * pct;
         let slippage = kline.close * self.config.slippage_rate;
         let exec_price = kline.close + slippage;
+
+        // Price limit enforcement: long entry cannot buy above limit-up
+        if let Some(upper_limit) = upper_limit {
+            if exec_price > upper_limit {
+                return; // 涨停，无法买入
+            }
+        }
+
+        let allocated = self.account.cash * pct;
         let quantity = (allocated / exec_price).floor();
         if quantity < 1e-8 {
             return; // Cannot buy fractional
@@ -203,19 +225,30 @@ impl BacktestEngine {
             take_profit: None,
             fee_paid: fee,
             slippage_paid: slippage * quantity,
+            limit_type: None,
         });
     }
 
+    ///
     /// Open a short position using `pct` of available cash as collateral.
     ///
     /// Applies slippage (sell at bid) and deducts trading fees.
+    /// Enforces price limits: execution price must not fall below `lower_limit`.
     /// No-op if insufficient cash for fees.
-    fn open_short(&mut self, kline: &Kline, pct: f64) {
+    fn open_short(&mut self, kline: &Kline, pct: f64, (_, lower_limit): (Option<f64>, Option<f64>)) {
         let pct = pct.clamp(0.0, 1.0);
-        // Short selling: we "borrow" and sell, receiving cash
-        let allocated = self.account.cash * pct;
         let slippage = kline.close * self.config.slippage_rate;
         let exec_price = kline.close - slippage;
+
+        // Price limit enforcement: short entry cannot sell below limit-down
+        if let Some(lower) = lower_limit {
+            if exec_price < lower {
+                return; // 跌停，无法卖出
+            }
+        }
+
+        // Short selling: we "borrow" and sell, receiving cash
+        let allocated = self.account.cash * pct;
         let quantity = (allocated / exec_price).floor();
         if quantity < 1e-8 {
             return;
@@ -237,6 +270,7 @@ impl BacktestEngine {
             take_profit: None,
             fee_paid: fee,
             slippage_paid: slippage * quantity,
+            limit_type: None,
         });
     }
 
@@ -244,7 +278,14 @@ impl BacktestEngine {
     ///
     /// Calculates PnL (realized), fees, and slippage for the exit side,
     /// records a [`TradeRecord`], and updates account cash/equity.
-    fn close_position(&mut self, time: i64, price: f64, reason: &str, pos: Position) {
+    fn close_position(
+        &mut self,
+        time: i64,
+        price: f64,
+        reason: &str,
+        pos: Position,
+        limit_type: Option<LimitType>,
+    ) {
         let slippage = price * self.config.slippage_rate;
         let exit_price = match pos.direction {
             Direction::Long => price - slippage,  // sell at bid
@@ -283,13 +324,38 @@ impl BacktestEngine {
             exit_reason: reason.to_string(),
             fee: pos.fee_paid + fee,
             slippage: pos.slippage_paid + slippage * pos.quantity,
+            hit_limit: limit_type.is_some(),
+            limit_type,
         });
+    }
+
+    /// Compute the upper (limit-up) and lower (limit-down) price limits
+    /// based on the previous bar's close and the configured limit percentage.
+    ///
+    /// Returns `(upper_limit, lower_limit)` or `(None, None)` if price limits
+    /// are disabled (`price_limit_pct` is `None` or `0.0`) or if `prev_close` is
+    /// not yet available (first bar, `prev_close == 0.0`).
+    fn price_limits(&self, prev_close: f64) -> (Option<f64>, Option<f64>) {
+        let Some(pct) = self.config.price_limit_pct else {
+            return (None, None);
+        };
+        if pct <= 0.0 || prev_close <= 0.0 {
+            return (None, None);
+        }
+        (Some(prev_close * (1.0 + pct)), Some(prev_close * (1.0 - pct)))
     }
 
     /// Check stop-loss and take-profit levels against the current bar's high/low.
     ///
     /// If triggered, closes the position and records the exit reason.
-    fn check_sl_tp(&mut self, kline: &Kline) {
+    /// Also checks price limit bounds: if a position was opened at a limit price
+    /// (`pos.limit_type` is set), close orders that would execute beyond the
+    /// opposite limit are skipped.
+    fn check_sl_tp(
+        &mut self,
+        kline: &Kline,
+        (_upper_limit, _lower_limit): (Option<f64>, Option<f64>),
+    ) {
         let position = match &self.open_position {
             Some(p) => p.clone(),
             None => return,
@@ -302,7 +368,7 @@ impl BacktestEngine {
                     #[allow(clippy::collapsible_if)]
                     if kline.low <= sl {
                         if let Some(pos) = self.open_position.take() {
-                            self.close_position(kline.open_time, sl, "stop_loss", pos);
+                            self.close_position(kline.open_time, sl, "stop_loss", pos, None);
                         }
                     }
                 }
@@ -311,7 +377,7 @@ impl BacktestEngine {
                     #[allow(clippy::collapsible_if)]
                     if kline.high >= sl {
                         if let Some(pos) = self.open_position.take() {
-                            self.close_position(kline.open_time, sl, "stop_loss", pos);
+                            self.close_position(kline.open_time, sl, "stop_loss", pos, None);
                         }
                     }
                 }
@@ -324,7 +390,7 @@ impl BacktestEngine {
                     #[allow(clippy::collapsible_if)]
                     if kline.high >= tp {
                         if let Some(pos) = self.open_position.take() {
-                            self.close_position(kline.open_time, tp, "take_profit", pos);
+                            self.close_position(kline.open_time, tp, "take_profit", pos, None);
                         }
                     }
                 }
@@ -333,7 +399,7 @@ impl BacktestEngine {
                     #[allow(clippy::collapsible_if)]
                     if kline.low <= tp {
                         if let Some(pos) = self.open_position.take() {
-                            self.close_position(kline.open_time, tp, "take_profit", pos);
+                            self.close_position(kline.open_time, tp, "take_profit", pos, None);
                         }
                     }
                 }
@@ -657,6 +723,7 @@ mod tests {
             initial_capital: 10000.0,
             fee_rate: 0.001,
             slippage_rate: 0.0005,
+            ..Default::default()
         };
 
         let mut engine = BacktestEngine::new(
@@ -685,6 +752,7 @@ mod tests {
             initial_capital: 10000.0,
             fee_rate: 0.001,
             slippage_rate: 0.0005,
+            ..Default::default()
         };
 
         let mut engine = BacktestEngine::new(
@@ -709,6 +777,7 @@ mod tests {
             initial_capital: 50000.0,
             fee_rate: 0.001,
             slippage_rate: 0.0005,
+            ..Default::default()
         };
         let (sym, interval, start_ms, end_ms) = build_kline_query(&config);
         assert_eq!(sym, "ETH/USDT");
@@ -776,6 +845,7 @@ mod tests {
             initial_capital: 10000.0,
             fee_rate: 0.001,
             slippage_rate: 0.0005,
+            ..Default::default()
         };
 
         let mut engine = BacktestEngine::new(
@@ -828,6 +898,7 @@ mod tests {
             initial_capital: 10000.0,
             fee_rate: 0.001,
             slippage_rate: 0.0005,
+            ..Default::default()
         };
 
         let mut engine = BacktestEngine::new(
@@ -874,6 +945,7 @@ mod tests {
             initial_capital: 10000.0,
             fee_rate: 0.001,
             slippage_rate: 0.0005,
+            ..Default::default()
         };
 
         let mut engine = BacktestEngine::new(
@@ -946,6 +1018,7 @@ mod tests {
             initial_capital: 50000.0,
             fee_rate: 0.001,
             slippage_rate: 0.0005,
+            ..Default::default()
         };
 
         let mut engine = BacktestEngine::new(
@@ -1025,6 +1098,7 @@ mod tests {
             initial_capital: 10000.0,
             fee_rate: 0.001,
             slippage_rate: 0.0005,
+            ..Default::default()
         };
 
         let mut engine = BacktestEngine::new(
@@ -1150,6 +1224,7 @@ mod tests {
             initial_capital: 10000.0,
             fee_rate: 0.001,
             slippage_rate: 0.0005,
+            ..Default::default()
         };
 
         let mut engine = BacktestEngine::new(
