@@ -88,7 +88,7 @@
 - [x] Health API 200 OK
 
 ### 未完成项
-- [ ] P0 blocker 未解决（已解决 ✅）
+- [x] P0 blocker 未解决（已解决 ✅）
 
 ---
 

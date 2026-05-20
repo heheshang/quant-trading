@@ -1,3 +1,20 @@
+## [0.8.0] — 2026-05-21
+
+### 新增
+
+- **CI 覆盖率门禁 (T6)**
+  - `cargo-llvm-cov` 集成，生成 LCOV 报告
+  - 新增 `coverage-gate` job，阈值：整体 70% / handlers 90% / services 75% / db 70%
+
+- **文档补全 (T7)**
+  - 新增 `CONTRIBUTING.md`：环境要求、分支管理、Commit 规范
+  - 新增 `docs/architecture/README.md`：架构概览、ADR 索引
+  - 新增 `docs/api/README.md`：API 分组、文档索引
+
+### 修复
+
+- `docs/phase2/T9-Release-Readiness-Checklist.md`：TODO checkbox 修复
+
 ## [0.7.0] — 2026-05-15
 
 ### 新增
