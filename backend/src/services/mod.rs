@@ -1,3 +1,4 @@
+pub mod alert_notification_service;
 pub mod auth;
 pub mod backtest;
 pub mod backtest_engine;
@@ -9,6 +10,7 @@ pub mod kline;
 pub mod kline_writer;
 pub mod market_data;
 pub mod matching_engine;
+pub mod notification;
 pub mod order_rate_limiter;
 pub mod portfolio;
 pub mod position_alert_monitor;
@@ -18,3 +20,5 @@ pub mod risk_manager;
 pub mod strategy;
 pub mod ticker_snapshot_writer;
 pub mod trigger_order;
+
+pub use alert_notification_service::AlertNotificationService;

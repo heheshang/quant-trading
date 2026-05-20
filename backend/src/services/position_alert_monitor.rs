@@ -10,6 +10,8 @@
 //! 集成方式：
 //! - 由 `MatchingEngine::spawn_alert_monitor()` 启动独立监控任务
 //! - 通过 `on_price_update()` 接收价格事件并检查
+//!
+//! P1-F6: 告警触发后通过 AlertNotificationService 发送多渠道通知
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -24,7 +26,9 @@ use crate::db::position_alerts::{
     ActiveModel as AlertActive, AlertStatus, AlertType, Column as AlertCol, Entity as AlertEntity,
     Model as AlertModel, TriggerMode,
 };
+use crate::services::alert_notification_service::AlertNotificationService;
 use crate::services::matching_engine::MatchingEngine;
+use crate::services::notification::AlertNotification;
 use crate::services::position_alert_service::PositionAlertService;
 use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use uuid::Uuid;
@@ -59,22 +63,29 @@ pub struct AlertExecutionResult {
 /// 止盈止损监控器
 ///
 /// 在后台任务中运行，接收实时行情心跳，检查所有活跃 alert 是否触发，
-/// 并自动发送平仓指令。
+/// 并自动发送平仓指令。触发时通过通知服务发送多渠道告警。
 pub struct PositionAlertMonitor {
     db: Arc<DatabaseConnection>,
     engine: Arc<MatchingEngine>,
     alert_service: PositionAlertService,
     /// 追踪止损状态：alert_id → activated_price（已激活追踪的最高/最低价）
     trailing_state: std::sync::Mutex<HashMap<Uuid, f64>>,
+    /// 通知服务（可为空，不强制要求）
+    notification_service: Option<Arc<AlertNotificationService>>,
 }
 
 impl PositionAlertMonitor {
-    pub fn new(db: Arc<DatabaseConnection>, engine: Arc<MatchingEngine>) -> Self {
+    pub fn new(
+        db: Arc<DatabaseConnection>,
+        engine: Arc<MatchingEngine>,
+        notification_service: Option<Arc<AlertNotificationService>>,
+    ) -> Self {
         Self {
             db: db.clone(),
             engine,
             alert_service: PositionAlertService::new(db),
             trailing_state: std::sync::Mutex::new(HashMap::new()),
+            notification_service,
         }
     }
 
@@ -375,7 +386,8 @@ impl PositionAlertMonitor {
                         .await?;
 
                     // 标记 alert 为已触发
-                    self.mark_alert_triggered(alert.id, order_id).await?;
+                    self.mark_alert_triggered(alert.id, order_id, exit_reason, exit_price)
+                        .await?;
 
                     Ok(AlertExecutionResult {
                         alert_id: alert.id,
@@ -417,7 +429,8 @@ impl PositionAlertMonitor {
 
             self.engine.insert_limit_order(order_entry);
 
-            self.mark_alert_triggered(alert.id, order_id).await?;
+            self.mark_alert_triggered(alert.id, order_id, exit_reason, exit_price)
+                .await?;
 
             Ok(AlertExecutionResult {
                 alert_id: alert.id,
@@ -459,16 +472,21 @@ impl PositionAlertMonitor {
         Ok(())
     }
 
-    /// 标记 alert 为已触发
+    /// 标记 alert 为已触发，并发送通知
     async fn mark_alert_triggered(
         &self,
         alert_id: Uuid,
         order_id: Uuid,
+        exit_reason: &str,
+        exit_price: f64,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let alert = AlertEntity::find_by_id(alert_id)
             .one(self.db.as_ref())
             .await?
             .ok_or("Alert not found")?;
+
+        // Clone alert before consuming it with .into()
+        let alert_for_notification = alert.clone();
 
         let mut active: AlertActive = alert.into();
         active.status = sea_orm::Set(AlertStatus::Triggered);
@@ -481,7 +499,47 @@ impl PositionAlertMonitor {
         // 清理追踪状态
         self.trailing_state.lock().unwrap().remove(&alert_id);
 
+        // 发送通知
+        self.send_alert_notification(&alert_for_notification, exit_reason, exit_price).await;
+
         Ok(())
+    }
+
+    /// 发送告警通知
+    async fn send_alert_notification(
+        &self,
+        alert: &AlertModel,
+        exit_reason: &str,
+        exit_price: f64,
+    ) {
+        let Some(ref svc) = self.notification_service else {
+            return;
+        };
+
+        let notification = AlertNotification::new(
+            format!("告警触发: {}", alert.symbol),
+            format!(
+                "{} 触发 {}，执行价: {}",
+                alert.symbol,
+                exit_reason,
+                exit_price
+            ),
+            "position_alert".to_string(),
+            match exit_reason {
+                "stop_loss" => "critical",
+                "take_profit" => "warning",
+                _ => "info",
+            }
+            .to_string(),
+            Some(alert.symbol.clone()),
+        )
+        .with_metadata("alert_id", alert.id.to_string())
+        .with_metadata("position_id", alert.position_id.to_string())
+        .with_metadata("exit_reason", exit_reason);
+
+        if let Err(e) = svc.send_alert(notification).await {
+            tracing::error!("Failed to send alert notification: {}", e);
+        }
     }
 
     /// 取消 alert

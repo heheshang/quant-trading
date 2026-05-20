@@ -82,7 +82,12 @@ hex = "0.4"
 base64 = "0.22"
 dashmap = "6"
 
+# Email
+lettre = "0.11"
+native-tls = "0.2"
+
 [dev-dependencies]
+mockall = "0.13"
 rstest = "0.24"
 tokio-test = "0.4"
 axum-test = "16"
