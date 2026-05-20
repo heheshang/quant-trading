@@ -302,7 +302,8 @@ pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), sea_orm::DbEr
     )).await?;
 
     // P1-F2: position_alerts 表（止盈止损追踪止损）
-    db.execute(sea_orm::Statement::from_string(backend,
+    db.execute(sea_orm::Statement::from_string(
+        backend,
         r#"
         DO $$
         BEGIN
@@ -316,10 +317,13 @@ pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), sea_orm::DbEr
                 CREATE TYPE trigger_mode AS ENUM ('market', 'limit');
             END IF;
         END $$;
-        "#.to_string()
-    )).await?;
+        "#
+        .to_string(),
+    ))
+    .await?;
 
-    db.execute(sea_orm::Statement::from_string(backend,
+    db.execute(sea_orm::Statement::from_string(
+        backend,
         r#"
         CREATE TABLE IF NOT EXISTS position_alerts (
             id                  UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -341,8 +345,10 @@ pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), sea_orm::DbEr
             triggered_order_id  UUID,
             note                TEXT
         )
-        "#.to_string()
-    )).await?;
+        "#
+        .to_string(),
+    ))
+    .await?;
 
     db.execute(sea_orm::Statement::from_string(backend,
         "CREATE INDEX IF NOT EXISTS idx_position_alerts_lookup ON position_alerts (user_id, symbol, status)".to_string()
@@ -369,7 +375,8 @@ pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), sea_orm::DbEr
         "#
     )).await?;
 
-    db.execute(sea_orm::Statement::from_string(backend,
+    db.execute(sea_orm::Statement::from_string(
+        backend,
         r#"
         CREATE TABLE IF NOT EXISTS trigger_orders (
             id                  UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -402,18 +409,28 @@ pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), sea_orm::DbEr
             updated_at          TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
             cancelled_at        TIMESTAMPTZ
         )
-        "#
-    )).await?;
+        "#,
+    ))
+    .await?;
 
-    db.execute(sea_orm::Statement::from_string(backend,
-        "CREATE INDEX IF NOT EXISTS idx_trigger_orders_user_id ON trigger_orders (user_id)".to_string()
-    )).await?;
-    db.execute(sea_orm::Statement::from_string(backend,
-        "CREATE INDEX IF NOT EXISTS idx_trigger_orders_symbol ON trigger_orders (symbol)".to_string()
-    )).await?;
-    db.execute(sea_orm::Statement::from_string(backend,
-        "CREATE INDEX IF NOT EXISTS idx_trigger_orders_status ON trigger_orders (status)".to_string()
-    )).await?;
+    db.execute(sea_orm::Statement::from_string(
+        backend,
+        "CREATE INDEX IF NOT EXISTS idx_trigger_orders_user_id ON trigger_orders (user_id)"
+            .to_string(),
+    ))
+    .await?;
+    db.execute(sea_orm::Statement::from_string(
+        backend,
+        "CREATE INDEX IF NOT EXISTS idx_trigger_orders_symbol ON trigger_orders (symbol)"
+            .to_string(),
+    ))
+    .await?;
+    db.execute(sea_orm::Statement::from_string(
+        backend,
+        "CREATE INDEX IF NOT EXISTS idx_trigger_orders_status ON trigger_orders (status)"
+            .to_string(),
+    ))
+    .await?;
     db.execute(sea_orm::Statement::from_string(backend,
         "CREATE INDEX IF NOT EXISTS idx_trigger_orders_position_id ON trigger_orders (position_id) WHERE position_id IS NOT NULL".to_string()
     )).await?;

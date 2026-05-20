@@ -3,13 +3,15 @@
 //! P1-F3: 条件触发单 - 止损单/止盈单/OCO/TWAP HTTP API
 
 use axum::{
+    Json, Router,
     extract::{Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
     routing::{delete, get, post},
-    Json, Router,
 };
-use sea_orm::{DatabaseConnection, EntityTrait, ColumnTrait, QueryFilter, QueryOrder, ActiveModelTrait};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder,
+};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
@@ -300,7 +302,10 @@ pub async fn cancel_trigger_order(
 pub fn router() -> Router<Arc<DatabaseConnection>> {
     Router::new()
         .route("/api/v1/trigger-orders/stop-loss", post(create_stop_loss))
-        .route("/api/v1/trigger-orders/take-profit", post(create_take_profit))
+        .route(
+            "/api/v1/trigger-orders/take-profit",
+            post(create_take_profit),
+        )
         .route("/api/v1/trigger-orders/oco", post(create_oco))
         .route("/api/v1/trigger-orders/twap", post(create_twap))
         .route("/api/v1/trigger-orders", get(list_trigger_orders))

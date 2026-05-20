@@ -13,12 +13,12 @@ use std::sync::Arc;
 use tracing::{info, warn};
 use uuid::Uuid;
 
+use crate::db::order::positions::{Entity as PositionEntity, Model as Position};
 use crate::db::order::{OrderSide, OrderStatus, OrderType, PositionSide};
 use crate::db::position_alerts::{
     ActiveModel as AlertActive, AlertStatus, AlertType, Entity as AlertEntity, Model as AlertModel,
     TriggerMode,
 };
-use crate::db::order::positions::{Entity as PositionEntity, Model as Position};
 use crate::utils::error::AppError;
 
 // ─── Types ──────────────────────────────────────────────────────
@@ -116,7 +116,9 @@ impl PositionAlertService {
             .one(self.db.as_ref())
             .await
             .map_err(|e| AppError::Database(e.to_string()))?
-            .ok_or_else(|| AppError::NotFound(format!("Position not found: {}", req.position_id)))?;
+            .ok_or_else(|| {
+                AppError::NotFound(format!("Position not found: {}", req.position_id))
+            })?;
 
         // 方向校验：止盈只对 Long 做多，止损只对 Short 做空
         match (&req.alert_type, &position.side) {
@@ -303,11 +305,7 @@ impl PositionAlertService {
     }
 
     /// 标记 alert 为已触发，并记录触发后的平仓订单ID
-    pub async fn mark_triggered(
-        &self,
-        alert_id: Uuid,
-        order_id: Uuid,
-    ) -> Result<(), AppError> {
+    pub async fn mark_triggered(&self, alert_id: Uuid, order_id: Uuid) -> Result<(), AppError> {
         let alert = AlertEntity::find_by_id(alert_id)
             .one(self.db.as_ref())
             .await
@@ -399,7 +397,10 @@ impl PositionAlertService {
                 match position_side {
                     PositionSide::Long => {
                         let highest = if alert.trailing_activated {
-                            alert.activated_price.unwrap_or(high_since_open).max(high_since_open)
+                            alert
+                                .activated_price
+                                .unwrap_or(high_since_open)
+                                .max(high_since_open)
                         } else {
                             high_since_open
                         };
@@ -424,7 +425,10 @@ impl PositionAlertService {
                     PositionSide::Short => {
                         // 空头追踪止损：记录最低价，止损 = 最低价 * (1 + trailing_dist%)
                         let lowest = if alert.trailing_activated {
-                            alert.activated_price.unwrap_or(low_since_open).min(low_since_open)
+                            alert
+                                .activated_price
+                                .unwrap_or(low_since_open)
+                                .min(low_since_open)
                         } else {
                             low_since_open
                         };
@@ -474,7 +478,10 @@ impl PositionAlertService {
         high_24h: f64,
         low_24h: f64,
     ) -> Vec<AlertCheckResult> {
-        let alerts = match self.list_active_alerts(user_id, Some(symbol.to_string())).await {
+        let alerts = match self
+            .list_active_alerts(user_id, Some(symbol.to_string()))
+            .await
+        {
             Ok(a) => a,
             Err(e) => {
                 warn!("Failed to list active alerts: {:?}", e);

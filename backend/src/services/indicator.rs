@@ -265,7 +265,10 @@ mod tests {
         ];
         let klines = make_klines(&prices);
         let result = compute_kdj(&klines, 9, 3, 3);
-        assert!(!result.is_empty(), "KDJ result should not be empty for 20 bars");
+        assert!(
+            !result.is_empty(),
+            "KDJ result should not be empty for 20 bars"
+        );
         for bar in &result {
             assert!(bar.k >= 0.0 && bar.k <= 100.0);
             assert!(bar.d >= 0.0 && bar.d <= 100.0);

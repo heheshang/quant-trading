@@ -36,11 +36,11 @@ pub struct CreateOrderRequest {
     pub quantity: String,
     pub time_in_force: Option<String>, // "GTC" | "IOC" | "FOK", default GTC
     // ── P1-F2: 止盈止损 ─────────────────────────────────────────
-    pub stop_loss_price: Option<String>,    // 止损触发价
-    pub take_profit_price: Option<String>,  // 止盈触发价
-    pub stop_loss_trigger_mode: Option<String>, // "market" | "limit", default "market"
+    pub stop_loss_price: Option<String>,          // 止损触发价
+    pub take_profit_price: Option<String>,        // 止盈触发价
+    pub stop_loss_trigger_mode: Option<String>,   // "market" | "limit", default "market"
     pub take_profit_trigger_mode: Option<String>, // "market" | "limit", default "market"
-    pub trailing_distance: Option<String>,  // 追踪止损距离（百分比字符串，如 "0.5" 表示 0.5%）
+    pub trailing_distance: Option<String>, // 追踪止损距离（百分比字符串，如 "0.5" 表示 0.5%）
 }
 
 #[derive(Debug, Deserialize)]

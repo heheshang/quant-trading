@@ -36,9 +36,9 @@ use uuid::Uuid;
 #[derive(Debug, Clone)]
 pub struct PriceTick {
     pub symbol: String,
-    pub price: f64,      // 当前价格
-    pub high_24h: f64,  // 24h 高
-    pub low_24h: f64,   // 24h 低
+    pub price: f64,    // 当前价格
+    pub high_24h: f64, // 24h 高
+    pub low_24h: f64,  // 24h 低
 }
 
 /// 触发执行结果
@@ -84,7 +84,9 @@ impl PositionAlertMonitor {
     /// 每隔 `interval_ms` 检查一次所有 symbol 的活跃 alerts
     pub fn spawn(self: Arc<Self>, interval_ms: u64) {
         let db = self.db.clone();
-        let symbol_cache = Arc::new(std::sync::Mutex::new(HashMap::<String, (f64, f64, f64)>::new())); // symbol → (price, high, low)
+        let symbol_cache = Arc::new(std::sync::Mutex::new(
+            HashMap::<String, (f64, f64, f64)>::new(),
+        )); // symbol → (price, high, low)
 
         // 定期刷新活跃 alert 列表
         let alert_service = PositionAlertService::new(db.clone());
@@ -102,15 +104,15 @@ impl PositionAlertMonitor {
             }
         });
 
-        info!(
-            "PositionAlertMonitor started (interval={}ms)",
-            interval_ms
-        );
+        info!("PositionAlertMonitor started (interval={}ms)", interval_ms);
     }
 
     /// 接收实时价格更新（可被 MatchingEngine 或行情服务调用）
     pub async fn on_price_update(&self, tick: PriceTick) {
-        if let Err(e) = self.check_symbol_alerts(&tick.symbol, tick.price, tick.high_24h, tick.low_24h).await {
+        if let Err(e) = self
+            .check_symbol_alerts(&tick.symbol, tick.price, tick.high_24h, tick.low_24h)
+            .await
+        {
             warn!(symbol = %tick.symbol, "on_price_update check failed: {:?}", e);
         }
     }
@@ -131,7 +133,10 @@ impl PositionAlertMonitor {
             .await?;
 
         for alert in alerts {
-            if let Err(e) = self.check_single_alert(&alert, current_price, high_24h, low_24h).await {
+            if let Err(e) = self
+                .check_single_alert(&alert, current_price, high_24h, low_24h)
+                .await
+            {
                 warn!(alert_id = %alert.id, "Failed to check alert: {:?}", e);
             }
         }
@@ -140,7 +145,9 @@ impl PositionAlertMonitor {
     }
 
     /// 检查所有活跃 alerts（定期全量检查）
-    async fn check_all_active_alerts(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    async fn check_all_active_alerts(
+        &self,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let alerts: Vec<AlertModel> = AlertEntity::find()
             .filter(AlertCol::Status.eq(AlertStatus::Active))
             .all(self.db.as_ref())
@@ -168,7 +175,10 @@ impl PositionAlertMonitor {
             let high = current_price;
             let low = current_price;
 
-            if let Err(e) = self.check_single_alert(&alert, current_price, high, low).await {
+            if let Err(e) = self
+                .check_single_alert(&alert, current_price, high, low)
+                .await
+            {
                 warn!(alert_id = %alert.id, "Failed to check alert: {:?}", e);
             }
         }
@@ -349,16 +359,21 @@ impl PositionAlertMonitor {
         // 创建平仓订单记录（挂入撮合引擎）
         if alert.trigger_mode == TriggerMode::Market {
             // 市价单：直接调用 matching_engine
-            match self.engine.match_market(
-                order_id,
-                position.user_id,
-                &position.symbol,
-                &order_side,
-                quantity,
-            ).await {
+            match self
+                .engine
+                .match_market(
+                    order_id,
+                    position.user_id,
+                    &position.symbol,
+                    &order_side,
+                    quantity,
+                )
+                .await
+            {
                 Ok(result) => {
                     // 更新持仓
-                    self.update_position_after_close(position, result.filled_quantity, exit_reason).await?;
+                    self.update_position_after_close(position, result.filled_quantity, exit_reason)
+                        .await?;
 
                     // 标记 alert 为已触发
                     self.mark_alert_triggered(alert.id, order_id).await?;
@@ -375,19 +390,17 @@ impl PositionAlertMonitor {
                         error: None,
                     })
                 }
-                Err(e) => {
-                    Ok(AlertExecutionResult {
-                        alert_id: alert.id,
-                        position_id: position.id,
-                        symbol: position.symbol.clone(),
-                        exit_reason: exit_reason.to_string(),
-                        triggered_price: exit_price,
-                        exit_price,
-                        quantity,
-                        order_id: None,
-                        error: Some(format!("Matching failed: {}", e)),
-                    })
-                }
+                Err(e) => Ok(AlertExecutionResult {
+                    alert_id: alert.id,
+                    position_id: position.id,
+                    symbol: position.symbol.clone(),
+                    exit_reason: exit_reason.to_string(),
+                    triggered_price: exit_price,
+                    exit_price,
+                    quantity,
+                    order_id: None,
+                    error: Some(format!("Matching failed: {}", e)),
+                }),
             }
         } else {
             // 限价单：插入订单簿
@@ -473,7 +486,10 @@ impl PositionAlertMonitor {
     }
 
     /// 取消 alert
-    async fn cancel_alert(&self, alert_id: Uuid) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    async fn cancel_alert(
+        &self,
+        alert_id: Uuid,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let alert = AlertEntity::find_by_id(alert_id)
             .one(self.db.as_ref())
             .await?

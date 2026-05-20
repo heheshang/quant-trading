@@ -11,9 +11,9 @@
 //!   POST /api/v1/alerts/batch-check — 批量检查（行情心跳调用）
 
 use axum::{
+    Json, Router,
     extract::{Extension, Path, Query, State},
     http::StatusCode,
-    Json, Router,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -21,22 +21,22 @@ use uuid::Uuid;
 
 use crate::db::position_alerts::{AlertStatus, AlertType, TriggerMode};
 use crate::middleware::auth::AuthenticatedUser;
+use crate::services::exchange::ws_hub::WsHub;
 use crate::services::position_alert_service::{
     AlertResponse, CreateAlertRequest, PositionAlertService, UpdateAlertRequest,
 };
-use crate::services::exchange::ws_hub::WsHub;
 use crate::utils::error::AppError;
-use sea_orm::{DatabaseConnection, EntityTrait, ColumnTrait, QueryFilter, QueryOrder};
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder};
 
 // ─── Schemas ───────────────────────────────────────────────────
 
 #[derive(Debug, Deserialize)]
 pub struct CreateAlertRequestSchema {
-    pub position_id: String,          // UUID string
-    pub alert_type: String,          // "take_profit" | "stop_loss" | "trailing_stop"
-    pub trigger_price: String,        // f64 as string
-    pub trigger_mode: Option<String>,  // "market" | "limit", default "market"
-    pub limit_price: Option<String>,  // optional, for limit trigger
+    pub position_id: String,               // UUID string
+    pub alert_type: String,                // "take_profit" | "stop_loss" | "trailing_stop"
+    pub trigger_price: String,             // f64 as string
+    pub trigger_mode: Option<String>,      // "market" | "limit", default "market"
+    pub limit_price: Option<String>,       // optional, for limit trigger
     pub trailing_distance: Option<String>, // e.g. "0.5" for 0.5%
     pub note: Option<String>,
 }
@@ -124,13 +124,16 @@ pub async fn create_alert(
         .map_err(|_| AppError::BadRequest("Invalid trigger_price format".to_string()))?;
 
     if trigger_price <= 0.0 {
-        return Err(AppError::BadRequest("trigger_price must be positive".to_string()));
+        return Err(AppError::BadRequest(
+            "trigger_price must be positive".to_string(),
+        ));
     }
 
     let limit_price = match &req.limit_price {
-        Some(p) => Some(p.parse::<f64>().map_err(|_| {
-            AppError::BadRequest("Invalid limit_price format".to_string())
-        })?),
+        Some(p) => Some(
+            p.parse::<f64>()
+                .map_err(|_| AppError::BadRequest("Invalid limit_price format".to_string()))?,
+        ),
         None => None,
     };
 
@@ -193,7 +196,10 @@ pub async fn create_alert(
         created_at: alert.created_at.to_rfc3339(),
     };
 
-    Ok((StatusCode::CREATED, Json(serde_json::to_value(resp).unwrap())))
+    Ok((
+        StatusCode::CREATED,
+        Json(serde_json::to_value(resp).unwrap()),
+    ))
 }
 
 /// GET /api/v1/alerts — 列表（可按 symbol / position_id 筛选）
@@ -242,8 +248,8 @@ pub async fn get_alert(
     State(db): State<Arc<DatabaseConnection>>,
     Path(alert_id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    use crate::db::position_alerts::Entity as AlertEntity;
     use crate::db::position_alerts::Column as AlertCol;
+    use crate::db::position_alerts::Entity as AlertEntity;
 
     let alert = AlertEntity::find()
         .filter(AlertCol::UserId.eq(user.user_id))
@@ -290,10 +296,7 @@ pub async fn update_alert(
         .map(|m| match m.as_str() {
             "limit" => Ok(TriggerMode::Limit),
             "market" => Ok(TriggerMode::Market),
-            _ => Err(AppError::BadRequest(format!(
-                "Invalid trigger_mode: {}",
-                m
-            ))),
+            _ => Err(AppError::BadRequest(format!("Invalid trigger_mode: {}", m))),
         })
         .transpose()?;
 
@@ -301,7 +304,8 @@ pub async fn update_alert(
         .trailing_distance
         .as_ref()
         .map(|d| {
-            let v: f64 = d.parse()
+            let v: f64 = d
+                .parse()
                 .map_err(|_| AppError::BadRequest("Invalid trailing_distance".to_string()))?;
             if v <= 0.0 || v >= 100.0 {
                 return Err(AppError::BadRequest(
@@ -312,11 +316,7 @@ pub async fn update_alert(
         })
         .transpose()?;
 
-    let status = req
-        .status
-        .as_deref()
-        .map(parse_alert_status)
-        .transpose()?;
+    let status = req.status.as_deref().map(parse_alert_status).transpose()?;
 
     let update_req = UpdateAlertRequest {
         trigger_price,
@@ -326,7 +326,9 @@ pub async fn update_alert(
         status,
     };
 
-    let updated = service.update_alert(user.user_id, alert_id, update_req).await?;
+    let updated = service
+        .update_alert(user.user_id, alert_id, update_req)
+        .await?;
 
     Ok(Json(serde_json::json!({
         "code": 0,

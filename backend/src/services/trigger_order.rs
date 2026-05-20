@@ -3,20 +3,23 @@
 //! P1-F3: 条件触发单 - 止损单/止盈单/OCO/TWAP
 //! 依赖 P1-F2 实盘止盈止损
 
-use std::sync::Arc;
-use uuid::Uuid;
-use chrono::{DateTime, Utc, Duration as ChronoDuration};
+use chrono::{DateTime, Duration as ChronoDuration, Utc};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, Set,
 };
-use tracing::{info, warn, error};
+use std::sync::Arc;
+use tracing::{error, info, warn};
+use uuid::Uuid;
 
-use crate::db::trigger_order::{
-    Entity as TriggerOrderEntity, Model as TriggerOrder, ActiveModel as TriggerOrderActive,
-    TriggerType, TriggerStatus, TriggerDirection, TwapSide,
-};
-use crate::db::order::{Entity as OrderEntity, Model as Order, OrderSide, OrderType, TradeMode, OrderStatus, TimeInForce};
 use crate::db::order::positions::Entity as PositionEntity;
+use crate::db::order::{
+    Entity as OrderEntity, Model as Order, OrderSide, OrderStatus, OrderType, TimeInForce,
+    TradeMode,
+};
+use crate::db::trigger_order::{
+    ActiveModel as TriggerOrderActive, Entity as TriggerOrderEntity, Model as TriggerOrder,
+    TriggerDirection, TriggerStatus, TriggerType, TwapSide,
+};
 use crate::services::matching_engine::MatchingEngine;
 use crate::utils::error::AppError;
 
@@ -95,11 +98,10 @@ impl TriggerOrderService {
             cancelled_at: Set(None),
         };
 
-        let result = model.insert(self.db.as_ref()).await
-            .map_err(|e| {
-                error!("Failed to create stop loss order: {:?}", e);
-                AppError::Database(e.to_string())
-            })?;
+        let result = model.insert(self.db.as_ref()).await.map_err(|e| {
+            error!("Failed to create stop loss order: {:?}", e);
+            AppError::Database(e.to_string())
+        })?;
 
         info!(
             user_id = %user_id,
@@ -177,11 +179,10 @@ impl TriggerOrderService {
             cancelled_at: Set(None),
         };
 
-        let result = model.insert(self.db.as_ref()).await
-            .map_err(|e| {
-                error!("Failed to create take profit order: {:?}", e);
-                AppError::Database(e.to_string())
-            })?;
+        let result = model.insert(self.db.as_ref()).await.map_err(|e| {
+            error!("Failed to create take profit order: {:?}", e);
+            AppError::Database(e.to_string())
+        })?;
 
         info!(
             user_id = %user_id,
@@ -201,8 +202,8 @@ impl TriggerOrderService {
         user_id: Uuid,
         position_id: Uuid,
         symbol: &str,
-        stop_loss_price: f64,    // 止损价格
-        take_profit_price: f64,  // 止盈价格
+        stop_loss_price: f64,   // 止损价格
+        take_profit_price: f64, // 止盈价格
         base_price: Option<f64>,
         quantity: f64,
     ) -> Result<(TriggerOrder, TriggerOrder), AppError> {
@@ -223,11 +224,12 @@ impl TriggerOrderService {
 
         // 多头: 止损在下(价格下跌触发=down), 止盈在上(价格上涨触发=up)
         // 空头: 止损在上(价格上涨触发=up), 止盈在下(价格下跌触发=down)
-        let (stop_trigger_dir, profit_trigger_dir) = if position.side == crate::db::order::PositionSide::Long {
-            (TriggerDirection::Down, TriggerDirection::Up)
-        } else {
-            (TriggerDirection::Up, TriggerDirection::Down)
-        };
+        let (stop_trigger_dir, profit_trigger_dir) =
+            if position.side == crate::db::order::PositionSide::Long {
+                (TriggerDirection::Down, TriggerDirection::Up)
+            } else {
+                (TriggerDirection::Up, TriggerDirection::Down)
+            };
 
         let now = Utc::now();
 
@@ -300,13 +302,17 @@ impl TriggerOrderService {
         };
 
         // 插入两个订单
-        let stop_loss = stop_loss_model.insert(self.db.as_ref()).await
+        let stop_loss = stop_loss_model
+            .insert(self.db.as_ref())
+            .await
             .map_err(|e| {
                 error!("Failed to create stop loss order: {:?}", e);
                 AppError::Database(e.to_string())
             })?;
 
-        let take_profit = take_profit_model.insert(self.db.as_ref()).await
+        let take_profit = take_profit_model
+            .insert(self.db.as_ref())
+            .await
             .map_err(|e| {
                 error!("Failed to create take profit order: {:?}", e);
                 AppError::Database(e.to_string())
@@ -316,13 +322,17 @@ impl TriggerOrderService {
         let mut stop_loss_update: TriggerOrderActive = stop_loss.clone().into();
         stop_loss_update.oco_pair_id = Set(Some(take_profit_id));
         stop_loss_update.updated_at = Set(Utc::now());
-        stop_loss_update.update(self.db.as_ref()).await
+        stop_loss_update
+            .update(self.db.as_ref())
+            .await
             .map_err(|e| AppError::Database(e.to_string()))?;
 
         let mut take_profit_update: TriggerOrderActive = take_profit.clone().into();
         take_profit_update.oco_pair_id = Set(Some(stop_loss_id));
         take_profit_update.updated_at = Set(Utc::now());
-        take_profit_update.update(self.db.as_ref()).await
+        take_profit_update
+            .update(self.db.as_ref())
+            .await
             .map_err(|e| AppError::Database(e.to_string()))?;
 
         info!(
@@ -342,7 +352,7 @@ impl TriggerOrderService {
         &self,
         user_id: Uuid,
         symbol: &str,
-        side: &str,  // "buy" or "sell"
+        side: &str, // "buy" or "sell"
         quantity: f64,
         slice_quantity: f64,
         interval_secs: i32,
@@ -364,7 +374,11 @@ impl TriggerOrderService {
             symbol: Set(symbol.to_string()),
             trigger_type: Set(TriggerType::Twap),
             status: Set(TriggerStatus::Pending),
-            trigger_direction: Set(if side == "buy" { TriggerDirection::Up } else { TriggerDirection::Down }),
+            trigger_direction: Set(if side == "buy" {
+                TriggerDirection::Up
+            } else {
+                TriggerDirection::Down
+            }),
             trigger_price: Set(0.0), // TWAP不需要触发价格监控
             trigger_price_upper: Set(None),
             trigger_price_lower: Set(None),
@@ -389,11 +403,10 @@ impl TriggerOrderService {
             cancelled_at: Set(None),
         };
 
-        let result = model.insert(self.db.as_ref()).await
-            .map_err(|e| {
-                error!("Failed to create TWAP order: {:?}", e);
-                AppError::Database(e.to_string())
-            })?;
+        let result = model.insert(self.db.as_ref()).await.map_err(|e| {
+            error!("Failed to create TWAP order: {:?}", e);
+            AppError::Database(e.to_string())
+        })?;
 
         info!(
             user_id = %user_id,
@@ -410,11 +423,7 @@ impl TriggerOrderService {
     }
 
     /// 检查价格是否触发条件单
-    pub async fn check_trigger(
-        &self,
-        symbol: &str,
-        current_price: f64,
-    ) -> Result<(), AppError> {
+    pub async fn check_trigger(&self, symbol: &str, current_price: f64) -> Result<(), AppError> {
         // 查询所有待触发的条件单
         let pending_orders = TriggerOrderEntity::find()
             .filter(crate::db::trigger_order::Column::Symbol.eq(symbol))
@@ -446,10 +455,15 @@ impl TriggerOrderService {
     }
 
     /// 触发条件单
-    async fn trigger_order(&self, order: &TriggerOrder, current_price: f64) -> Result<(), AppError> {
+    async fn trigger_order(
+        &self,
+        order: &TriggerOrder,
+        current_price: f64,
+    ) -> Result<(), AppError> {
         // 如果是OCO单，先取消关联的另一单
         if let Some(oco_pair_id) = order.oco_pair_id {
-            self.cancel_trigger_order(oco_pair_id, "OCO pair triggered").await?;
+            self.cancel_trigger_order(oco_pair_id, "OCO pair triggered")
+                .await?;
         }
 
         // 创建实际的市场委托
@@ -484,11 +498,10 @@ impl TriggerOrderService {
             filled_at: Set(None),
         };
 
-        market_order.insert(self.db.as_ref()).await
-            .map_err(|e| {
-                error!("Failed to create triggered order: {:?}", e);
-                AppError::Database(e.to_string())
-            })?;
+        market_order.insert(self.db.as_ref()).await.map_err(|e| {
+            error!("Failed to create triggered order: {:?}", e);
+            AppError::Database(e.to_string())
+        })?;
 
         // 更新条件单状态
         let mut active: TriggerOrderActive = order.clone().into();
@@ -497,7 +510,9 @@ impl TriggerOrderService {
         active.triggered_order_id = Set(Some(new_order_id));
         active.trigger_reason = Set(Some(format!("price_triggered_at_{}", current_price)));
         active.updated_at = Set(now);
-        active.update(self.db.as_ref()).await
+        active
+            .update(self.db.as_ref())
+            .await
             .map_err(|e| AppError::Database(e.to_string()))?;
 
         info!(
@@ -534,7 +549,9 @@ impl TriggerOrderService {
         active.cancelled_at = Set(Some(now));
         active.trigger_reason = Set(Some(reason.to_string()));
         active.updated_at = Set(now);
-        active.update(self.db.as_ref()).await
+        active
+            .update(self.db.as_ref())
+            .await
             .map_err(|e| AppError::Database(e.to_string()))?;
 
         // 如果是OCO单，也取消关联的另一单
@@ -549,9 +566,12 @@ impl TriggerOrderService {
                     let mut pair_active: TriggerOrderActive = pair_order.clone().into();
                     pair_active.status = Set(TriggerStatus::Cancelled);
                     pair_active.cancelled_at = Set(Some(now));
-                    pair_active.trigger_reason = Set(Some(format!("OCO cancelled by pair: {}", reason)));
+                    pair_active.trigger_reason =
+                        Set(Some(format!("OCO cancelled by pair: {}", reason)));
                     pair_active.updated_at = Set(now);
-                    pair_active.update(self.db.as_ref()).await
+                    pair_active
+                        .update(self.db.as_ref())
+                        .await
                         .map_err(|e| AppError::Database(e.to_string()))?;
                 }
             }
@@ -573,15 +593,29 @@ impl TriggerOrderService {
         status: Option<String>,
         symbol: Option<String>,
     ) -> Result<Vec<TriggerOrder>, AppError> {
-        let mut query = TriggerOrderEntity::find()
-            .filter(crate::db::trigger_order::Column::UserId.eq(user_id));
+        let mut query =
+            TriggerOrderEntity::find().filter(crate::db::trigger_order::Column::UserId.eq(user_id));
 
         if let Some(ref s) = status {
             match s.as_str() {
-                "pending" => query = query.filter(crate::db::trigger_order::Column::Status.eq(TriggerStatus::Pending)),
-                "triggered" => query = query.filter(crate::db::trigger_order::Column::Status.eq(TriggerStatus::Triggered)),
-                "cancelled" => query = query.filter(crate::db::trigger_order::Column::Status.eq(TriggerStatus::Cancelled)),
-                "expired" => query = query.filter(crate::db::trigger_order::Column::Status.eq(TriggerStatus::Expired)),
+                "pending" => {
+                    query = query
+                        .filter(crate::db::trigger_order::Column::Status.eq(TriggerStatus::Pending))
+                }
+                "triggered" => {
+                    query = query.filter(
+                        crate::db::trigger_order::Column::Status.eq(TriggerStatus::Triggered),
+                    )
+                }
+                "cancelled" => {
+                    query = query.filter(
+                        crate::db::trigger_order::Column::Status.eq(TriggerStatus::Cancelled),
+                    )
+                }
+                "expired" => {
+                    query = query
+                        .filter(crate::db::trigger_order::Column::Status.eq(TriggerStatus::Expired))
+                }
                 _ => {}
             }
         }
@@ -600,7 +634,11 @@ impl TriggerOrderService {
     }
 
     /// 获取单个条件单详情
-    pub async fn get_trigger_order(&self, user_id: Uuid, order_id: Uuid) -> Result<TriggerOrder, AppError> {
+    pub async fn get_trigger_order(
+        &self,
+        user_id: Uuid,
+        order_id: Uuid,
+    ) -> Result<TriggerOrder, AppError> {
         let order = TriggerOrderEntity::find_by_id(order_id)
             .one(self.db.as_ref())
             .await
@@ -608,14 +646,20 @@ impl TriggerOrderService {
             .ok_or_else(|| AppError::NotFound(format!("Trigger order not found: {}", order_id)))?;
 
         if order.user_id != user_id {
-            return Err(AppError::Forbidden("No permission to access this trigger order".to_string()));
+            return Err(AppError::Forbidden(
+                "No permission to access this trigger order".to_string(),
+            ));
         }
 
         Ok(order)
     }
 
     /// 处理TWAP订单切片
-    pub async fn process_twap_slice(&self, order_id: Uuid, current_price: f64) -> Result<bool, AppError> {
+    pub async fn process_twap_slice(
+        &self,
+        order_id: Uuid,
+        current_price: f64,
+    ) -> Result<bool, AppError> {
         let order = TriggerOrderEntity::find_by_id(order_id)
             .one(self.db.as_ref())
             .await
@@ -623,7 +667,9 @@ impl TriggerOrderService {
             .ok_or_else(|| AppError::NotFound(format!("TWAP order not found: {}", order_id)))?;
 
         if order.trigger_type != TriggerType::Twap {
-            return Err(AppError::BadRequest("Order is not a TWAP order".to_string()));
+            return Err(AppError::BadRequest(
+                "Order is not a TWAP order".to_string(),
+            ));
         }
 
         if order.status != TriggerStatus::Pending {
@@ -636,7 +682,9 @@ impl TriggerOrderService {
                 let mut active: TriggerOrderActive = order.clone().into();
                 active.status = Set(TriggerStatus::Expired);
                 active.updated_at = Set(Utc::now());
-                active.update(self.db.as_ref()).await
+                active
+                    .update(self.db.as_ref())
+                    .await
                     .map_err(|e| AppError::Database(e.to_string()))?;
                 return Ok(false);
             }
@@ -647,7 +695,9 @@ impl TriggerOrderService {
             let mut active: TriggerOrderActive = order.clone().into();
             active.status = Set(TriggerStatus::Triggered);
             active.updated_at = Set(Utc::now());
-            active.update(self.db.as_ref()).await
+            active
+                .update(self.db.as_ref())
+                .await
                 .map_err(|e| AppError::Database(e.to_string()))?;
             return Ok(false);
         }
@@ -660,7 +710,9 @@ impl TriggerOrderService {
             let mut active: TriggerOrderActive = order.clone().into();
             active.status = Set(TriggerStatus::Triggered);
             active.updated_at = Set(Utc::now());
-            active.update(self.db.as_ref()).await
+            active
+                .update(self.db.as_ref())
+                .await
                 .map_err(|e| AppError::Database(e.to_string()))?;
             return Ok(false);
         }
@@ -697,7 +749,9 @@ impl TriggerOrderService {
             filled_at: Set(None),
         };
 
-        market_order.insert(self.db.as_ref()).await
+        market_order
+            .insert(self.db.as_ref())
+            .await
             .map_err(|e| AppError::Database(e.to_string()))?;
 
         // 更新TWAP订单状态
@@ -713,7 +767,9 @@ impl TriggerOrderService {
             active.status = Set(TriggerStatus::Triggered);
         }
 
-        active.update(self.db.as_ref()).await
+        active
+            .update(self.db.as_ref())
+            .await
             .map_err(|e| AppError::Database(e.to_string()))?;
 
         info!(

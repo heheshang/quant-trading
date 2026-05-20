@@ -15,5 +15,5 @@ pub mod position_alert_service;
 pub mod redis_cache;
 pub mod risk_manager;
 pub mod strategy;
-pub mod trigger_order;
 pub mod ticker_snapshot_writer;
+pub mod trigger_order;

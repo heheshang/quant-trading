@@ -375,17 +375,15 @@ fn create_router(
         )
         .nest(
             "/api/v1",
-            handlers::position_alert::router()
-                .layer(middleware::from_fn(
-                    quant_trading_backend::middleware::auth::auth_middleware,
-                )),
+            handlers::position_alert::router().layer(middleware::from_fn(
+                quant_trading_backend::middleware::auth::auth_middleware,
+            )),
         )
         .nest(
             "/api/v1",
-            handlers::trigger_order::router()
-                .layer(middleware::from_fn(
-                    quant_trading_backend::middleware::auth::auth_middleware,
-                )),
+            handlers::trigger_order::router().layer(middleware::from_fn(
+                quant_trading_backend::middleware::auth::auth_middleware,
+            )),
         )
         .nest("/api/v1", dashboard_routes)
         .nest("/api/v1", backtest_routes)
