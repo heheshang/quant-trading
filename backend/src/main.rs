@@ -81,7 +81,7 @@ async fn main() {
     // Initialize Signed Binance Client for authenticated API calls
     let master_key = get_master_key().unwrap_or([0u8; 32]);
     let key_store = Arc::new(ApiKeyStore::new(db.clone(), master_key));
-    let signed_client = Arc::new(SignedBinanceClient::new(key_store));
+    let signed_client = Arc::new(SignedBinanceClient::new(key_store.clone()));
 
     // Initialize KlineWriter background task
     let (kline_tx, kline_rx) = mpsc::channel(100);
@@ -109,6 +109,7 @@ async fn main() {
         binance_rest,
         ws_hub,
         signed_client,
+        key_store,
     );
 
     // Start server
@@ -131,6 +132,7 @@ fn create_router(
     binance_rest: Arc<BinanceRestClient>,
     ws_hub: Arc<WsHub>,
     signed_client: Arc<SignedBinanceClient>,
+    key_store: Arc<ApiKeyStore>,
 ) -> Router {
     // Auth routes (no auth required)
     let auth_routes = Router::new()
@@ -333,6 +335,33 @@ fn create_router(
             quant_trading_backend::middleware::auth::auth_middleware,
         ));
 
+    // API Key management routes (authenticated)
+    let api_key_routes = Router::new()
+        .route("/api-keys", get(handlers::api_key::list_api_keys))
+        .route("/api-keys", post(handlers::api_key::create_api_key))
+        .route("/api-keys/{id}", get(handlers::api_key::get_api_key))
+        .route("/api-keys/{id}", axum::routing::put(handlers::api_key::update_api_key))
+        .route(
+            "/api-keys/{id}",
+            delete(handlers::api_key::delete_api_key),
+        )
+        .route("/api-keys/{id}/test", post(handlers::api_key::test_api_key))
+        .layer(Extension(key_store.clone()))
+        .layer(Extension(signed_client.clone()))
+        .layer(middleware::from_fn(
+            quant_trading_backend::middleware::auth::auth_middleware,
+        ))
+        .with_state(db.clone());
+
+    // Admin API Key routes (authenticated + admin role check inside handler)
+    let admin_api_key_routes = Router::new()
+        .route("/admin/api-keys", get(handlers::api_key::admin_list_api_keys))
+        .layer(Extension(key_store.clone()))
+        .layer(middleware::from_fn(
+            quant_trading_backend::middleware::auth::auth_middleware,
+        ))
+        .with_state(db.clone());
+
     // Exchange routes (authenticated, with signed Binance client)
     let exchange_routes = Router::new()
         .route("/exchange/ping", get(handlers::exchange::exchange_ping))
@@ -395,6 +424,8 @@ fn create_router(
         .nest("/api/v1", dashboard_routes)
         .nest("/api/v1", backtest_routes)
         .nest("/api/v1", exchange_routes)
+        .nest("/api/v1", api_key_routes)
+        .nest("/api/v1/admin", admin_api_key_routes)
         // public_routes: /health and /ws — NOT nested under /api/v1 to avoid route shadowing
         .merge(public_routes)
         .layer(cors)

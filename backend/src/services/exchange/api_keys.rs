@@ -5,7 +5,7 @@ use aes_gcm::{
     aead::{Aead, KeyInit},
 };
 use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
-use sea_orm::entity::prelude::*;
+use sea_orm::{entity::prelude::*, QueryOrder, QuerySelect};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tracing::{error, info};
@@ -339,5 +339,161 @@ impl ApiKeyStore {
                 .map_err(|e| AppError::Internal(format!("DB error: {}", e)))?;
         }
         Ok(())
+    }
+
+    /// 按 ID 查询单条 API Key（不验证用户，不返回明文 secret）
+    pub async fn find_by_id(
+        &self,
+        id: uuid::Uuid,
+    ) -> Result<Option<ExchangeApiKey>, AppError> {
+        let record = ek::Entity::find()
+            .filter(ek::Column::Id.eq(id))
+            .one(self.db.as_ref())
+            .await
+            .map_err(|e| AppError::Internal(format!("DB error: {}", e)))?;
+
+        Ok(record.map(|r| ExchangeApiKey {
+            id: r.id,
+            user_id: r.user_id,
+            exchange: r.exchange,
+            api_key: r.api_key,
+            secret_encrypted: r.secret_encrypted,
+            nonce: r.nonce,
+            permissions: r.permissions,
+            is_active: r.is_active,
+            last_used_at: r.last_used_at,
+            created_at: r.created_at,
+        }))
+    }
+
+    /// 按 ID 查询 API Key（验证用户归属，不返回明文 secret）
+    pub async fn find_by_id_and_user(
+        &self,
+        id: uuid::Uuid,
+        user_id: uuid::Uuid,
+    ) -> Result<Option<ExchangeApiKey>, AppError> {
+        let record = ek::Entity::find()
+            .filter(ek::Column::Id.eq(id))
+            .filter(ek::Column::UserId.eq(user_id))
+            .one(self.db.as_ref())
+            .await
+            .map_err(|e| AppError::Internal(format!("DB error: {}", e)))?;
+
+        Ok(record.map(|r| ExchangeApiKey {
+            id: r.id,
+            user_id: r.user_id,
+            exchange: r.exchange,
+            api_key: r.api_key,
+            secret_encrypted: r.secret_encrypted,
+            nonce: r.nonce,
+            permissions: r.permissions,
+            is_active: r.is_active,
+            last_used_at: r.last_used_at,
+            created_at: r.created_at,
+        }))
+    }
+
+    /// 按 ID 更新 API Key（permissions / is_active）
+    pub async fn update_by_id(
+        &self,
+        id: uuid::Uuid,
+        user_id: uuid::Uuid,
+        permissions: Option<&str>,
+        is_active: Option<bool>,
+    ) -> Result<ExchangeApiKey, AppError> {
+        let record = ek::Entity::find()
+            .filter(ek::Column::Id.eq(id))
+            .filter(ek::Column::UserId.eq(user_id))
+            .one(self.db.as_ref())
+            .await
+            .map_err(|e| AppError::Internal(format!("DB error: {}", e)))?
+            .ok_or_else(|| AppError::NotFound("API key not found".into()))?;
+
+        let mut active: ek::ActiveModel = record.into();
+        if let Some(p) = permissions {
+            active.permissions = sea_orm::Set(p.to_string());
+        }
+        if let Some(a) = is_active {
+            active.is_active = sea_orm::Set(a);
+        }
+        let updated = active.update(self.db.as_ref()).await.map_err(|e| {
+            error!(error = %e, "Failed to update API key");
+            AppError::Internal(format!("DB error: {}", e))
+        })?;
+
+        Ok(ExchangeApiKey {
+            id: updated.id,
+            user_id: updated.user_id,
+            exchange: updated.exchange,
+            api_key: updated.api_key,
+            secret_encrypted: updated.secret_encrypted,
+            nonce: updated.nonce,
+            permissions: updated.permissions,
+            is_active: updated.is_active,
+            last_used_at: updated.last_used_at,
+            created_at: updated.created_at,
+        })
+    }
+
+    /// 按 ID 硬删除 API Key
+    pub async fn delete_by_id(
+        &self,
+        id: uuid::Uuid,
+        user_id: uuid::Uuid,
+    ) -> Result<(), AppError> {
+        let record = ek::Entity::find()
+            .filter(ek::Column::Id.eq(id))
+            .filter(ek::Column::UserId.eq(user_id))
+            .one(self.db.as_ref())
+            .await
+            .map_err(|e| AppError::Internal(format!("DB error: {}", e)))?
+            .ok_or_else(|| AppError::NotFound("API key not found".into()))?;
+
+        record.delete(self.db.as_ref()).await.map_err(|e| {
+            error!(error = %e, "Failed to delete API key");
+            AppError::Internal(format!("DB error: {}", e))
+        })?;
+
+        info!(user_id = %user_id, key_id = %id, "API key deleted");
+        Ok(())
+    }
+
+    /// 管理员分页列出所有 API Key（不返回明文 secret）
+    pub async fn list_all_paginated(
+        &self,
+        page: u64,
+        size: u64,
+    ) -> Result<(Vec<ExchangeApiKey>, u64), AppError> {
+        let total = ek::Entity::find()
+            .count(self.db.as_ref())
+            .await
+            .map_err(|e| AppError::Internal(format!("DB error: {}", e)))? as u64;
+
+        let offset = (page.saturating_sub(1)) * size;
+        let records = ek::Entity::find()
+            .order_by_desc(ek::Column::CreatedAt)
+            .offset(offset)
+            .limit(size)
+            .all(self.db.as_ref())
+            .await
+            .map_err(|e| AppError::Internal(format!("DB error: {}", e)))?;
+
+        let keys = records
+            .into_iter()
+            .map(|r| ExchangeApiKey {
+                id: r.id,
+                user_id: r.user_id,
+                exchange: r.exchange,
+                api_key: r.api_key,
+                secret_encrypted: r.secret_encrypted,
+                nonce: r.nonce,
+                permissions: r.permissions,
+                is_active: r.is_active,
+                last_used_at: r.last_used_at,
+                created_at: r.created_at,
+            })
+            .collect();
+
+        Ok((keys, total))
     }
 }
