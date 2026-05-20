@@ -6,12 +6,14 @@ pub mod kline;
 pub mod order;
 pub mod permission;
 pub mod portfolio;
+pub mod position_alerts;
 pub mod risk_logs;
 pub mod risk_rules;
 pub mod role;
 pub mod role_permission;
 pub mod strategy;
 pub mod ticker_snapshot;
+pub mod trigger_order;
 pub mod user;
 pub mod user_session;
 
@@ -297,6 +299,123 @@ pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), sea_orm::DbEr
 
     db.execute(sea_orm::Statement::from_string(backend,
         "CREATE INDEX IF NOT EXISTS idx_ticker_snapshots_lookup ON ticker_snapshots (symbol, timestamp DESC)".to_string()
+    )).await?;
+
+    // P1-F2: position_alerts 表（止盈止损追踪止损）
+    db.execute(sea_orm::Statement::from_string(backend,
+        r#"
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'alert_type') THEN
+                CREATE TYPE alert_type AS ENUM ('take_profit', 'stop_loss', 'trailing_stop');
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'alert_status') THEN
+                CREATE TYPE alert_status AS ENUM ('active', 'triggered', 'cancelled', 'paused');
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'trigger_mode') THEN
+                CREATE TYPE trigger_mode AS ENUM ('market', 'limit');
+            END IF;
+        END $$;
+        "#.to_string()
+    )).await?;
+
+    db.execute(sea_orm::Statement::from_string(backend,
+        r#"
+        CREATE TABLE IF NOT EXISTS position_alerts (
+            id                  UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id             UUID            NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            position_id         UUID            NOT NULL,
+            symbol              VARCHAR(20)     NOT NULL,
+            alert_type          alert_type      NOT NULL,
+            status              alert_status    NOT NULL DEFAULT 'active',
+            trigger_price       DOUBLE PRECISION NOT NULL,
+            limit_price         DOUBLE PRECISION,
+            trigger_mode        trigger_mode    NOT NULL DEFAULT 'market',
+            trailing_distance   DOUBLE PRECISION,
+            trailing_activated  BOOLEAN         NOT NULL DEFAULT false,
+            activated_price     DOUBLE PRECISION,
+            triggered_at        TIMESTAMPTZ,
+            created_at          TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+            updated_at          TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+            cancelled_at        TIMESTAMPTZ,
+            triggered_order_id  UUID,
+            note                TEXT
+        )
+        "#.to_string()
+    )).await?;
+
+    db.execute(sea_orm::Statement::from_string(backend,
+        "CREATE INDEX IF NOT EXISTS idx_position_alerts_lookup ON position_alerts (user_id, symbol, status)".to_string()
+    )).await?;
+    db.execute(sea_orm::Statement::from_string(backend,
+        "CREATE INDEX IF NOT EXISTS idx_position_alerts_position_id ON position_alerts (position_id)".to_string()
+    )).await?;
+
+    // P1-F3: trigger_orders 表（条件触发单 - 止损单/止盈单/OCO/TWAP）
+    db.execute(sea_orm::Statement::from_string(backend,
+        r#"
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'trigger_type') THEN
+                CREATE TYPE trigger_type AS ENUM ('stop_loss', 'take_profit', 'oco', 'twap');
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'trigger_status') THEN
+                CREATE TYPE trigger_status AS ENUM ('pending', 'triggered', 'cancelled', 'expired', 'failed');
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'trigger_direction') THEN
+                CREATE TYPE trigger_direction AS ENUM ('up', 'down');
+            END IF;
+        END $$;
+        "#
+    )).await?;
+
+    db.execute(sea_orm::Statement::from_string(backend,
+        r#"
+        CREATE TABLE IF NOT EXISTS trigger_orders (
+            id                  UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id             UUID            NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            position_id         UUID,
+            symbol              VARCHAR(20)     NOT NULL,
+            trigger_type        trigger_type    NOT NULL,
+            status              trigger_status  NOT NULL DEFAULT 'pending',
+            trigger_direction   trigger_direction NOT NULL,
+            trigger_price       DOUBLE PRECISION NOT NULL,
+            trigger_price_upper DOUBLE PRECISION,
+            trigger_price_lower DOUBLE PRECISION,
+            base_price          DOUBLE PRECISION,
+            side                VARCHAR(10)     NOT NULL,
+            quantity            DOUBLE PRECISION NOT NULL,
+            filled_quantity     DOUBLE PRECISION NOT NULL DEFAULT 0,
+            avg_fill_price     DOUBLE PRECISION,
+            twap_slice_quantity DOUBLE PRECISION NOT NULL DEFAULT 0,
+            twap_interval_secs  INT             NOT NULL DEFAULT 60,
+            twap_start_time     TIMESTAMPTZ,
+            twap_end_time       TIMESTAMPTZ,
+            twap_executed_slices INT            NOT NULL DEFAULT 0,
+            twap_max_slices     INT            NOT NULL DEFAULT 100,
+            oco_pair_id         UUID,
+            triggered_order_id  UUID,
+            trigger_reason      VARCHAR(100),
+            triggered_at        TIMESTAMPTZ,
+            expire_at           TIMESTAMPTZ,
+            created_at          TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+            updated_at          TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+            cancelled_at        TIMESTAMPTZ
+        )
+        "#
+    )).await?;
+
+    db.execute(sea_orm::Statement::from_string(backend,
+        "CREATE INDEX IF NOT EXISTS idx_trigger_orders_user_id ON trigger_orders (user_id)".to_string()
+    )).await?;
+    db.execute(sea_orm::Statement::from_string(backend,
+        "CREATE INDEX IF NOT EXISTS idx_trigger_orders_symbol ON trigger_orders (symbol)".to_string()
+    )).await?;
+    db.execute(sea_orm::Statement::from_string(backend,
+        "CREATE INDEX IF NOT EXISTS idx_trigger_orders_status ON trigger_orders (status)".to_string()
+    )).await?;
+    db.execute(sea_orm::Statement::from_string(backend,
+        "CREATE INDEX IF NOT EXISTS idx_trigger_orders_position_id ON trigger_orders (position_id) WHERE position_id IS NOT NULL".to_string()
     )).await?;
 
     info!("Database migrations completed");

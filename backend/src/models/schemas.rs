@@ -632,3 +632,61 @@ mod tests {
         assert_eq!(json["size"], 20);
     }
 }
+
+// ============ KDJ Indicator ============
+
+/// KDJ signal type
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum KdjSignal {
+    GoldenCross,
+    DeathCross,
+    Overbought,
+    Oversold,
+    None,
+}
+
+impl Default for KdjSignal {
+    fn default() -> Self {
+        KdjSignal::None
+    }
+}
+
+/// Single KDJ bar result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KdjBar {
+    pub open_time: i64,
+    pub k: f64,
+    pub d: f64,
+    pub j: f64,
+    pub signal: KdjSignal,
+}
+
+/// KDJ calculation parameters
+#[derive(Debug, Clone, Serialize)]
+pub struct KdjParams {
+    pub n: usize,
+    pub m1: usize,
+    pub m2: usize,
+}
+
+/// KDJ API response
+#[derive(Debug, Clone, Serialize)]
+pub struct KdjResponse {
+    pub data: Vec<KdjBar>,
+    pub params: KdjParams,
+    pub symbol: String,
+    pub interval: String,
+}
+
+/// KDJ query parameters (incoming from HTTP)
+#[derive(Debug, Deserialize)]
+pub struct KdjQueryParams {
+    pub symbol: Option<String>,
+    pub interval: Option<String>,
+    pub start_time: Option<i64>,
+    pub end_time: Option<i64>,
+    pub n: Option<usize>,
+    pub m1: Option<usize>,
+    pub m2: Option<usize>,
+}

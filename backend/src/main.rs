@@ -219,6 +219,7 @@ fn create_router(
             delete(handlers::kline::rollback_clean),
         )
         .route("/kline/import/csv", post(handlers::kline::import_csv))
+        .route("/kline/kdj", get(handlers::indicator::get_kdj))
         .layer(middleware::from_fn(
             quant_trading_backend::middleware::auth::auth_middleware,
         ));
@@ -371,6 +372,20 @@ fn create_router(
             handlers::risk::router()
                 .layer(Extension(ws_hub.clone()))
                 .with_state(db.clone()),
+        )
+        .nest(
+            "/api/v1",
+            handlers::position_alert::router()
+                .layer(middleware::from_fn(
+                    quant_trading_backend::middleware::auth::auth_middleware,
+                )),
+        )
+        .nest(
+            "/api/v1",
+            handlers::trigger_order::router()
+                .layer(middleware::from_fn(
+                    quant_trading_backend::middleware::auth::auth_middleware,
+                )),
         )
         .nest("/api/v1", dashboard_routes)
         .nest("/api/v1", backtest_routes)
