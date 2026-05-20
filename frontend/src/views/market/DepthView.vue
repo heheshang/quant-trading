@@ -83,7 +83,7 @@ const props = defineProps<{
 }>()
 
 // Available symbols (will be populated from tickers)
-const symbols = ref<string[]>(['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT'])
+const symbols = ref<string[]>(['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'DOGEUSDT', 'ADAUSDT', 'AVAXUSDT', 'DOTUSDT', 'LINKUSDT'])
 const selectedSymbol = ref('BTCUSDT')
 const selectedLevels = ref(10)
 const highlightedPrice = ref<number | null>(null)

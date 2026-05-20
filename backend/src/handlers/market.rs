@@ -21,6 +21,12 @@ const VALID_DEPTH_LEVELS: [i32; 4] = [5, 10, 20, 50];
 const DEFAULT_DEPTH_LEVELS: i32 = 10;
 const MAX_FREE_DEPTH_LEVELS: i32 = 20;
 
+/// System role names (used for RBAC checks)
+/// These must match the role names stored in the database
+pub const ROLE_NAME_PRO_TRADER: &str = "pro-trader";
+pub const ROLE_NAME_ADMIN: &str = "admin";
+pub const ROLE_NAME_TRADER: &str = "trader";
+
 /// GET /api/v1/market/tickers — 获取所有交易对 Ticker
 pub async fn get_tickers(
     _user: AuthenticatedUser,
@@ -40,6 +46,10 @@ pub async fn get_ticker(
     Extension(binance): Extension<Arc<BinanceRestClient>>,
     Query(params): Query<TickerQueryParams>,
 ) -> Result<Json<ApiResponse<TickerResponse>>, AppError> {
+    // F-08: Validate symbol format
+    if let Err(msg) = params.validate_symbol() {
+        return Err(AppError::BadRequest(msg));
+    }
     let ticker = market_data::get_ticker_by_symbol(&db, &redis, &binance, &params.symbol).await?;
     Ok(Json(ApiResponse::success(ticker)))
 }
@@ -63,7 +73,10 @@ pub async fn get_depth(
     }
 
     // RBAC check: trader can only access up to 20 levels
-    if levels > MAX_FREE_DEPTH_LEVELS && user.role != "pro-trader" && user.role != "admin" {
+    if levels > MAX_FREE_DEPTH_LEVELS
+        && user.role != ROLE_NAME_PRO_TRADER
+        && user.role != ROLE_NAME_ADMIN
+    {
         return Err(AppError::Forbidden(
             "当前角色仅支持 20 档深度，升级至 pro-trader 可查看 50 档".into(),
         ));
@@ -79,6 +92,10 @@ pub async fn get_ticker_history(
     State(db): State<Arc<DatabaseConnection>>,
     Query(params): Query<TickerHistoryQueryParams>,
 ) -> Result<Json<ApiResponse<TickerHistoryResponse>>, AppError> {
+    // F-09: Validate time range (start < end, range <= 90 days)
+    if let Err(msg) = params.validate_time_range() {
+        return Err(AppError::BadRequest(msg));
+    }
     let result = market_data::get_ticker_history(&db, params).await?;
     Ok(Json(ApiResponse::success(result)))
 }
@@ -160,7 +177,7 @@ mod tests {
         let (redis, binance) = make_test_deps().await;
         let user = make_auth_user("trader");
         let params = TickerQueryParams {
-            symbol: "INVALID99".to_string(),
+            symbol: "NOTREALUSDT".to_string(), // valid format but doesn't exist on Binance
         };
         let result = get_ticker(
             user,
@@ -171,6 +188,7 @@ mod tests {
         )
         .await;
         assert!(result.is_err());
+        // NOTREALUSDT: passes format check, Binance parse fails → mock says NotFound
         let err = result.unwrap_err();
         assert!(matches!(err, AppError::NotFound(_)));
     }

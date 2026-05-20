@@ -112,6 +112,251 @@
             </el-table>
           </template>
         </el-tab-pane>
+
+        <!-- P0-F2: 风控规则 -->
+        <el-tab-pane label="Risk Rules" name="risk">
+          <div class="risk-panel">
+            <!-- 连接状态卡片 -->
+            <div class="status-cards">
+              <el-card class="status-card" shadow="hover">
+                <div class="status-indicator">
+                  <span class="dot" :class="connectionStatus.exchange_connected ? 'connected' : 'disconnected'"></span>
+                  <span class="status-label">{{ connectionStatus.exchange_connected ? 'Binance Connected' : 'Disconnected' }}</span>
+                </div>
+                <div class="status-detail" v-if="!connectionStatus.exchange_connected">
+                  Last heartbeat: {{ connectionStatus.disconnect_elapsed_secs }}s ago
+                </div>
+                <div class="status-detail" v-if="connectionStatus.strategy_paused" style="color: var(--el-color-danger)">
+                  ⚠ Strategy paused (auto)
+                </div>
+              </el-card>
+            </div>
+
+            <!-- 风控规则表单 -->
+            <el-card class="rules-card">
+              <template #header>
+                <div class="card-header">
+                  <span>资金风控规则</span>
+                  <el-switch
+                    v-model="riskForm.is_active"
+                    active-text="启用"
+                    inactive-text="停用"
+                    @change="saveRiskRules"
+                  />
+                </div>
+              </template>
+
+              <el-form label-width="160px" label-position="left" class="risk-form">
+                <el-divider content-position="left">亏损限制</el-divider>
+                <el-form-item label="当日亏损限额 (U)">
+                  <el-input-number
+                    v-model="riskForm.daily_loss_limit"
+                    :precision="2"
+                    :step="100"
+                    :min="0"
+                    controls-position="right"
+                    style="width: 200px"
+                  />
+                </el-form-item>
+                <el-form-item label="超限自动平仓">
+                  <el-switch v-model="riskForm.daily_loss_auto_close" />
+                </el-form-item>
+
+                <el-divider content-position="left">单笔交易</el-divider>
+                <el-form-item label="单笔最大亏损比例">
+                  <el-input-number
+                    v-model="riskForm.single_trade_loss_ratio"
+                    :precision="4"
+                    :step="0.001"
+                    :min="0"
+                    :max="1"
+                    controls-position="right"
+                    style="width: 200px"
+                  />
+                  <span class="form-hint">0.05 = 5%</span>
+                </el-form-item>
+
+                <el-divider content-position="left">回撤控制</el-divider>
+                <el-form-item label="最大回撤比例">
+                  <el-input-number
+                    v-model="riskForm.max_drawdown_ratio"
+                    :precision="4"
+                    :step="0.01"
+                    :min="0"
+                    :max="1"
+                    controls-position="right"
+                    style="width: 200px"
+                  />
+                  <span class="form-hint">0.2 = 20%</span>
+                </el-form-item>
+                <el-form-item label="超限自动平仓">
+                  <el-switch v-model="riskForm.drawdown_auto_close" />
+                </el-form-item>
+
+                <el-divider content-position="left">止损类型</el-divider>
+                <el-form-item label="止损方式">
+                  <el-radio-group v-model="riskForm.stop_loss_type">
+                    <el-radio label="fixed">固定止损</el-radio>
+                    <el-radio label="atr">ATR 动态止损</el-radio>
+                  </el-radio-group>
+                </el-form-item>
+                <template v-if="riskForm.stop_loss_type === 'atr'">
+                  <el-form-item label="ATR 周期">
+                    <el-input-number v-model="riskForm.atr_period" :min="1" :max="200" controls-position="right" style="width: 120px" />
+                  </el-form-item>
+                  <el-form-item label="ATR 倍数">
+                    <el-input-number v-model="riskForm.atr_multiplier" :precision="2" :step="0.1" :min="0" controls-position="right" style="width: 120px" />
+                  </el-form-item>
+                </template>
+
+                <el-form-item>
+                  <el-button type="primary" :loading="riskSaving" @click="saveRiskRules">
+                    保存规则
+                  </el-button>
+                  <el-button @click="loadRiskRules">重置</el-button>
+                </el-form-item>
+              </el-form>
+            </el-card>
+
+            <!-- 风控日志 -->
+            <el-card class="logs-card">
+              <template #header>
+                <div class="card-header">
+                  <span>风控日志</span>
+                  <el-button size="small" @click="loadRiskLogs">
+                    <el-icon><Refresh /></el-icon> 刷新
+                  </el-button>
+                </div>
+              </template>
+
+              <el-table :data="riskLogs" stripe size="small" max-height="300">
+                <el-table-column prop="triggered_rule" label="触发规则" width="140" />
+                <el-table-column prop="severity" label="严重度" width="100">
+                  <template #default="{ row }">
+                    <el-tag :type="severityType(row.severity)" size="small">{{ row.severity }}</el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="action" label="动作" width="100" />
+                <el-table-column prop="details" label="详情" min-width="200" show-overflow-tooltip />
+                <el-table-column prop="created_at" label="时间" width="160">
+                  <template #default="{ row }">{{ f.formatDate(row.created_at) }}</template>
+                </el-table-column>
+              </el-table>
+              <div class="pagination" v-if="riskLogsTotal > pageSize">
+                <el-pagination
+                  small
+                  layout="prev, pager, next"
+                  :total="riskLogsTotal"
+                  :page-size="pageSize"
+                  v-model:current-page="riskLogsPage"
+                  @current-change="loadRiskLogs"
+                />
+              </div>
+            </el-card>
+          </div>
+        </el-tab-pane>
+
+        <!-- P0-F3: 应急操作 -->
+        <el-tab-pane label="Emergency" name="emergency">
+          <div class="emergency-panel">
+            <!-- 当前状态 -->
+            <el-card class="emergency-status-card">
+              <template #header>系统应急状态</template>
+              <div class="emergency-status-grid">
+                <div class="status-item">
+                  <span class="status-key">交易状态</span>
+                  <el-tag :type="tradingStatus === 'active' ? 'success' : 'danger'" size="large">
+                    {{ tradingStatus === 'active' ? '正常交易' : '已暂停' }}
+                  </el-tag>
+                </div>
+                <div class="status-item">
+                  <span class="status-key">Binance 连接</span>
+                  <span class="status-val">
+                    <span class="dot" :class="connectionStatus.exchange_connected ? 'connected' : 'disconnected'"></span>
+                    {{ connectionStatus.exchange_connected ? '已连接' : '已断开' }}
+                    <template v-if="!connectionStatus.exchange_connected">
+                      ({{ connectionStatus.disconnect_elapsed_secs }}s)
+                    </template>
+                  </span>
+                </div>
+                <div class="status-item">
+                  <span class="status-key">断线自动暂停</span>
+                  <span class="status-val">
+                    <span class="dot" :class="connectionStatus.strategy_paused ? 'paused' : 'connected'"></span>
+                    {{ connectionStatus.strategy_paused ? '已暂停' : '未触发' }}
+                  </span>
+                </div>
+              </div>
+              <el-button size="small" @click="loadConnectionStatus" style="margin-top: 12px">
+                <el-icon><Refresh /></el-icon> 刷新状态
+              </el-button>
+            </el-card>
+
+            <!-- 手动操作 -->
+            <el-card class="emergency-actions-card">
+              <template #header>手动应急操作</template>
+              <div class="action-buttons">
+                <div class="action-item">
+                  <div class="action-info">
+                    <h4>暂停交易</h4>
+                    <p>立即禁止所有新订单开仓（已持仓不受影响）</p>
+                  </div>
+                  <el-button
+                    type="warning"
+                    :loading="emergencyLoading"
+                    :disabled="tradingStatus !== 'active'"
+                    @click="handlePause"
+                  >
+                    暂停交易
+                  </el-button>
+                </div>
+                <el-divider />
+                <div class="action-item">
+                  <div class="action-info">
+                    <h4>恢复交易</h4>
+                    <p>解除暂停，允许新订单开仓</p>
+                  </div>
+                  <el-button
+                    type="success"
+                    :loading="emergencyLoading"
+                    :disabled="tradingStatus !== 'paused'"
+                    @click="handleResume"
+                  >
+                    恢复交易
+                  </el-button>
+                </div>
+                <el-divider />
+                <div class="action-item danger-action">
+                  <div class="action-info">
+                    <h4>紧急全平</h4>
+                    <p>立即平掉所有持仓（不受风控规则限制）</p>
+                  </div>
+                  <el-button
+                    type="danger"
+                    :loading="emergencyLoading"
+                    @click="handleEmergencyClose"
+                  >
+                    紧急全平
+                  </el-button>
+                </div>
+              </div>
+            </el-card>
+
+            <!-- 手动风控检查 -->
+            <el-card class="check-card">
+              <template #header>手动风控检查</template>
+              <div class="action-item">
+                <div class="action-info">
+                  <h4>触发风控检查</h4>
+                  <p>立即对当前持仓和账户执行风控规则检查</p>
+                </div>
+                <el-button :loading="emergencyLoading" @click="handleRiskCheck">
+                  触发检查
+                </el-button>
+              </div>
+            </el-card>
+          </div>
+        </el-tab-pane>
       </el-tabs>
     </template>
 
@@ -163,13 +408,28 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, reactive } from 'vue'
+import { ref, computed, onMounted, reactive, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useFormat } from '@/composables/useFormat'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Plus } from '@element-plus/icons-vue'
+import { Search, Plus, Refresh } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import type { User } from '@/types'
+import {
+  getRiskRules,
+  updateRiskRules,
+  getRiskLogs,
+  emergencyClose,
+  pauseTrading,
+  resumeTrading,
+  manualRiskCheck,
+  getConnectionStatus,
+} from '@/api/risk'
+import type {
+  RiskRules,
+  RiskLog,
+  ConnectionStatus,
+} from '@/types'
 
 const authStore = useAuthStore()
 const f = useFormat()
@@ -184,6 +444,174 @@ const userFormRef = ref<FormInstance>()
 
 const users = ref<User[]>([])
 const nextId = ref(3)
+
+// ─── P0-F2 / P0-F3: Risk & Emergency ──────────────────────────────────
+
+const tradingStatus = ref<'active' | 'paused'>('active')
+const emergencyLoading = ref(false)
+const riskSaving = ref(false)
+
+const connectionStatus = ref<ConnectionStatus>({
+  exchange_connected: false,
+  disconnect_elapsed_secs: 0,
+  strategy_paused: false,
+})
+
+const riskRules = ref<RiskRules | null>(null)
+const riskLogs = ref<RiskLog[]>([])
+const riskLogsTotal = ref(0)
+const riskLogsPage = ref(1)
+const pageSize = 10
+
+const riskForm = reactive({
+  daily_loss_limit: 0,
+  daily_loss_auto_close: false,
+  single_trade_loss_ratio: 0.05,
+  max_drawdown_ratio: 0.2,
+  drawdown_auto_close: false,
+  stop_loss_type: 'fixed' as 'fixed' | 'atr',
+  atr_period: 14 as number | null,
+  atr_multiplier: 2.0 as number | null,
+  is_active: false,
+})
+
+function syncRiskForm(rules: RiskRules | null) {
+  riskForm.daily_loss_limit = rules ? Number(rules.daily_loss_limit) : 0
+  riskForm.daily_loss_auto_close = rules?.daily_loss_auto_close ?? false
+  riskForm.single_trade_loss_ratio = rules ? Number(rules.single_trade_loss_ratio) : 0.05
+  riskForm.max_drawdown_ratio = rules ? Number(rules.max_drawdown_ratio) : 0.2
+  riskForm.drawdown_auto_close = rules?.drawdown_auto_close ?? false
+  riskForm.stop_loss_type = (rules?.stop_loss_type as 'fixed' | 'atr') ?? 'fixed'
+  riskForm.atr_period = rules?.atr_period ?? 14
+  riskForm.atr_multiplier = rules?.atr_multiplier ? Number(rules.atr_multiplier) : 2.0
+  riskForm.is_active = rules?.is_active ?? false
+}
+
+async function loadConnectionStatus() {
+  try {
+    const res = await getConnectionStatus()
+    if (res.data) connectionStatus.value = res.data
+  } catch {
+    // ignore
+  }
+}
+
+async function loadRiskRules() {
+  try {
+    const res = await getRiskRules()
+    if (res.data) {
+      riskRules.value = res.data
+      syncRiskForm(res.data)
+    }
+  } catch {
+    // ignore
+  }
+}
+
+async function saveRiskRules() {
+  riskSaving.value = true
+  try {
+    await updateRiskRules({
+      daily_loss_limit: String(riskForm.daily_loss_limit),
+      daily_loss_auto_close: riskForm.daily_loss_auto_close,
+      single_trade_loss_ratio: String(riskForm.single_trade_loss_ratio),
+      max_drawdown_ratio: String(riskForm.max_drawdown_ratio),
+      drawdown_auto_close: riskForm.drawdown_auto_close,
+      stop_loss_type: riskForm.stop_loss_type,
+      atr_period: riskForm.atr_period,
+      atr_multiplier: riskForm.atr_multiplier !== null ? String(riskForm.atr_multiplier) : null,
+      is_active: riskForm.is_active,
+    })
+    ElMessage.success('风控规则已保存')
+    await loadRiskRules()
+  } catch (e: unknown) {
+    ElMessage.error(`保存失败: ${e instanceof Error ? e.message : String(e)}`)
+  } finally {
+    riskSaving.value = false
+  }
+}
+
+async function loadRiskLogs() {
+  try {
+    const res = await getRiskLogs({ page: riskLogsPage.value, page_size: pageSize })
+    if (res.data) {
+      riskLogs.value = res.data.data ?? []
+      riskLogsTotal.value = res.data.total ?? 0
+    }
+  } catch {
+    // ignore
+  }
+}
+
+async function handlePause() {
+  try {
+    await pauseTrading()
+    tradingStatus.value = 'paused'
+    ElMessage.success('交易已暂停')
+  } catch (e: unknown) {
+    ElMessage.error(`暂停失败: ${e instanceof Error ? e.message : String(e)}`)
+  }
+}
+
+async function handleResume() {
+  try {
+    await resumeTrading()
+    tradingStatus.value = 'active'
+    ElMessage.success('交易已恢复')
+  } catch (e: unknown) {
+    ElMessage.error(`恢复失败: ${e instanceof Error ? e.message : String(e)}`)
+  }
+}
+
+async function handleEmergencyClose() {
+  await ElMessageBox.confirm(
+    '确认立即平掉所有持仓？此操作不可撤销。',
+    '紧急全平确认',
+    { confirmButtonText: '确认全平', cancelButtonText: '取消', type: 'warning' }
+  )
+  emergencyLoading.value = true
+  try {
+    await emergencyClose()
+    ElMessage.success('已执行紧急全平')
+    await loadConnectionStatus()
+  } catch (e: unknown) {
+    ElMessage.error(`全平失败: ${e instanceof Error ? e.message : String(e)}`)
+  } finally {
+    emergencyLoading.value = false
+  }
+}
+
+async function handleRiskCheck() {
+  emergencyLoading.value = true
+  try {
+    await manualRiskCheck()
+    ElMessage.success('风控检查完成')
+    await loadRiskLogs()
+  } catch (e: unknown) {
+    ElMessage.error(`检查失败: ${e instanceof Error ? e.message : String(e)}`)
+  } finally {
+    emergencyLoading.value = false
+  }
+}
+
+function severityType(s: string): string {
+  switch (s) {
+    case 'critical': return 'danger'
+    case 'high': return 'danger'
+    case 'medium': return 'warning'
+    case 'low': return 'info'
+    default: return 'info'
+  }
+}
+
+// 切换到 Risk/Emergency Tab 时加载数据
+watch(activeTab, async (tab) => {
+  if (tab === 'risk') {
+    await Promise.all([loadRiskRules(), loadRiskLogs(), loadConnectionStatus()])
+  } else if (tab === 'emergency') {
+    await loadConnectionStatus()
+  }
+})
 
 const userForm = reactive({
   username: '',
@@ -450,5 +878,137 @@ onMounted(() => {
 @keyframes shimmer {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
+}
+
+// ─── P0-F2 / P0-F3: Risk & Emergency ──────────────────────────────────
+
+.risk-panel,
+.emergency-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.status-cards {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.status-card {
+  flex: 0 0 auto;
+
+  .status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .status-detail {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
+  }
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+
+  &.connected { background: var(--el-color-success); }
+  &.disconnected { background: var(--el-color-danger); }
+  &.paused { background: var(--el-color-warning); }
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.form-hint {
+  margin-left: 12px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  margin-top: 12px;
+}
+
+.risk-form {
+  :deep(.el-divider__text) {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--el-text-color-primary);
+  }
+}
+
+// ─── Emergency Panel ───────────────────────────────────────────
+
+.emergency-status-card {
+  .emergency-status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+  }
+
+  .status-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .status-key {
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
+    font-weight: 500;
+  }
+
+  .status-val {
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+}
+
+.emergency-actions-card,
+.check-card {
+  .action-buttons {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .action-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0;
+
+    &.danger-action .action-info h4 {
+      color: var(--el-color-danger);
+    }
+  }
+
+  .action-info {
+    h4 {
+      margin: 0 0 4px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    p {
+      margin: 0;
+      font-size: 12px;
+      color: var(--el-text-color-secondary);
+    }
+  }
 }
 </style>

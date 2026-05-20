@@ -26,10 +26,10 @@
           <!-- Progress bar -->
           <div class="progress-bar-wrapper">
             <el-progress
-              :percentage="pollProgress"
-              :indeterminate="true"
+              :percentage="combinedProgress"
               :stroke-width="8"
-              :show-text="false"
+              :show-text="true"
+              :format="(v: number) => v + '%'"
               class="progress-bar"
             />
           </div>
@@ -169,21 +169,59 @@ const lastParams = ref<{
 const historyItems = ref<BacktestSummary[]>([])
 const historyLoading = ref(false)
 
+// WS real-time progress (complements polling fallback)
+const wsProgress = ref(0)
+const combinedProgress = computed(() => Math.max(wsProgress.value, pollProgress.value))
+
+function onBacktestProgress(event: Event) {
+  const { backtestId, progress, status } = (event as CustomEvent).detail as {
+    backtestId: string
+    progress: number
+    status: string
+  }
+  // Only update if this is the current job
+  if (backtestId !== currentJobId.value) return
+  wsProgress.value = progress
+  if (status === 'completed' || status === 'failed') {
+    // Fetch final result via REST (polling fallback for final state)
+    if (pollTimer) clearInterval(pollTimer)
+    pollJob(currentJobId.value).then(finalResult => {
+      if (finalResult) {
+        if (finalResult.status === 'completed') {
+          result.value = finalResult
+          backtestState.value = 'completed'
+        } else {
+          error.value = finalResult.error || '回测执行失败'
+          backtestState.value = 'failed'
+        }
+      }
+    })
+  }
+}
+
+// WS progress is received via window CustomEvent dispatched by trading.ts handleWsMessage
+
 const MAX_POLL_ATTEMPTS = 60
 const POLL_INTERVAL = 2000
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let pollCount = 0
+
+onMounted(() => {
+  loadHistory()
+  window.addEventListener('backtest-progress', onBacktestProgress)
+})
 
 onUnmounted(() => {
   if (pollTimer) {
     clearInterval(pollTimer)
     pollTimer = null
   }
+  window.removeEventListener('backtest-progress', onBacktestProgress)
 })
 
 async function loadHistory() {
-  historyLoading.value = true
   try {
+    historyLoading.value = true
     const res = await backtestApi.listBacktestHistory({ page: 1, size: 50 })
     historyItems.value = res.items
   } catch {
@@ -192,6 +230,11 @@ async function loadHistory() {
     historyLoading.value = false
   }
 }
+
+onMounted(() => {
+  loadHistory()
+  window.addEventListener('backtest-progress', onBacktestProgress)
+})
 
 async function handleHistorySelect(item: BacktestSummary) {
   try {
@@ -335,6 +378,7 @@ async function handleDelete() {
 
 function cleanupState() {
   cleanupPolling()
+  wsProgress.value = 0
   result.value = null
   error.value = ''
   isRunning.value = false

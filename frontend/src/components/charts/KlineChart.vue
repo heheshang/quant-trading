@@ -15,16 +15,27 @@ export interface KlineBar {
   volume?: number
 }
 
+/** Marker for a trade entry/exit on the chart */
+export interface TradeMarker {
+  time: number          // Unix timestamp (seconds)
+  position: 'aboveBar' | 'belowBar' | 'insideBar'
+  color: string
+  shape: 'arrowUp' | 'arrowDown' | 'circle' | 'flag'
+  text: string
+}
+
 const props = withDefaults(defineProps<{
   data?: KlineBar[]
   symbol?: string
   interval?: string
   darkMode?: boolean
+  markers?: TradeMarker[]
 }>(), {
   data: () => [],
   symbol: '',
   interval: '',
   darkMode: true,
+  markers: () => [],
 })
 
 const chartContainerRef = ref<HTMLDivElement | null>(null)
@@ -114,6 +125,9 @@ function initChart() {
 
   volumeSeries = chart.addHistogramSeries(buildVolumeOptions())
 
+  // Markers series for trade entry/exit points
+  // Note: markers are applied via candleSeries.setMarkers() — no separate series needed
+
   // Volume scale
   if (volumeSeries) {
     chart.priceScale('volume').applyOptions({
@@ -152,7 +166,21 @@ function setData(bars: KlineBar[]) {
 
   candleSeries.setData(candleData)
   volumeSeries.setData(volumeData)
+  // Apply trade markers
+  setMarkers(props.markers)
   chart?.timeScale().fitContent()
+}
+
+function setMarkers(markers: TradeMarker[]) {
+  if (!candleSeries || markers.length === 0) return
+  const lwMarkers = markers.map(m => ({
+    time: toLightweightTime(m.time) as Time,
+    position: m.position,
+    color: m.color,
+    shape: m.shape,
+    text: m.text,
+  }))
+  candleSeries.setMarkers(lwMarkers as any)
 }
 
 function addBar(bar: KlineBar) {
@@ -202,7 +230,11 @@ watch(() => props.darkMode, () => {
   initChart()
 })
 
-defineExpose({ addBar, setData })
+watch(() => props.markers, (newMarkers) => {
+  setMarkers(newMarkers)
+}, { deep: true })
+
+defineExpose({ addBar, setData, setMarkers })
 </script>
 
 <style scoped>

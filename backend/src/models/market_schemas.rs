@@ -19,9 +19,51 @@ pub struct TickerResponse {
     pub timestamp: i64,
 }
 
+/// Valid trading symbol pattern: 2-10 uppercase letters followed by USDT
+/// Examples: BTCUSDT, ETHUSDT, SOLUSDT, etc.
+const SYMBOL_SUFFIX: &str = "USDT";
+const SYMBOL_MIN_LEN: usize = 2; // e.g., "osusdt" (actually 2-10 letters)
+const SYMBOL_MAX_LEN: usize = 10;
+
 #[derive(Debug, Deserialize)]
 pub struct TickerQueryParams {
     pub symbol: String,
+}
+
+impl TickerQueryParams {
+    /// Validates that the symbol matches the expected format (e.g., BTCUSDT, ETHUSDT)
+    pub fn validate_symbol(&self) -> Result<(), String> {
+        let s = &self.symbol;
+        // Check minimum length (prefix + suffix)
+        if s.len() < SYMBOL_MIN_LEN + SYMBOL_SUFFIX.len() {
+            return Err(format!(
+                "Invalid symbol format '{}': must be 2-10 uppercase letters followed by USDT (e.g., BTCUSDT)",
+                s
+            ));
+        }
+        // Check suffix
+        if !s.ends_with(SYMBOL_SUFFIX) {
+            return Err(format!(
+                "Invalid symbol format '{}': must end with USDT (e.g., BTCUSDT)",
+                s
+            ));
+        }
+        // Check prefix is 2-10 uppercase letters
+        let prefix = &s[..s.len() - SYMBOL_SUFFIX.len()];
+        if prefix.len() < SYMBOL_MIN_LEN || prefix.len() > SYMBOL_MAX_LEN {
+            return Err(format!(
+                "Invalid symbol prefix '{}': must be 2-10 uppercase letters",
+                prefix
+            ));
+        }
+        if !prefix.chars().all(|c| c.is_ascii_uppercase()) {
+            return Err(format!(
+                "Invalid symbol '{}': prefix must be uppercase letters only",
+                s
+            ));
+        }
+        Ok(())
+    }
 }
 
 // ---- Depth ----
@@ -48,6 +90,9 @@ pub struct DepthQueryParams {
 
 // ---- Ticker History (P1) ----
 
+/// Maximum allowed time range for ticker history queries (90 days in milliseconds)
+const MAX_TICKER_HISTORY_RANGE_MS: i64 = 90 * 24 * 60 * 60 * 1000;
+
 #[derive(Debug, Deserialize)]
 pub struct TickerHistoryQueryParams {
     pub symbol: String,
@@ -55,6 +100,26 @@ pub struct TickerHistoryQueryParams {
     pub end: i64,
     pub page: Option<u64>,
     pub page_size: Option<u64>,
+}
+
+impl TickerHistoryQueryParams {
+    /// Validates that start < end and the range doesn't exceed 90 days
+    pub fn validate_time_range(&self) -> Result<(), String> {
+        if self.start >= self.end {
+            return Err(format!(
+                "Invalid time range: start ({}) must be less than end ({})",
+                self.start, self.end
+            ));
+        }
+        let range = self.end - self.start;
+        if range > MAX_TICKER_HISTORY_RANGE_MS {
+            return Err(format!(
+                "Time range exceeds maximum of 90 days ({}ms): requested {}ms",
+                MAX_TICKER_HISTORY_RANGE_MS, range
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -145,18 +210,7 @@ pub struct WsInMessage {
     pub channels: Vec<String>,
 }
 
-// ---- Market Error Codes ----
-
-pub const ERR_MARKET_SYMBOL_NOT_FOUND: i32 = 40401;
-pub const ERR_MARKET_DEPTH_LEVELS_INVALID: i32 = 40001;
-pub const ERR_MARKET_DEPTH_FORBIDDEN: i32 = 40301;
-pub const ERR_MARKET_WS_AUTH_FAILED: i32 = 40101;
-pub const ERR_MARKET_WS_CHANNEL_INVALID: i32 = 40002;
-pub const ERR_MARKET_COLLECTOR_DOWN: i32 = 50301;
-pub const ERR_MARKET_WATCHLIST_FULL: i32 = 42901;
-pub const ERR_MARKET_WS_TOO_MANY_CHANNELS: i32 = 42902;
-
-// ---- Tests ----
+// (Error codes removed — use AppError::with_code() for market-specific errors)
 
 #[cfg(test)]
 mod tests {
@@ -259,5 +313,139 @@ mod tests {
         let json = r#"{"symbol":"BTCUSDT","levels":20}"#;
         let params: DepthQueryParams = serde_json::from_str(json).unwrap();
         assert_eq!(params.levels, Some(20));
+    }
+
+    // === F-08: Symbol format validation tests ===
+
+    #[test]
+    fn test_symbol_validation_valid_btc() {
+        let params = TickerQueryParams {
+            symbol: "BTCUSDT".into(),
+        };
+        assert!(params.validate_symbol().is_ok());
+    }
+
+    #[test]
+    fn test_symbol_validation_valid_eth() {
+        let params = TickerQueryParams {
+            symbol: "ETHUSDT".into(),
+        };
+        assert!(params.validate_symbol().is_ok());
+    }
+
+    #[test]
+    fn test_symbol_validation_valid_long_prefix() {
+        let params = TickerQueryParams {
+            symbol: "SOLANAUSDT".into(),
+        };
+        assert!(params.validate_symbol().is_ok());
+    }
+
+    #[test]
+    fn test_symbol_validation_invalid_lowercase() {
+        // "BtcUSDT" has uppercase USDT suffix but lowercase 'Btc' prefix
+        let params = TickerQueryParams {
+            symbol: "BtcUSDT".into(),
+        };
+        let result = params.validate_symbol();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("uppercase"));
+    }
+
+    #[test]
+    fn test_symbol_validation_invalid_wrong_suffix() {
+        let params = TickerQueryParams {
+            symbol: "BTCUSD".into(),
+        };
+        let result = params.validate_symbol();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("USDT"));
+    }
+
+    #[test]
+    fn test_symbol_validation_invalid_too_short() {
+        let params = TickerQueryParams {
+            symbol: "BUSDT".into(),
+        }; // 1 letter prefix
+        let result = params.validate_symbol();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_symbol_validation_invalid_too_long() {
+        let params = TickerQueryParams {
+            symbol: "VERYLONGCOINNAMEUSDT".into(),
+        }; // 15 letter prefix
+        let result = params.validate_symbol();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_symbol_validation_invalid_with_numbers() {
+        let params = TickerQueryParams {
+            symbol: "BTC123USDT".into(),
+        };
+        let result = params.validate_symbol();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("uppercase"));
+    }
+
+    // === F-09: TickerHistory time range validation tests ===
+
+    #[test]
+    fn test_ticker_history_valid_range() {
+        let params = TickerHistoryQueryParams {
+            symbol: "BTCUSDT".into(),
+            start: 1747400000000,
+            end: 1747500000000,
+            page: Some(1),
+            page_size: Some(20),
+        };
+        assert!(params.validate_time_range().is_ok());
+    }
+
+    #[test]
+    fn test_ticker_history_invalid_start_after_end() {
+        let params = TickerHistoryQueryParams {
+            symbol: "BTCUSDT".into(),
+            start: 1747500000000,
+            end: 1747400000000, // end before start
+            page: Some(1),
+            page_size: Some(20),
+        };
+        let result = params.validate_time_range();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("must be less than"));
+    }
+
+    #[test]
+    fn test_ticker_history_invalid_start_equals_end() {
+        let params = TickerHistoryQueryParams {
+            symbol: "BTCUSDT".into(),
+            start: 1747400000000,
+            end: 1747400000000, // same as start
+            page: Some(1),
+            page_size: Some(20),
+        };
+        let result = params.validate_time_range();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("must be less than"));
+    }
+
+    #[test]
+    fn test_ticker_history_invalid_range_exceeds_90_days() {
+        // 100 days = 100 * 24 * 60 * 60 * 1000 = 8640000000ms
+        let start = 1747400000000i64;
+        let end = start + (100i64 * 24 * 60 * 60 * 1000); // exactly 100 days
+        let params = TickerHistoryQueryParams {
+            symbol: "BTCUSDT".into(),
+            start,
+            end,
+            page: Some(1),
+            page_size: Some(20),
+        };
+        let result = params.validate_time_range();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("90 days"));
     }
 }

@@ -27,7 +27,18 @@
 
     <!-- Chart -->
     <div v-else class="equity-chart-wrapper">
-      <div ref="chartRef" class="equity-chart-container"></div>
+      <div class="chart-section">
+        <div ref="equityChartRef" class="equity-chart-container"></div>
+      </div>
+      <div class="chart-section">
+        <div class="drawdown-header">
+          <span class="drawdown-title">回撤曲线</span>
+          <span class="drawdown-info">
+            最大回撤: <span class="max-dd-value">{{ formatPercent(maxDrawdown) }}</span>
+          </span>
+        </div>
+        <div ref="drawdownChartRef" class="drawdown-chart-container"></div>
+      </div>
     </div>
   </div>
 </template>
@@ -40,6 +51,10 @@ import { useFormat } from '@/composables/useFormat'
 
 const { formatCurrency } = useFormat()
 
+function formatPercent(v: number): string {
+  return v.toFixed(2) + '%'
+}
+
 const props = withDefaults(defineProps<{
   data?: EquityPoint[]
   loading?: boolean
@@ -50,8 +65,15 @@ const props = withDefaults(defineProps<{
   initialCapital: 100000,
 })
 
-const chartRef = ref<HTMLDivElement>()
-let chartInstance: echarts.ECharts | null = null
+const equityChartRef = ref<HTMLDivElement>()
+const drawdownChartRef = ref<HTMLDivElement>()
+let equityChart: echarts.ECharts | null = null
+let drawdownChart: echarts.ECharts | null = null
+
+const maxDrawdown = computed(() => {
+  if (!props.data || props.data.length === 0) return 0
+  return Math.min(...props.data.map(d => d.drawdown_pct))
+})
 
 const isUp = computed(() => {
   const vals = props.data.map((d) => d.equity)
@@ -59,19 +81,26 @@ const isUp = computed(() => {
 })
 
 function initChart() {
-  if (!chartRef.value) return
-  if (chartInstance) chartInstance.dispose()
+  if (!equityChartRef.value) return
+  if (equityChart) equityChart.dispose()
 
-  chartInstance = echarts.init(chartRef.value, undefined, {
+  equityChart = echarts.init(equityChartRef.value, undefined, {
     renderer: 'canvas',
   })
+
+  if (drawdownChartRef.value) {
+    if (drawdownChart) drawdownChart.dispose()
+    drawdownChart = echarts.init(drawdownChartRef.value, undefined, {
+      renderer: 'canvas',
+    })
+  }
 
   updateChart()
   window.addEventListener('resize', handleResize)
 }
 
 function updateChart() {
-  if (!chartInstance || !props.data.length) return
+  if (!equityChart || !props.data.length) return
 
   const dates = props.data.map((d) => {
     const dt = new Date(d.time)
@@ -149,11 +178,76 @@ function updateChart() {
     ],
   }
 
-  chartInstance.setOption(option, true)
+  equityChart.setOption(option, true)
+
+  // Drawdown chart
+  if (drawdownChart) {
+    const drawdownValues = props.data.map((d) => d.drawdown_pct)
+    const ddColor = '#e5484d'
+
+    const ddOption: echarts.EChartsOption = {
+      backgroundColor: 'transparent',
+      tooltip: {
+        trigger: 'axis',
+        backgroundColor: 'rgba(30, 41, 59, 0.95)',
+        borderColor: 'rgba(51, 65, 85, 0.8)',
+        textStyle: { color: '#f1f5f9', fontSize: 12 },
+        formatter: (params: any) => {
+          const p = params[0]
+          if (!p) return ''
+          return `<div style="font-size:13px;font-weight:600;margin-bottom:4px">${p.axisValue}</div>
+                  <div>回撤: <span style="font-weight:600;color:${ddColor}">${p.value.toFixed(2)}%</span></div>`
+        },
+      },
+      grid: {
+        left: 60,
+        right: 20,
+        top: 20,
+        bottom: 30,
+      },
+      xAxis: {
+        type: 'category',
+        data: dates,
+        axisLine: { lineStyle: { color: '#334155' } },
+        axisTick: { show: false },
+        axisLabel: { color: '#94a3b8', fontSize: 11 },
+        splitLine: { show: false },
+        boundaryGap: false,
+      },
+      yAxis: {
+        type: 'value',
+        splitLine: {
+          lineStyle: { color: '#1e293b', type: 'dashed' },
+        },
+        axisLabel: {
+          color: '#94a3b8',
+          fontSize: 11,
+          formatter: (v: number) => v.toFixed(1) + '%',
+        },
+      },
+      series: [
+        {
+          type: 'line',
+          data: drawdownValues,
+          smooth: true,
+          symbol: 'none',
+          lineStyle: { color: ddColor, width: 2 },
+          areaStyle: {
+            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+              { offset: 0, color: ddColor + '33' },
+              { offset: 1, color: ddColor + '05' },
+            ]),
+          },
+        },
+      ],
+    }
+    drawdownChart.setOption(ddOption, true)
+  }
 }
 
 function handleResize() {
-  chartInstance?.resize()
+  equityChart?.resize()
+  drawdownChart?.resize()
 }
 
 watch(() => props.data, () => updateChart(), { deep: true })
@@ -164,7 +258,10 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
-  chartInstance?.dispose()
+  equityChart?.dispose()
+  drawdownChart?.dispose()
+  equityChart = null
+  drawdownChart = null
 })
 </script>
 
@@ -208,16 +305,51 @@ onUnmounted(() => {
 
 .equity-chart-wrapper {
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.chart-section {
+  width: 100%;
 }
 
 .equity-chart-container {
   width: 100%;
-  height: 320px;
+  height: 280px;
+}
+
+.drawdown-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.drawdown-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.drawdown-info {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+
+.max-dd-value {
+  color: #e5484d;
+  font-weight: 600;
+}
+
+.drawdown-chart-container {
+  width: 100%;
+  height: 160px;
 }
 
 /* Loading skeleton */
 .chart-loading {
-  height: 320px;
+  height: 280px;
   display: flex;
   align-items: flex-end;
   padding: 20px;
@@ -246,7 +378,7 @@ onUnmounted(() => {
 }
 
 .chart-empty {
-  height: 320px;
+  height: 280px;
   display: flex;
   align-items: center;
   justify-content: center;

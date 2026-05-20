@@ -1,10 +1,12 @@
 pub mod auth;
 pub mod backtest;
 pub mod dashboard;
+pub mod exchange;
 pub mod kline;
 pub mod market;
 pub mod order;
 pub mod portfolio;
+pub mod risk;
 pub mod strategy;
 pub mod users;
 pub mod ws;

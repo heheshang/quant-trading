@@ -13,7 +13,7 @@ use sea_orm::{
 use tracing::{debug, info, warn};
 
 /// Supported trading symbols
-const SUPPORTED_SYMBOLS: &[&str] = &[
+pub const SUPPORTED_SYMBOLS: &[&str] = &[
     "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "DOGEUSDT", "ADAUSDT", "AVAXUSDT",
     "DOTUSDT", "LINKUSDT",
 ];

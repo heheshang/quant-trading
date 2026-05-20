@@ -203,9 +203,9 @@
                   class="metric-value down"
                 >{{ formatMetricValue(strategy.performance?.max_drawdown_pct) }}</span>
               </div>
-              <div class="metric-item" :title="'交易次数'">
-                <span class="metric-label">交易次数</span>
-                <span class="metric-value">{{ formatMetricValue(strategy.performance?.total_trades) }}</span>
+              <div class="metric-item" :title="'胜率'">
+                <span class="metric-label">胜率</span>
+                <span class="metric-value">{{ formatPercentValue(strategy.performance?.win_rate) }}</span>
               </div>
             </div>
           </div>
@@ -555,6 +555,11 @@ function formatMetricValue(value: number | null | undefined): string {
   return value.toFixed(2)
 }
 
+function formatPercentValue(value: number | null | undefined): string {
+  if (value == null) return '—'
+  return value.toFixed(1) + '%'
+}
+
 function getReturnClass(performance: StrategyFull['performance'] | undefined): string {
   if (!performance?.total_return_pct) return ''
   return performance.total_return_pct >= 0 ? 'up' : 'down'
@@ -621,7 +626,7 @@ async function handleActionCommand(cmd: string, row: StrategyFull) {
       break
     case 'stop':
       try {
-        await ElMessageBox.confirm('确定要停止此策略吗？停止后将无法自动交易。', '确认停止', {
+        await ElMessageBox.confirm(`确定要停止「${row.name}」吗？停止后将无法自动交易。`, '确认停止', {
           confirmButtonText: '确认停止',
           cancelButtonText: '取消',
           type: 'warning',

@@ -15,7 +15,7 @@
 
 use axum::{
     Json,
-    extract::{Path, Query, State},
+    extract::{Extension, Path, Query, State},
 };
 use sea_orm::DatabaseConnection;
 use serde::Deserialize;
@@ -27,6 +27,7 @@ use crate::models::backtest::{
 };
 use crate::models::schemas::PaginatedResponse;
 use crate::services::backtest::BacktestService;
+use crate::services::exchange::ws_hub::WsHub;
 use crate::utils::error::AppError;
 use crate::utils::response::ApiResponse;
 
@@ -58,11 +59,12 @@ impl PaginationQuery {
 /// Validates the request, verifies strategy ownership, and spawns the
 /// backtest engine asynchronously. Returns immediately with a pending status.
 pub async fn run_backtest(
-    State(db): State<std::sync::Arc<DatabaseConnection>>,
     user: AuthenticatedUser,
+    State(db): State<std::sync::Arc<DatabaseConnection>>,
+    Extension(ws_hub): Extension<std::sync::Arc<WsHub>>,
     Json(req): Json<BacktestRunRequest>,
 ) -> Result<Json<ApiResponse<BacktestRunResponse>>, AppError> {
-    let response = BacktestService::run_backtest(&db, &user, &req).await?;
+    let response = BacktestService::run_backtest(&db, &user, &req, ws_hub).await?;
     Ok(Json(ApiResponse::success(response)))
 }
 

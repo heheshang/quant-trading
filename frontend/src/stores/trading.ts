@@ -189,6 +189,40 @@ export const useTradingStore = defineStore('trading', () => {
       depths.value[symbolDisplay] = depths.value[internal]
     }
 
+    // Real-time Kline update — dispatch to KlineDetailView
+    if (channel === 'market:kline' && msg.data) {
+      const data = msg.data as unknown as {
+        interval: string
+        timestamp: number
+        open: number
+        high: number
+        low: number
+        close: number
+        volume: number
+      }
+      window.dispatchEvent(new CustomEvent('kline-update', {
+        detail: {
+          symbol: symbolDisplay,
+          interval: data.interval,
+          time: data.timestamp ?? Math.floor(Date.now() / 1000),
+          open: data.open,
+          high: data.high,
+          low: data.low,
+          close: data.close,
+          volume: data.volume ?? 0,
+        }
+      }))
+    }
+
+    // Backtest progress update — dispatch to BacktestView via window event
+    if (channel.startsWith('backtest:progress:') && msg.data) {
+      const data = msg.data as unknown as { progress: number; status: string }
+      const backtestId = channel.replace('backtest:progress:', '')
+      window.dispatchEvent(new CustomEvent('backtest-progress', {
+        detail: { backtestId, progress: data.progress, status: data.status }
+      }))
+    }
+
     // Trade execution notification — refresh orders/positions
     if (msg.type === 'trade_executed' && msg.data) {
       const data = msg.data as { order_id: string; side: string; realized_pnl: number | null }

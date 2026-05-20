@@ -81,6 +81,7 @@ fn serialize_hub_message(msg: HubMessage) -> String {
             low,
             close,
             volume,
+            timestamp,
         } => serde_json::to_string(&WsJsonMessage {
             channel: &format!("market:kline:{}", symbol),
             symbol: &symbol,
@@ -91,6 +92,7 @@ fn serialize_hub_message(msg: HubMessage) -> String {
                 "low": low,
                 "close": close,
                 "volume": volume,
+                "timestamp": timestamp,
             }),
         })
         .unwrap_or_default(),
@@ -116,6 +118,19 @@ fn serialize_hub_message(msg: HubMessage) -> String {
             }
         }))
         .unwrap_or_default(),
+        HubMessage::BacktestProgress {
+            backtest_id,
+            progress,
+            status,
+        } => serde_json::to_string(&WsJsonMessage {
+            channel: &format!("backtest:progress:{}", backtest_id),
+            symbol: &backtest_id.to_string(),
+            data: serde_json::json!({
+                "progress": progress,
+                "status": status,
+            }),
+        })
+        .unwrap_or_default(),
     }
 }
 
@@ -129,6 +144,12 @@ fn message_matches_subscription(msg: &HubMessage, subs: &ClientSubscriptions) ->
     // TradeExecuted is gated by trade_subscribed flag
     if matches!(msg, HubMessage::TradeExecuted { .. }) {
         return subs.trade_subscribed;
+    }
+
+    // BacktestProgress is matched by channel subscription (backtest:progress:{id})
+    if let HubMessage::BacktestProgress { backtest_id, .. } = &msg {
+        let channel = format!("backtest:progress:{}", backtest_id);
+        return subs.channels.is_empty() || subs.channels.contains(&channel);
     }
 
     let (channel, symbol) = match msg {
@@ -145,6 +166,7 @@ fn message_matches_subscription(msg: &HubMessage, subs: &ClientSubscriptions) ->
             (channel, symbol.as_str())
         }
         HubMessage::TradeExecuted { .. } => unreachable!(),
+        HubMessage::BacktestProgress { .. } => unreachable!(),
     };
 
     let channel_match = subs.channels.is_empty() || subs.channels.contains(&channel);

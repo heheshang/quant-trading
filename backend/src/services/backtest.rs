@@ -22,6 +22,7 @@ use crate::models::backtest::{
 };
 use crate::models::schemas::PaginatedResponse;
 use crate::services::backtest_engine::{BacktestEngine, build_kline_query, sample_equity_curve};
+use crate::services::exchange::ws_hub::{HubMessage, WsHub};
 use crate::services::strategy;
 use crate::utils::error::AppError;
 
@@ -51,6 +52,7 @@ impl BacktestService {
         db: &Arc<DatabaseConnection>,
         user: &AuthenticatedUser,
         req: &BacktestRunRequest,
+        ws_hub: Arc<WsHub>,
     ) -> Result<BacktestRunResponse, AppError> {
         // 1. Validate config
         req.config.validate().map_err(AppError::Validation)?;
@@ -139,11 +141,37 @@ impl BacktestService {
             klines,
             template,
             strategy_params,
-            progress,
+            progress.clone(),
             cancel_token,
         );
         let db_clone = db.clone();
         let result_id_clone = result_id;
+        let ws_hub_clone = ws_hub.clone();
+        let progress_clone = progress.clone();
+
+        // Spawn progress monitor — polls AtomicU32 every 200ms and broadcasts to WS
+        let _monitor_handle = tokio::spawn(async move {
+            let mut last_pct: u32 = 0;
+            loop {
+                tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+                let current = progress_clone.load(std::sync::atomic::Ordering::Relaxed);
+                if current != last_pct && current > 0 {
+                    last_pct = current;
+                    let _ = ws_hub_clone.broadcast(HubMessage::BacktestProgress {
+                        backtest_id: result_id_clone,
+                        progress: current,
+                        status: if current >= 100 {
+                            "completed".to_string()
+                        } else {
+                            "running".to_string()
+                        },
+                    });
+                }
+                if current >= 100 {
+                    break;
+                }
+            }
+        });
 
         tokio::task::spawn_blocking(move || {
             let _permit = permit; // hold permit until engine completes

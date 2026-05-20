@@ -284,13 +284,13 @@ pub struct KlineResponse {
     pub symbol: String,
     pub interval: String,
     pub open_time: i64,
-    pub open: String,
-    pub high: String,
-    pub low: String,
-    pub close: String,
-    pub volume: String,
+    pub open: f64,
+    pub high: f64,
+    pub low: f64,
+    pub close: f64,
+    pub volume: f64,
     pub close_time: Option<i64>,
-    pub quote_volume: Option<String>,
+    pub quote_volume: Option<f64>,
     pub trades: Option<i64>,
     pub source: String,
     pub created_at: chrono::DateTime<chrono::Utc>,
@@ -300,13 +300,13 @@ pub struct KlineResponse {
 pub struct KlineListMeta {
     pub total: u64,
     pub page: u64,
-    pub size: u64,
+    pub page_size: u64,
     pub gap_detected: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
 pub struct KlineListResponse {
-    pub items: Vec<KlineResponse>,
+    pub data: Vec<KlineResponse>,
     pub meta: KlineListMeta,
 }
 
@@ -331,15 +331,15 @@ pub struct KlineImportRequest {
 #[derive(Debug, Clone, Deserialize)]
 pub struct KlineImportItem {
     pub open_time: i64,
-    pub open: String,
-    pub high: String,
-    pub low: String,
-    pub close: String,
-    pub volume: String,
+    pub open: f64,
+    pub high: f64,
+    pub low: f64,
+    pub close: f64,
+    pub volume: f64,
     #[serde(default)]
     pub close_time: Option<i64>,
     #[serde(default)]
-    pub quote_volume: Option<String>,
+    pub quote_volume: Option<f64>,
     #[serde(default)]
     pub trades: Option<i64>,
 }

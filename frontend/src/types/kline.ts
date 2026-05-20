@@ -86,8 +86,8 @@ export interface KlineAnomalyRow {
 
 /** Kline query params */
 export interface KlineQueryParams {
-  symbol: string
-  interval: string
+  symbol?: string
+  interval?: string
   start_time?: number
   end_time?: number
   page?: number

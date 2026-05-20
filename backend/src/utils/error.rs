@@ -39,6 +39,10 @@ pub enum AppError {
     #[error("Risk rejected: {0}")]
     RiskRejected(String),
 
+    /// ADR D11: 40006 - 风控违规（P0-F2 资金风控）
+    #[error("Risk violation: {0}")]
+    RiskViolation(String),
+
     /// ADR D11: 40004 - 交易对不可交易
     #[error("Symbol not tradable: {0}")]
     SymbolNotTradable(String),
@@ -70,6 +74,7 @@ impl AppError {
             Self::RiskRejected(_) => 40003,
             Self::SymbolNotTradable(_) => 40004,
             Self::InsufficientPosition(_) => 40005,
+            Self::RiskViolation(_) => 40006,
             Self::Validation(_) => 40010,
             Self::InvalidCredentials => 40101,
             Self::TokenExpired => 40102,
@@ -94,6 +99,7 @@ impl IntoResponse for AppError {
             | Self::RiskRejected(_)
             | Self::SymbolNotTradable(_)
             | Self::InsufficientPosition(_)
+            | Self::RiskViolation(_)
             | Self::Validation(_) => StatusCode::BAD_REQUEST,
             Self::InvalidCredentials | Self::TokenExpired | Self::TokenInvalid(_) => {
                 StatusCode::UNAUTHORIZED

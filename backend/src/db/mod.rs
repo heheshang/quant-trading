@@ -1,10 +1,13 @@
 pub mod backtest;
 pub mod backtest_results;
 pub mod dashboard;
+pub mod exchange_api_keys;
 pub mod kline;
 pub mod order;
 pub mod permission;
 pub mod portfolio;
+pub mod risk_logs;
+pub mod risk_rules;
 pub mod role;
 pub mod role_permission;
 pub mod strategy;

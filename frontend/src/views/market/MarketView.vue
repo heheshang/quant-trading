@@ -88,9 +88,9 @@ function onTabChange(tab: string) {
   // Subscribe/unsubscribe channels based on active tab
   if (tab === 'ticker') {
     // Subscribe to ticker channels for all visible symbols
-    subscribe(['ticker:BTCUSDT', 'ticker:ETHUSDT', 'ticker:BNBUSDT'])
+    subscribe(['market:ticker:BTCUSDT', 'market:ticker:ETHUSDT', 'market:ticker:BNBUSDT'])
   } else if (tab === 'depth') {
-    subscribe(['depth:BTCUSDT'])
+    subscribe(['market:depth:BTCUSDT'])
   }
 }
 
@@ -101,7 +101,7 @@ onMounted(() => {
     connect(token)
     // Subscribe to ticker by default
     setTimeout(() => {
-      subscribe(['ticker:BTCUSDT', 'ticker:ETHUSDT', 'ticker:BNBUSDT'])
+      subscribe(['market:ticker:BTCUSDT', 'market:ticker:ETHUSDT', 'market:ticker:BNBUSDT'])
     }, 1000)
   }
 })

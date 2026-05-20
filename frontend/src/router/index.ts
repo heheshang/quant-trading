@@ -10,6 +10,7 @@ import StrategiesView from '@/views/strategy/StrategiesView.vue'
 import StrategyCreateView from '@/views/strategy/StrategyCreateView.vue'
 import StrategyEditView from '@/views/strategy/StrategyEditView.vue'
 import StrategyTemplateView from '@/views/strategy/StrategyTemplateView.vue'
+import KlineDetailView from '@/views/kline/KlineDetailView.vue'
 import BacktestView from '@/views/backtest/BacktestView.vue'
 import TradingView from '@/views/trade/TradingView.vue'
 import OrderManagementView from '@/views/order/OrderManagementView.vue'
@@ -64,6 +65,12 @@ const routes: RouteRecordRaw[] = [
         name: 'Dashboard',
         component: DashboardView,
         meta: { requiresAuth: true, title: '仪表盘' },
+      },
+      {
+        path: 'kline/:symbol/:interval',
+        name: 'KlineDetail',
+        component: KlineDetailView,
+        meta: { requiresAuth: true, title: 'K线详情' },
       },
       {
         path: 'market',

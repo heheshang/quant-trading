@@ -1,4 +1,5 @@
 use crate::db::kline::{self, Entity as Kline};
+use crate::models::kline_entity::Entity as KlinePhase4;
 use crate::models::schemas::{
     KlineCleanRequest, KlineCleanResult, KlineExportParams, KlineImportItem,
     KlineImportLogResponse, KlineImportRequest, KlineImportResult, KlineListMeta,
@@ -23,14 +24,37 @@ fn model_to_response(m: kline::Model) -> KlineResponse {
         symbol: m.symbol,
         interval: m.interval,
         open_time: m.open_time,
-        open: m.open,
-        high: m.high,
-        low: m.low,
-        close: m.close,
-        volume: m.volume,
+        open: m.open.parse().unwrap_or(0.0),
+        high: m.high.parse().unwrap_or(0.0),
+        low: m.low.parse().unwrap_or(0.0),
+        close: m.close.parse().unwrap_or(0.0),
+        volume: m.volume.parse().unwrap_or(0.0),
         close_time: m.close_time,
-        quote_volume: m.quote_volume,
+        quote_volume: m.quote_volume.and_then(|v| v.parse().ok()),
         trades: m.trades,
+        source: m.source,
+        created_at: m.created_at,
+    }
+}
+
+/// Convert klines_phase4 (Phase4) model to KlineResponse
+/// klines_phase4 uses UUID id, DateTimeUtc timestamps, and Decimal fields
+fn model_to_phase4_response(m: crate::models::kline_entity::Model) -> KlineResponse {
+    use rust_decimal::prelude::ToPrimitive;
+    KlineResponse {
+        id: i64::MAX,               // Phase4 klines use UUID; map to sentinel value
+        user_id: uuid::Uuid::nil(), // Phase4 has no user_id; use nil UUID
+        symbol: m.symbol,
+        interval: m.interval,
+        open_time: m.open_time.timestamp_millis(),
+        open: m.open.to_f64().unwrap_or(0.0),
+        high: m.high.to_f64().unwrap_or(0.0),
+        low: m.low.to_f64().unwrap_or(0.0),
+        close: m.close.to_f64().unwrap_or(0.0),
+        volume: m.volume.to_f64().unwrap_or(0.0),
+        close_time: Some(m.close_time.timestamp_millis()),
+        quote_volume: Some(m.quote_volume.to_f64().unwrap_or(0.0)),
+        trades: Some(m.trades as i64),
         source: m.source,
         created_at: m.created_at,
     }
@@ -52,49 +76,55 @@ fn offset(params: &KlineQueryParams) -> u64 {
 
 pub async fn query_klines(
     db: &DatabaseConnection,
-    user_id: Uuid,
+    _user_id: Uuid,
     params: KlineQueryParams,
 ) -> Result<KlineListResponse, AppError> {
     let page = page_num(&params);
     let size = page_size(&params);
     let off = offset(&params);
 
-    let mut query = Kline::find().filter(kline::Column::UserId.eq(user_id));
+    // Phase4 T4: KlineWriter writes to klines_phase4, so query must read from there
+    use crate::models::kline_entity::Column as Phase4Col;
+    let mut query = KlinePhase4::find();
 
     if let Some(ref symbol) = params.symbol {
-        query = query.filter(kline::Column::Symbol.eq(symbol));
+        query = query.filter(Phase4Col::Symbol.eq(symbol));
     }
     if let Some(ref interval) = params.interval {
-        query = query.filter(kline::Column::Interval.eq(interval));
+        query = query.filter(Phase4Col::Interval.eq(interval));
     }
     if let Some(start) = params.start_time {
-        query = query.filter(kline::Column::OpenTime.gte(start));
+        let start_dt =
+            chrono::DateTime::from_timestamp(start / 1000, 0).unwrap_or_else(chrono::Utc::now);
+        query = query.filter(Phase4Col::OpenTime.gte(start_dt));
     }
     if let Some(end) = params.end_time {
-        query = query.filter(kline::Column::OpenTime.lte(end));
+        let end_dt =
+            chrono::DateTime::from_timestamp(end / 1000, 0).unwrap_or_else(chrono::Utc::now);
+        query = query.filter(Phase4Col::OpenTime.lte(end_dt));
     }
 
     let total = query.clone().count(db).await? as u64;
 
     let items: Vec<KlineResponse> = query
-        .order_by_asc(kline::Column::OpenTime)
+        .order_by_asc(Phase4Col::OpenTime)
         .offset(off)
         .limit(size)
         .all(db)
         .await?
         .into_iter()
-        .map(model_to_response)
+        .map(model_to_phase4_response)
         .collect();
 
     // Gap detection: check if consecutive bars differ by more than expected interval ms
     let gap_detected = detect_gaps(&items);
 
     Ok(KlineListResponse {
-        items,
+        data: items,
         meta: KlineListMeta {
             total,
             page,
-            size,
+            page_size: size,
             gap_detected,
         },
     })
@@ -210,24 +240,8 @@ async fn import_batch(
             continue;
         }
 
-        // Validate numeric fields
-        if parse_f64(&item.open).is_err()
-            || parse_f64(&item.high).is_err()
-            || parse_f64(&item.low).is_err()
-            || parse_f64(&item.close).is_err()
-            || parse_f64(&item.volume).is_err()
-        {
-            failed += 1;
-            continue;
-        }
-
         // Validate OHLC relationships
-        let (o, h, l, c) = (
-            parse_f64(&item.open).unwrap(),
-            parse_f64(&item.high).unwrap(),
-            parse_f64(&item.low).unwrap(),
-            parse_f64(&item.close).unwrap(),
-        );
+        let (o, h, l, c) = (item.open, item.high, item.low, item.close);
         if h < o || h < l || h < c || l > o || l > c {
             failed += 1;
             continue;
@@ -239,13 +253,13 @@ async fn import_batch(
             symbol: sea_orm::Set(symbol.to_string()),
             interval: sea_orm::Set(interval.to_string()),
             open_time: sea_orm::Set(item.open_time),
-            open: sea_orm::Set(item.open.clone()),
-            high: sea_orm::Set(item.high.clone()),
-            low: sea_orm::Set(item.low.clone()),
-            close: sea_orm::Set(item.close.clone()),
-            volume: sea_orm::Set(item.volume.clone()),
+            open: sea_orm::Set(item.open.to_string()),
+            high: sea_orm::Set(item.high.to_string()),
+            low: sea_orm::Set(item.low.to_string()),
+            close: sea_orm::Set(item.close.to_string()),
+            volume: sea_orm::Set(item.volume.to_string()),
             close_time: sea_orm::Set(item.close_time),
-            quote_volume: sea_orm::Set(item.quote_volume.clone()),
+            quote_volume: sea_orm::Set(item.quote_volume.map(|v| v.to_string())),
             trades: sea_orm::Set(item.trades),
             source: sea_orm::Set(source.to_string()),
             created_at: sea_orm::Set(now),
@@ -774,15 +788,15 @@ pub async fn rollback_clean(
 #[derive(Debug, Deserialize)]
 pub struct KlineCsvRow {
     pub open_time: i64,
-    pub open: String,
-    pub high: String,
-    pub low: String,
-    pub close: String,
-    pub volume: String,
+    pub open: f64,
+    pub high: f64,
+    pub low: f64,
+    pub close: f64,
+    pub volume: f64,
     #[serde(default)]
     pub close_time: Option<i64>,
     #[serde(default)]
-    pub quote_volume: Option<String>,
+    pub quote_volume: Option<f64>,
     #[serde(default)]
     pub trades: Option<i64>,
 }

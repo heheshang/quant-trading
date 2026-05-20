@@ -477,7 +477,7 @@ const strategyCodeFile = ref<File | null>(null)
 const strategyCodePath = ref<string | null>(null)
 const uploading = ref(false)
 
-const symbolOptions = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'MATICUSDT']
+const symbolOptions = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'DOGEUSDT', 'ADAUSDT', 'AVAXUSDT', 'DOTUSDT', 'LINKUSDT']
 const timeframeOptions = ['1m', '5m', '15m', '30m', '1H', '4H', '1D', '1W']
 
 /** T4.5: Strategy type options for the select field (ADR D1) */
@@ -524,7 +524,7 @@ const basicRules: FormRules = {
 }
 
 const canActivate = computed(() => {
-  return formData.name && formData.symbol && formData.timeframe && selectedTemplate.value
+  return formData.name && formData.symbol && formData.timeframe && formData.strategy_type && selectedTemplate.value
 })
 
 function formatSymbolOpt(symbol: string): string {

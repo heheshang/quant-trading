@@ -99,12 +99,10 @@ impl BinanceRestClient {
             AppError::Internal(format!("Failed to parse Binance response: {}", e))
         })?;
 
-        // Supported symbols to filter
-        let supported: std::collections::HashSet<&str> = [
-            "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "DOGEUSDT", "ADAUSDT",
-            "AVAXUSDT", "DOTUSDT", "LINKUSDT",
-        ]
-        .into();
+        use crate::services::market_data::SUPPORTED_SYMBOLS;
+
+        let supported: std::collections::HashSet<&str> =
+            SUPPORTED_SYMBOLS.iter().copied().collect();
 
         let tickers: Vec<TickerResponse> = binance_tickers
             .into_iter()

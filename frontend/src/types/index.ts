@@ -149,6 +149,7 @@ export interface StrategyFull {
     total_return_pct?: number    // 收益率 %
     sharpe_ratio?: number         // 夏普率
     max_drawdown_pct?: number    // 最大回撤 %
+    win_rate?: number            // 胜率 %
     total_trades?: number        // 交易次数
   }
   status: 'active' | 'paused' | 'stopped' | 'draft'
@@ -301,6 +302,18 @@ export type {
   TradeWsMessage,
   Position as AdrPosition,
 } from './order'
+
+export type {
+  RiskRules,
+  UpdateRiskRulesRequest,
+  RiskLog,
+  RiskLogsResponse,
+  EmergencyCloseResult,
+  EmergencyCloseOrder,
+  EmergencyCloseResponse,
+  PauseResponse,
+  ConnectionStatus,
+} from './risk'
 
 export {
   getOrderStatusType,

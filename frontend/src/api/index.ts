@@ -43,3 +43,13 @@ export {
   getPositions,
   closePosition as closeAdrPosition,
 } from './order'
+export {
+  getRiskRules,
+  updateRiskRules,
+  getRiskLogs,
+  emergencyClose,
+  pauseTrading,
+  resumeTrading,
+  manualRiskCheck,
+  getConnectionStatus,
+} from './risk'

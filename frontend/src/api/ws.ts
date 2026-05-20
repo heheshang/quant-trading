@@ -29,7 +29,7 @@ export interface DepthUpdate {
   timestamp: number
 }
 
-export type MarketWsChannel = 'market:ticker' | 'market:depth'
+export type MarketWsChannel = 'market:ticker' | 'market:depth' | 'market:kline'
 
 export type MarketWsMessageHandler = (msg: WsMessage) => void
 export type MarketWsKickHandler = (reason?: string) => void
@@ -89,22 +89,30 @@ export class MarketWebSocket {
   }
 
   /**
-   * Subscribe to ticker and depth channels for a symbol
+   * Subscribe to ticker, depth, and kline channels for a symbol
    * @param symbol Trading symbol in display format (e.g. "BTC/USDT")
    */
   subscribe(symbol: string): void {
     const internal = toInternalSymbol(symbol)
-    this.ws.subscribe([`market:ticker:${internal}`, `market:depth:${internal}`])
+    this.ws.subscribe([
+      `market:ticker:${internal}`,
+      `market:depth:${internal}`,
+      `market:kline:${internal}`,
+    ])
     this._currentSymbol = internal
   }
 
   /**
-   * Unsubscribe from ticker and depth channels for a symbol
+   * Unsubscribe from ticker, depth, and kline channels for a symbol
    * @param symbol Trading symbol in display format (e.g. "BTC/USDT")
    */
   unsubscribe(symbol: string): void {
     const internal = toInternalSymbol(symbol)
-    this.ws.unsubscribe([`market:ticker:${internal}`, `market:depth:${internal}`])
+    this.ws.unsubscribe([
+      `market:ticker:${internal}`,
+      `market:depth:${internal}`,
+      `market:kline:${internal}`,
+    ])
   }
 
   /**
@@ -112,7 +120,11 @@ export class MarketWebSocket {
    */
   subscribeCurrent(): void {
     if (this._currentSymbol) {
-      this.ws.subscribe([`market:ticker:${this._currentSymbol}`, `market:depth:${this._currentSymbol}`])
+      this.ws.subscribe([
+        `market:ticker:${this._currentSymbol}`,
+        `market:depth:${this._currentSymbol}`,
+        `market:kline:${this._currentSymbol}`,
+      ])
     }
   }
 
@@ -127,6 +139,7 @@ export class MarketWebSocket {
       this.ws.subscribe([
         `market:ticker:${this._currentSymbol}`,
         `market:depth:${this._currentSymbol}`,
+        `market:kline:${this._currentSymbol}`,
       ])
     }
   }

@@ -7,6 +7,10 @@ use quant_trading_backend::db::{DbPool, init_db, run_migrations};
 use quant_trading_backend::handlers;
 use quant_trading_backend::services::binance_rest::BinanceRestClient;
 use quant_trading_backend::services::exchange::ws_hub::{WsHub, WsHubBuilder};
+use quant_trading_backend::services::exchange::{
+    api_keys::{ApiKeyStore, get_master_key},
+    signed_client::SignedBinanceClient,
+};
 use quant_trading_backend::services::kline_writer::KlineWriter;
 use quant_trading_backend::services::matching_engine::MatchingEngine;
 use quant_trading_backend::services::redis_cache::RedisCache;
@@ -70,6 +74,11 @@ async fn main() {
     // Initialize Binance REST client
     let binance_rest = Arc::new(BinanceRestClient::new());
 
+    // Initialize Signed Binance Client for authenticated API calls
+    let master_key = get_master_key().unwrap_or([0u8; 32]);
+    let key_store = Arc::new(ApiKeyStore::new(db.clone(), master_key));
+    let signed_client = Arc::new(SignedBinanceClient::new(key_store));
+
     // Initialize KlineWriter background task
     let (kline_tx, kline_rx) = mpsc::channel(100);
     let mut kline_writer = KlineWriter::new(kline_rx, db.as_ref().clone());
@@ -87,7 +96,15 @@ async fn main() {
     ws_hub.start();
 
     // Build application
-    let app = create_router(db, cors, matching_engine, redis_cache, binance_rest, ws_hub);
+    let app = create_router(
+        db,
+        cors,
+        matching_engine,
+        redis_cache,
+        binance_rest,
+        ws_hub,
+        signed_client,
+    );
 
     // Start server
     let addr = CONFIG.server_addr();
@@ -107,6 +124,7 @@ fn create_router(
     redis_cache: Arc<RedisCache>,
     binance_rest: Arc<BinanceRestClient>,
     ws_hub: Arc<WsHub>,
+    signed_client: Arc<SignedBinanceClient>,
 ) -> Router {
     // Auth routes (no auth required)
     let auth_routes = Router::new()
@@ -302,6 +320,31 @@ fn create_router(
             "/backtest/history",
             get(handlers::backtest::list_backtest_history),
         )
+        .layer(Extension(ws_hub.clone()))
+        .layer(middleware::from_fn(
+            quant_trading_backend::middleware::auth::auth_middleware,
+        ));
+
+    // Exchange routes (authenticated, with signed Binance client)
+    let exchange_routes = Router::new()
+        .route("/exchange/ping", get(handlers::exchange::exchange_ping))
+        .route(
+            "/exchange/account",
+            get(handlers::exchange::exchange_account),
+        )
+        .route(
+            "/exchange/order",
+            post(handlers::exchange::exchange_create_order),
+        )
+        .route(
+            "/exchange/order/{orderId}",
+            delete(handlers::exchange::exchange_cancel_order),
+        )
+        .route(
+            "/exchange/rate-limit",
+            get(handlers::exchange::exchange_rate_limit),
+        )
+        .layer(Extension(signed_client.clone()))
         .layer(middleware::from_fn(
             quant_trading_backend::middleware::auth::auth_middleware,
         ));
@@ -323,8 +366,15 @@ fn create_router(
         .nest("/api/v1", market_routes)
         .nest("/api/v1", order_routes)
         .nest("/api/v1", portfolio_routes)
+        .nest(
+            "/api/v1",
+            handlers::risk::router()
+                .layer(Extension(ws_hub.clone()))
+                .with_state(db.clone()),
+        )
         .nest("/api/v1", dashboard_routes)
         .nest("/api/v1", backtest_routes)
+        .nest("/api/v1", exchange_routes)
         // public_routes: /health and /ws — NOT nested under /api/v1 to avoid route shadowing
         .merge(public_routes)
         .layer(cors)
