@@ -353,6 +353,17 @@ fn create_router(
         ))
         .with_state(db.clone());
 
+    // Review routes (authenticated)
+    let review_routes = Router::new()
+        .route("/reviews/submit", post(handlers::review::submit_for_review))
+        .route("/reviews/approve", post(handlers::review::approve_strategy))
+        .route("/reviews/reject", post(handlers::review::reject_strategy))
+        .route("/reviews/pending", get(handlers::review::list_pending_reviews))
+        .route("/reviews/{strategy_id}", get(handlers::review::get_strategy_review))
+        .layer(middleware::from_fn(
+            quant_trading_backend::middleware::auth::auth_middleware,
+        ));
+
     // Admin API Key routes (authenticated + admin role check inside handler)
     let admin_api_key_routes = Router::new()
         .route("/admin/api-keys", get(handlers::api_key::admin_list_api_keys))
@@ -374,17 +385,14 @@ fn create_router(
             post(handlers::exchange::exchange_create_order),
         )
         .route(
-            "/exchange/order/{orderId}",
-            delete(handlers::exchange::exchange_cancel_order),
-        )
-        .route(
             "/exchange/rate-limit",
             get(handlers::exchange::exchange_rate_limit),
         )
         .layer(Extension(signed_client.clone()))
         .layer(middleware::from_fn(
             quant_trading_backend::middleware::auth::auth_middleware,
-        ));
+        ))
+        .with_state(db.clone());
 
     // Public routes — registered as direct path to avoid /api/v1 nesting shadowing
     // Both /ws and /api/v1/ws registered (nginx regex proxy_pass preserves full path)
@@ -426,6 +434,7 @@ fn create_router(
         .nest("/api/v1", exchange_routes)
         .nest("/api/v1", api_key_routes)
         .nest("/api/v1/admin", admin_api_key_routes)
+        .nest("/api/v1", review_routes)
         // public_routes: /health and /ws — NOT nested under /api/v1 to avoid route shadowing
         .merge(public_routes)
         .layer(cors)

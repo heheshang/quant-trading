@@ -7,6 +7,7 @@ pub mod order;
 pub mod permission;
 pub mod portfolio;
 pub mod position_alerts;
+pub mod review;
 pub mod risk_logs;
 pub mod risk_rules;
 pub mod role;
@@ -421,18 +422,45 @@ pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), sea_orm::DbEr
     .await?;
     db.execute(sea_orm::Statement::from_string(
         backend,
+        "CREATE INDEX IF NOT EXISTS idx_trigger_orders_status ON trigger_orders (status)"
+            .to_string(),
+    ))
+    .await?;
+    db.execute(sea_orm::Statement::from_string(
+        backend,
         "CREATE INDEX IF NOT EXISTS idx_trigger_orders_symbol ON trigger_orders (symbol)"
             .to_string(),
     ))
     .await?;
     db.execute(sea_orm::Statement::from_string(
         backend,
-        "CREATE INDEX IF NOT EXISTS idx_trigger_orders_status ON trigger_orders (status)"
-            .to_string(),
+        "CREATE INDEX IF NOT EXISTS idx_trigger_orders_position_id ON trigger_orders (position_id) WHERE position_id IS NOT NULL".to_string()
     ))
     .await?;
-    db.execute(sea_orm::Statement::from_string(backend,
-        "CREATE INDEX IF NOT EXISTS idx_trigger_orders_position_id ON trigger_orders (position_id) WHERE position_id IS NOT NULL".to_string()
+
+    // P2-F2: strategy_reviews 表（策略审核工作流 - 独立表）
+    db.execute(sea_orm::Statement::from_string(
+        backend,
+        r#"
+        CREATE TABLE IF NOT EXISTS strategy_reviews (
+            id                  UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
+            strategy_id         UUID            NOT NULL UNIQUE REFERENCES strategies(id) ON DELETE CASCADE,
+            review_status       VARCHAR(32)     NOT NULL DEFAULT 'pending_review',
+            rejection_reason    TEXT,
+            submitted_at        TIMESTAMPTZ,
+            reviewed_at         TIMESTAMPTZ,
+            reviewed_by         UUID REFERENCES users(id) ON DELETE SET NULL
+        )
+        "#
+    )).await?;
+
+    db.execute(sea_orm::Statement::from_string(
+        backend,
+        "CREATE INDEX IF NOT EXISTS idx_strategy_reviews_status ON strategy_reviews (review_status)".to_string()
+    )).await?;
+    db.execute(sea_orm::Statement::from_string(
+        backend,
+        "CREATE INDEX IF NOT EXISTS idx_strategy_reviews_strategy_id ON strategy_reviews (strategy_id)".to_string()
     )).await?;
 
     info!("Database migrations completed");
