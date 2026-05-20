@@ -16,6 +16,7 @@ import TradingView from '@/views/trade/TradingView.vue'
 import OrderManagementView from '@/views/order/OrderManagementView.vue'
 import PortfolioView from '@/views/portfolio/PortfolioView.vue'
 import SystemAdminView from '@/views/system/SystemAdminView.vue'
+import ApiKeyManagementView from '@/views/ApiKeyManagementView.vue'
 import LoginView from '@/views/dashboard/LoginView.vue'
 import RegisterView from '@/views/dashboard/RegisterView.vue'
 
@@ -131,6 +132,12 @@ const routes: RouteRecordRaw[] = [
         name: 'Admin',
         component: SystemAdminView,
         meta: { requiresAuth: true, title: '系统管理', roles: ['admin'] },
+      },
+      {
+        path: 'api-keys',
+        name: 'ApiKeyManagement',
+        component: ApiKeyManagementView,
+        meta: { requiresAuth: true, title: 'API密钥管理' },
       },
     ],
   },
