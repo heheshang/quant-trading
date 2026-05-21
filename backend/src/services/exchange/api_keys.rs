@@ -5,7 +5,7 @@ use aes_gcm::{
     aead::{Aead, KeyInit},
 };
 use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
-use sea_orm::{entity::prelude::*, QueryOrder, QuerySelect};
+use sea_orm::{QueryOrder, QuerySelect, entity::prelude::*};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tracing::{error, info};
@@ -342,10 +342,7 @@ impl ApiKeyStore {
     }
 
     /// 按 ID 查询单条 API Key（不验证用户，不返回明文 secret）
-    pub async fn find_by_id(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<Option<ExchangeApiKey>, AppError> {
+    pub async fn find_by_id(&self, id: uuid::Uuid) -> Result<Option<ExchangeApiKey>, AppError> {
         let record = ek::Entity::find()
             .filter(ek::Column::Id.eq(id))
             .one(self.db.as_ref())
@@ -436,11 +433,7 @@ impl ApiKeyStore {
     }
 
     /// 按 ID 硬删除 API Key
-    pub async fn delete_by_id(
-        &self,
-        id: uuid::Uuid,
-        user_id: uuid::Uuid,
-    ) -> Result<(), AppError> {
+    pub async fn delete_by_id(&self, id: uuid::Uuid, user_id: uuid::Uuid) -> Result<(), AppError> {
         let record = ek::Entity::find()
             .filter(ek::Column::Id.eq(id))
             .filter(ek::Column::UserId.eq(user_id))
@@ -467,7 +460,8 @@ impl ApiKeyStore {
         let total = ek::Entity::find()
             .count(self.db.as_ref())
             .await
-            .map_err(|e| AppError::Internal(format!("DB error: {}", e)))? as u64;
+            .map_err(|e| AppError::Internal(format!("DB error: {}", e)))?
+            as u64;
 
         let offset = (page.saturating_sub(1)) * size;
         let records = ek::Entity::find()

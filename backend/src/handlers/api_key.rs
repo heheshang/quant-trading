@@ -103,10 +103,7 @@ pub async fn list_api_keys(
 ) -> Result<Json<ApiResponse<Vec<ApiKeyResponse>>>, AppError> {
     let keys = key_store.find_by_user(user.user_id).await?;
 
-    let responses: Vec<ApiKeyResponse> = keys
-        .iter()
-        .map(ApiKeyResponse::from_key)
-        .collect();
+    let responses: Vec<ApiKeyResponse> = keys.iter().map(ApiKeyResponse::from_key).collect();
 
     Ok(Json(ApiResponse::success(responses)))
 }
@@ -181,7 +178,12 @@ pub async fn update_api_key(
     Json(body): Json<UpdateApiKeyRequest>,
 ) -> Result<Json<ApiResponse<ApiKeyResponse>>, AppError> {
     let updated = key_store
-        .update_by_id(id, user.user_id, body.permissions.as_deref(), body.is_active)
+        .update_by_id(
+            id,
+            user.user_id,
+            body.permissions.as_deref(),
+            body.is_active,
+        )
         .await?;
 
     tracing::info!(
@@ -190,7 +192,9 @@ pub async fn update_api_key(
         "API key updated"
     );
 
-    Ok(Json(ApiResponse::success(ApiKeyResponse::from_key(&updated))))
+    Ok(Json(ApiResponse::success(ApiKeyResponse::from_key(
+        &updated,
+    ))))
 }
 
 /// DELETE /api/v1/api-keys/{id}
@@ -277,12 +281,14 @@ pub async fn admin_list_api_keys(
 
     let items: Vec<ApiKeyResponse> = keys.iter().map(ApiKeyResponse::from_key).collect();
 
-    Ok(Json(ApiResponse::success(ApiKeyListResponse(PaginatedResponse {
-        items,
-        total,
-        page,
-        size,
-    }))))
+    Ok(Json(ApiResponse::success(ApiKeyListResponse(
+        PaginatedResponse {
+            items,
+            total,
+            page,
+            size,
+        },
+    ))))
 }
 
 // ─── Unit Tests ──────────────────────────────────────────────────────────────
@@ -358,7 +364,10 @@ mod tests {
 
     #[test]
     fn test_pagination_params_defaults() {
-        let params = PaginationParams { page: None, size: None };
+        let params = PaginationParams {
+            page: None,
+            size: None,
+        };
         assert_eq!(params.page(), 1);
         assert_eq!(params.size(), 20);
         assert_eq!(params.offset(), 0);

@@ -78,10 +78,7 @@ impl StrategyStateManager {
                     .risk_manager
                     .pause(
                         system_user_id,
-                        &format!(
-                            "断线 {}s 超过阈值 {}s 自动暂停",
-                            disconnect_gap, threshold
-                        ),
+                        &format!("断线 {}s 超过阈值 {}s 自动暂停", disconnect_gap, threshold),
                     )
                     .await
                 {

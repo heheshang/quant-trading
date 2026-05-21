@@ -283,7 +283,10 @@ fn create_router(
         // Export routes
         .route("/exports/orders", get(handlers::export::export_orders))
         .route("/exports/trades", get(handlers::export::export_trades))
-        .route("/exports/positions", get(handlers::export::export_positions))
+        .route(
+            "/exports/positions",
+            get(handlers::export::export_positions),
+        )
         .route("/exports/account", get(handlers::export::export_account))
         .layer(axum::Extension(matching_engine))
         .layer(axum::Extension(order_rate_limiter))
@@ -355,11 +358,11 @@ fn create_router(
         .route("/api-keys", get(handlers::api_key::list_api_keys))
         .route("/api-keys", post(handlers::api_key::create_api_key))
         .route("/api-keys/{id}", get(handlers::api_key::get_api_key))
-        .route("/api-keys/{id}", axum::routing::put(handlers::api_key::update_api_key))
         .route(
             "/api-keys/{id}",
-            delete(handlers::api_key::delete_api_key),
+            axum::routing::put(handlers::api_key::update_api_key),
         )
+        .route("/api-keys/{id}", delete(handlers::api_key::delete_api_key))
         .route("/api-keys/{id}/test", post(handlers::api_key::test_api_key))
         .layer(Extension(key_store.clone()))
         .layer(Extension(signed_client.clone()))
@@ -373,15 +376,24 @@ fn create_router(
         .route("/reviews/submit", post(handlers::review::submit_for_review))
         .route("/reviews/approve", post(handlers::review::approve_strategy))
         .route("/reviews/reject", post(handlers::review::reject_strategy))
-        .route("/reviews/pending", get(handlers::review::list_pending_reviews))
-        .route("/reviews/{strategy_id}", get(handlers::review::get_strategy_review))
+        .route(
+            "/reviews/pending",
+            get(handlers::review::list_pending_reviews),
+        )
+        .route(
+            "/reviews/{strategy_id}",
+            get(handlers::review::get_strategy_review),
+        )
         .layer(middleware::from_fn(
             quant_trading_backend::middleware::auth::auth_middleware,
         ));
 
     // Admin API Key routes (authenticated + admin role check inside handler)
     let admin_api_key_routes = Router::new()
-        .route("/admin/api-keys", get(handlers::api_key::admin_list_api_keys))
+        .route(
+            "/admin/api-keys",
+            get(handlers::api_key::admin_list_api_keys),
+        )
         .layer(Extension(key_store.clone()))
         .layer(middleware::from_fn(
             quant_trading_backend::middleware::auth::auth_middleware,
@@ -441,6 +453,12 @@ fn create_router(
         .nest(
             "/api/v1",
             handlers::trigger_order::router().layer(middleware::from_fn(
+                quant_trading_backend::middleware::auth::auth_middleware,
+            )),
+        )
+        .nest(
+            "/api/v1",
+            handlers::arbitrage::router().layer(middleware::from_fn(
                 quant_trading_backend::middleware::auth::auth_middleware,
             )),
         )

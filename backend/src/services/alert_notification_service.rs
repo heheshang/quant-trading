@@ -132,7 +132,10 @@ impl AlertNotificationService {
     }
 
     /// 同步发送（不带收敛检查，用于测试）
-    pub async fn send_alert_no_dedup(&self, notification: &AlertNotification) -> Result<(), String> {
+    pub async fn send_alert_no_dedup(
+        &self,
+        notification: &AlertNotification,
+    ) -> Result<(), String> {
         let channels = self.channels.read().await;
 
         if channels.is_empty() {
@@ -173,9 +176,9 @@ impl Default for AlertNotificationService {
 
 #[cfg(test)]
 mod tests {
+    use super::{AlertNotification, AlertNotificationService, NotificationChannel};
     use std::pin::Pin;
     use std::sync::atomic::{AtomicUsize, Ordering};
-    use super::{AlertNotification, AlertNotificationService, NotificationChannel};
 
     // Mock channel for testing
     #[derive(Debug)]
@@ -214,8 +217,7 @@ mod tests {
             &'a self,
             _notification: &'a AlertNotification,
         ) -> Pin<Box<dyn Future<Output = Result<(), String>> + Send + 'a>> {
-            self.call_count
-                .fetch_add(1, Ordering::SeqCst);
+            self.call_count.fetch_add(1, Ordering::SeqCst);
             if self.should_fail {
                 Box::pin(async { Err("Mock failure".to_string()) })
             } else {

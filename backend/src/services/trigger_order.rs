@@ -12,10 +12,7 @@ use tracing::{error, info};
 use uuid::Uuid;
 
 use crate::db::order::positions::Entity as PositionEntity;
-use crate::db::order::{
-    OrderSide, OrderStatus, OrderType, TimeInForce,
-    TradeMode,
-};
+use crate::db::order::{OrderSide, OrderStatus, OrderType, TimeInForce, TradeMode};
 use crate::db::trigger_order::{
     ActiveModel as TriggerOrderActive, Entity as TriggerOrderEntity, Model as TriggerOrder,
     TriggerDirection, TriggerStatus, TriggerType, TwapSide,
@@ -391,7 +388,7 @@ impl TriggerOrderService {
             twap_start_time: Set(Some(now)),
             twap_end_time: Set(Some(end_time)),
             twap_executed_slices: Set(0),
-            twap_max_slices: Set(((duration_secs / interval_secs))),
+            twap_max_slices: Set((duration_secs / interval_secs)),
             oco_pair_id: Set(None),
             triggered_order_id: Set(None),
             trigger_reason: Set(None),

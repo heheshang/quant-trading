@@ -339,9 +339,7 @@ pub async fn create_order(
     }
 
     // P1-F4: Check order rate limit before processing
-    let rate_limit_info = rate_limiter
-        .check(user.user_id, &req.symbol)
-        .await?;
+    let rate_limit_info = rate_limiter.check(user.user_id, &req.symbol).await?;
 
     // Build rate limit headers
     let mut headers = HeaderMap::new();

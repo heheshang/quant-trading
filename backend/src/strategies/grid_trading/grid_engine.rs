@@ -1,9 +1,9 @@
 //! Grid Engine — Core grid trading logic
 
-use std::collections::HashMap;
-use super::types::{GridConfig, GridOrder, GridPosition, GridStatus, MarketMode, OrderSide};
 use super::market_mode::MarketModeDetector;
 use super::martingale::MartingaleTracker;
+use super::types::{GridConfig, GridOrder, GridPosition, GridStatus, MarketMode, OrderSide};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub struct GridEngine {
@@ -21,7 +21,10 @@ impl GridEngine {
     pub fn new(config: GridConfig) -> Self {
         let grid_spacing = config.grid_spacing();
         let martingale = config.martingale.clone().map(MartingaleTracker::new);
-        let market_detector = config.dynamic.clone().map(|d| MarketModeDetector::new(d.atr_period, d.atr_period * 2));
+        let market_detector = config
+            .dynamic
+            .clone()
+            .map(|d| MarketModeDetector::new(d.atr_period, d.atr_period * 2));
         Self {
             config,
             grid_spacing,
@@ -67,7 +70,10 @@ impl GridEngine {
                     if side == OrderSide::BUY {
                         mg.calculate_quantity(base_qty, grid_idx)
                     } else {
-                        self.positions.get(&grid_idx).map(|p| p.buy_quantity).unwrap_or(base_qty)
+                        self.positions
+                            .get(&grid_idx)
+                            .map(|p| p.buy_quantity)
+                            .unwrap_or(base_qty)
                     }
                 } else {
                     base_qty
@@ -88,7 +94,11 @@ impl GridEngine {
 
     pub fn on_order_filled(&mut self, order: &GridOrder) {
         if order.side == OrderSide::BUY {
-            let ml = self.martingale.as_ref().map(|m| m.get_level(order.grid_level)).unwrap_or(0);
+            let ml = self
+                .martingale
+                .as_ref()
+                .map(|m| m.get_level(order.grid_level))
+                .unwrap_or(0);
             let pos = GridPosition {
                 grid_level: order.grid_level,
                 buy_price: order.price,
@@ -99,7 +109,9 @@ impl GridEngine {
             };
             self.positions.insert(order.grid_level, pos);
             if order.is_martingale {
-                if let Some(ref mut mg) = self.martingale { mg.record_loss(order.grid_level); }
+                if let Some(ref mut mg) = self.martingale {
+                    mg.record_loss(order.grid_level);
+                }
             }
         } else {
             if let Some(mut pos) = self.positions.remove(&order.grid_level) {
@@ -107,7 +119,9 @@ impl GridEngine {
                 pos.closed = true;
                 let pnl = (pos.sell_price.unwrap() - pos.buy_price) * pos.buy_quantity;
                 self.realized_pnl += pnl;
-                if let Some(ref mut mg) = self.martingale { mg.record_profit(order.grid_level); }
+                if let Some(ref mut mg) = self.martingale {
+                    mg.record_profit(order.grid_level);
+                }
             }
         }
     }
@@ -115,7 +129,11 @@ impl GridEngine {
     pub fn get_status(&self) -> GridStatus {
         let mut unrealized_pnl = 0.0;
         let filled_grids: Vec<u32> = self.positions.keys().copied().collect();
-        let market_mode = self.market_detector.as_ref().map(|d| d.get_mode()).unwrap_or(MarketMode::Unknown);
+        let market_mode = self
+            .market_detector
+            .as_ref()
+            .map(|d| d.get_mode())
+            .unwrap_or(MarketMode::Unknown);
         let martingale_level = self.martingale.as_ref().map(|m| m.max_level()).unwrap_or(0);
         GridStatus {
             total_pnl: self.realized_pnl + unrealized_pnl,
@@ -138,7 +156,10 @@ impl GridEngine {
     }
 
     pub fn market_mode(&self) -> MarketMode {
-        self.market_detector.as_ref().map(|d| d.get_mode()).unwrap_or(MarketMode::Unknown)
+        self.market_detector
+            .as_ref()
+            .map(|d| d.get_mode())
+            .unwrap_or(MarketMode::Unknown)
     }
 
     pub fn adjust_grid_spacing(&mut self, new_spacing: f64) {

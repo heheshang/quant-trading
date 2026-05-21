@@ -5,12 +5,12 @@
 //! - 自动清理超过 retention_months 的分区
 //! - 后台定时任务，每日 UTC 00:00 检查
 
+use chrono::Datelike;
 use sea_orm::{ConnectionTrait, DatabaseBackend, Statement};
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tokio::time::{interval, Duration};
+use tokio::time::{Duration, interval};
 use tracing::{error, info, warn};
-use chrono::Datelike;
 
 /// 分区保留月数（默认 12 个月）
 const DEFAULT_RETENTION_MONTHS: u32 = 12;
@@ -20,7 +20,7 @@ const FUTURE_PARTITION_MONTHS: u32 = 2;
 /// 分区信息
 #[derive(Debug, Clone)]
 pub struct PartitionInfo {
-    pub name: String,        // e.g. "klines_2026_05"
+    pub name: String, // e.g. "klines_2026_05"
     pub year: i32,
     pub month: u32,
     pub row_count: Option<i64>,
@@ -84,7 +84,11 @@ impl KlinePartitionManager {
     ) -> Result<(), crate::utils::error::AppError> {
         let name = Self::partition_name(year, month);
         let start = format!("{}-{:02}-01 00:00:00+00:00", year, month);
-        let (ny, nm) = if month == 12 { (year + 1, 1) } else { (year, month + 1) };
+        let (ny, nm) = if month == 12 {
+            (year + 1, 1)
+        } else {
+            (year, month + 1)
+        };
         let end = format!("{}-{:02}-01 00:00:00+00:00", ny, nm);
 
         let sql = format!(
@@ -124,7 +128,10 @@ impl KlinePartitionManager {
         let detach_sql = format!("ALTER TABLE {} DETACH CONCURRENTLY", name);
         let db = self.db.as_ref();
         let _ = db
-            .execute(Statement::from_string(DatabaseBackend::Postgres, detach_sql))
+            .execute(Statement::from_string(
+                DatabaseBackend::Postgres,
+                detach_sql,
+            ))
             .await;
 
         // Step 2: Drop
@@ -141,7 +148,9 @@ impl KlinePartitionManager {
     }
 
     /// 列出所有现有分区（按名称排序）
-    pub async fn list_partitions(&self) -> Result<Vec<PartitionInfo>, crate::utils::error::AppError> {
+    pub async fn list_partitions(
+        &self,
+    ) -> Result<Vec<PartitionInfo>, crate::utils::error::AppError> {
         let simple_sql = r#"
             SELECT child.relname AS partition_name
             FROM pg_inherits
@@ -217,7 +226,10 @@ impl KlinePartitionManager {
             }
         }
 
-        info!(created_partitions = created, "ensure_future_partitions completed");
+        info!(
+            created_partitions = created,
+            "ensure_future_partitions completed"
+        );
         Ok(())
     }
 
@@ -256,7 +268,10 @@ impl KlinePartitionManager {
             }
         }
 
-        info!(dropped_partitions = dropped, "cleanup_old_partitions completed");
+        info!(
+            dropped_partitions = dropped,
+            "cleanup_old_partitions completed"
+        );
         Ok(())
     }
 
@@ -307,9 +322,18 @@ mod tests {
 
     #[test]
     fn test_partition_name() {
-        assert_eq!(KlinePartitionManager::partition_name(2026, 5), "klines_2026_05");
-        assert_eq!(KlinePartitionManager::partition_name(2026, 12), "klines_2026_12");
-        assert_eq!(KlinePartitionManager::partition_name(2027, 1), "klines_2027_01");
+        assert_eq!(
+            KlinePartitionManager::partition_name(2026, 5),
+            "klines_2026_05"
+        );
+        assert_eq!(
+            KlinePartitionManager::partition_name(2026, 12),
+            "klines_2026_12"
+        );
+        assert_eq!(
+            KlinePartitionManager::partition_name(2027, 1),
+            "klines_2027_01"
+        );
     }
 
     #[test]
@@ -321,9 +345,15 @@ mod tests {
     #[test]
     fn test_next_month_start_ms() {
         // May -> June
-        assert_eq!(KlinePartitionManager::next_month_start_ms(2026, 5), KlinePartitionManager::month_start_ms(2026, 6));
+        assert_eq!(
+            KlinePartitionManager::next_month_start_ms(2026, 5),
+            KlinePartitionManager::month_start_ms(2026, 6)
+        );
         // December -> January next year
-        assert_eq!(KlinePartitionManager::next_month_start_ms(2026, 12), KlinePartitionManager::month_start_ms(2027, 1));
+        assert_eq!(
+            KlinePartitionManager::next_month_start_ms(2026, 12),
+            KlinePartitionManager::month_start_ms(2027, 1)
+        );
     }
 
     #[test]

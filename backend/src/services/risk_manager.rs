@@ -161,7 +161,7 @@ impl RiskManager {
         user_id: Uuid,
         order_side: &str, // "buy" or "sell"
         order_quantity: &str,
-        order_price: Option<f64>,   // 改为真实 f64 类型
+        order_price: Option<f64>,     // 改为真实 f64 类型
         stop_loss_price: Option<f64>, // 止损触发价
     ) -> Result<(), AppError> {
         // 1. 加载风控规则
@@ -437,7 +437,7 @@ mod tests {
             daily_loss_limit: Decimal::new(1000, 0),
             daily_loss_auto_close: true,
             single_trade_loss_ratio: Decimal::new(2, 2), // 0.02
-            max_drawdown_ratio: Decimal::new(10, 2), // 0.10
+            max_drawdown_ratio: Decimal::new(10, 2),     // 0.10
             drawdown_auto_close: true,
             stop_loss_type: "fixed".to_string(),
             atr_period: Some(14),

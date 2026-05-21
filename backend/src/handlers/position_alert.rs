@@ -207,8 +207,6 @@ pub async fn list_alerts(
     State(db): State<Arc<DatabaseConnection>>,
     Query(params): Query<ListAlertsQuery>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    
-
     let service = PositionAlertService::new(db);
 
     let alerts = if let Some(position_id) = &params.position_id {

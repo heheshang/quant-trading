@@ -70,7 +70,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 }
 
-async fn run_http_stress(args: Args, scenario: scenarios::Scenario) -> Result<(), Box<dyn std::error::Error>> {
+async fn run_http_stress(
+    args: Args,
+    scenario: scenarios::Scenario,
+) -> Result<(), Box<dyn std::error::Error>> {
     let client = HttpStressClient::new(&args.host, args.token.as_deref()).await?;
 
     // Warmup phase
@@ -78,7 +81,11 @@ async fn run_http_stress(args: Args, scenario: scenarios::Scenario) -> Result<()
     let warmup_start = std::time::Instant::now();
     while warmup_start.elapsed().as_secs() < args.warmup {
         let _ = client
-            .request(&scenario.method, &scenario.endpoint, scenario.body.as_deref())
+            .request(
+                &scenario.method,
+                &scenario.endpoint,
+                scenario.body.as_deref(),
+            )
             .await;
         tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
     }
@@ -124,7 +131,10 @@ async fn run_http_stress(args: Args, scenario: scenarios::Scenario) -> Result<()
     Ok(())
 }
 
-async fn run_ws_stress(_args: Args, _scenario: scenarios::Scenario) -> Result<(), Box<dyn std::error::Error>> {
+async fn run_ws_stress(
+    _args: Args,
+    _scenario: scenarios::Scenario,
+) -> Result<(), Box<dyn std::error::Error>> {
     println!("🔌 WebSocket stress test not yet implemented");
     println!("   (Use HTTP scenarios for now: order_write, order_read, portfolio, health)");
     Ok(())

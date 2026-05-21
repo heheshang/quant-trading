@@ -3,9 +3,9 @@
 //! REST API for strategy review workflow: submit, approve, reject, list pending
 
 use axum::{
+    Extension, Json,
     extract::{Path, Query, State},
     http::StatusCode,
-    Extension, Json,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -76,8 +76,7 @@ pub async fn approve_strategy(
     State(db): State<Arc<DatabaseConnection>>,
     Json(body): Json<ReviewDecisionRequest>,
 ) -> Result<Json<ApiResponse<ReviewResponse>>, AppError> {
-    let review =
-        review_service::approve_strategy(&db, body.strategy_id, user.user_id).await?;
+    let review = review_service::approve_strategy(&db, body.strategy_id, user.user_id).await?;
     Ok(Json(ApiResponse::success(review.into())))
 }
 
@@ -87,13 +86,8 @@ pub async fn reject_strategy(
     State(db): State<Arc<DatabaseConnection>>,
     Json(body): Json<ReviewDecisionRequest>,
 ) -> Result<Json<ApiResponse<ReviewResponse>>, AppError> {
-    let review = review_service::reject_strategy(
-        &db,
-        body.strategy_id,
-        user.user_id,
-        body.reason,
-    )
-    .await?;
+    let review =
+        review_service::reject_strategy(&db, body.strategy_id, user.user_id, body.reason).await?;
     Ok(Json(ApiResponse::success(review.into())))
 }
 

@@ -235,7 +235,12 @@ impl BacktestEngine {
     /// Applies slippage (sell at bid) and deducts trading fees.
     /// Enforces price limits: execution price must not fall below `lower_limit`.
     /// No-op if insufficient cash for fees.
-    fn open_short(&mut self, kline: &Kline, pct: f64, (_, lower_limit): (Option<f64>, Option<f64>)) {
+    fn open_short(
+        &mut self,
+        kline: &Kline,
+        pct: f64,
+        (_, lower_limit): (Option<f64>, Option<f64>),
+    ) {
         let pct = pct.clamp(0.0, 1.0);
         let slippage = kline.close * self.config.slippage_rate;
         let exec_price = kline.close - slippage;
@@ -342,7 +347,10 @@ impl BacktestEngine {
         if pct <= 0.0 || prev_close <= 0.0 {
             return (None, None);
         }
-        (Some(prev_close * (1.0 + pct)), Some(prev_close * (1.0 - pct)))
+        (
+            Some(prev_close * (1.0 + pct)),
+            Some(prev_close * (1.0 - pct)),
+        )
     }
 
     /// Check stop-loss and take-profit levels against the current bar's high/low.

@@ -5,25 +5,23 @@ use std::sync::Arc;
 
 use axum::{
     extract::{Query, State},
-    http::{header::CONTENT_DISPOSITION, HeaderMap},
+    http::{HeaderMap, header::CONTENT_DISPOSITION},
     response::IntoResponse,
 };
 use csv::Writer;
 use sea_orm::{
-    ColumnTrait, DatabaseConnection, EntityTrait, Order as DbOrder, PaginatorTrait,
-    QueryFilter, QueryOrder, QuerySelect,
+    ColumnTrait, DatabaseConnection, EntityTrait, Order as DbOrder, PaginatorTrait, QueryFilter,
+    QueryOrder, QuerySelect,
 };
 use serde::Deserialize;
 use uuid::Uuid;
-use zip::write::SimpleFileOptions;
 use zip::ZipWriter;
+use zip::write::SimpleFileOptions;
 
 use crate::db::order::paper_accounts;
 use crate::db::order::positions;
 use crate::db::order::trades;
-use crate::handlers::order::{
-    AccountResponse, OrderResponse, PositionResponse, TradeResponse,
-};
+use crate::handlers::order::{AccountResponse, OrderResponse, PositionResponse, TradeResponse};
 use crate::middleware::auth::AuthenticatedUser;
 use crate::utils::error::AppError;
 use chrono::Local;
@@ -39,7 +37,10 @@ pub struct ExportQuery {
 
 fn parse_format(query: &ExportQuery) -> (&str, &str) {
     match query.format.as_deref() {
-        Some("xlsx") | Some("excel") => ("xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+        Some("xlsx") | Some("excel") => (
+            "xlsx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ),
         _ => ("csv", "text/csv; charset=utf-8"),
     }
 }
@@ -84,7 +85,8 @@ fn write_xlsx_static_files<W: Write + std::io::Seek>(
 <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
 <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
 </Types>"#;
-    zw.write_all(ct.as_bytes()).map_err(|e| AppError::Internal(e.to_string()))?;
+    zw.write_all(ct.as_bytes())
+        .map_err(|e| AppError::Internal(e.to_string()))?;
     zw.flush().map_err(|e| AppError::Internal(e.to_string()))?;
 
     // _rels/.rels
@@ -93,7 +95,8 @@ fn write_xlsx_static_files<W: Write + std::io::Seek>(
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
 <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
 </Relationships>"#;
-    zw.write_all(rels.as_bytes()).map_err(|e| AppError::Internal(e.to_string()))?;
+    zw.write_all(rels.as_bytes())
+        .map_err(|e| AppError::Internal(e.to_string()))?;
     zw.flush().map_err(|e| AppError::Internal(e.to_string()))?;
 
     // xl/workbook.xml
@@ -102,7 +105,8 @@ fn write_xlsx_static_files<W: Write + std::io::Seek>(
 <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
 <sheets><sheet name="Data" sheetId="1" r:id="rId1" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/></sheets>
 </workbook>"#;
-    zw.write_all(wb.as_bytes()).map_err(|e| AppError::Internal(e.to_string()))?;
+    zw.write_all(wb.as_bytes())
+        .map_err(|e| AppError::Internal(e.to_string()))?;
     zw.flush().map_err(|e| AppError::Internal(e.to_string()))?;
 
     // xl/_rels/workbook.xml.rels
@@ -111,7 +115,8 @@ fn write_xlsx_static_files<W: Write + std::io::Seek>(
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
 <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
 </Relationships>"#;
-    zw.write_all(wbrels.as_bytes()).map_err(|e| AppError::Internal(e.to_string()))?;
+    zw.write_all(wbrels.as_bytes())
+        .map_err(|e| AppError::Internal(e.to_string()))?;
     zw.flush().map_err(|e| AppError::Internal(e.to_string()))?;
 
     Ok(())
@@ -120,8 +125,19 @@ fn write_xlsx_static_files<W: Write + std::io::Seek>(
 // ─── Order export ─────────────────────────────────────────────────────────────
 
 const ORDER_HEADERS: [&str; 13] = [
-    "订单ID", "交易对", "方向", "类型", "价格", "数量", "已成交数量",
-    "平均成交价", "状态", "模式", "手续费", "有效时间", "创建时间",
+    "订单ID",
+    "交易对",
+    "方向",
+    "类型",
+    "价格",
+    "数量",
+    "已成交数量",
+    "平均成交价",
+    "状态",
+    "模式",
+    "手续费",
+    "有效时间",
+    "创建时间",
 ];
 
 fn export_orders_csv(orders: &[OrderResponse]) -> Result<(HeaderMap, Vec<u8>), AppError> {
@@ -156,9 +172,11 @@ fn export_orders_csv(orders: &[OrderResponse]) -> Result<(HeaderMap, Vec<u8>), A
 }
 
 fn build_orders_sheet_xml(orders: &[OrderResponse]) -> String {
-    let mut xml = String::from(r#"<?xml version="1.0" encoding="UTF-8"?>
+    let mut xml = String::from(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-<sheetData>"#);
+<sheetData>"#,
+    );
 
     // Header row
     xml.push_str(r#"<row r="1">"#);
@@ -206,11 +224,10 @@ fn export_orders_xlsx(orders: &[OrderResponse]) -> Result<(HeaderMap, Vec<u8>), 
     let mut buf = Vec::new();
     {
         let mut zw = ZipWriter::new(std::io::Cursor::new(&mut buf));
-        let opts = SimpleFileOptions::default()
-            .compression_method(zip::CompressionMethod::Deflated);
+        let opts =
+            SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
 
-        write_xlsx_static_files(&mut zw, opts)
-            .map_err(|e| AppError::Internal(e.to_string()))?;
+        write_xlsx_static_files(&mut zw, opts).map_err(|e| AppError::Internal(e.to_string()))?;
 
         let sheet_xml = build_orders_sheet_xml(orders);
         start_file(&mut zw, "xl/worksheets/sheet1.xml", opts)?;
@@ -218,8 +235,7 @@ fn export_orders_xlsx(orders: &[OrderResponse]) -> Result<(HeaderMap, Vec<u8>), 
             .map_err(|e| AppError::Internal(e.to_string()))?;
         zw.flush().map_err(|e| AppError::Internal(e.to_string()))?;
 
-        zw.finish()
-            .map_err(|e| AppError::Internal(e.to_string()))?;
+        zw.finish().map_err(|e| AppError::Internal(e.to_string()))?;
     }
 
     let mut headers = HeaderMap::new();
@@ -242,8 +258,8 @@ async fn fetch_orders_page(
     page: u64,
     page_size: u64,
 ) -> Result<Vec<OrderResponse>, AppError> {
-    use crate::db::order::Entity as OrderEntity;
     use crate::db::order::Column;
+    use crate::db::order::Entity as OrderEntity;
 
     let paginator = OrderEntity::find()
         .filter(Column::UserId.eq(user_id))
@@ -330,7 +346,15 @@ pub async fn export_orders(
 // ─── Trade export ─────────────────────────────────────────────────────────────
 
 const TRADE_HEADERS: [&str; 9] = [
-    "成交ID", "订单ID", "交易对", "方向", "价格", "数量", "手续费", "做市商", "成交时间",
+    "成交ID",
+    "订单ID",
+    "交易对",
+    "方向",
+    "价格",
+    "数量",
+    "手续费",
+    "做市商",
+    "成交时间",
 ];
 
 fn export_trades_csv(trades: &[TradeResponse]) -> Result<(HeaderMap, Vec<u8>), AppError> {
@@ -361,9 +385,11 @@ fn export_trades_csv(trades: &[TradeResponse]) -> Result<(HeaderMap, Vec<u8>), A
 }
 
 fn build_trades_sheet_xml(trades: &[TradeResponse]) -> String {
-    let mut xml = String::from(r#"<?xml version="1.0" encoding="UTF-8"?>
+    let mut xml = String::from(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-<sheetData>"#);
+<sheetData>"#,
+    );
 
     xml.push_str("<row r=\"1\">");
     for (i, h) in TRADE_HEADERS.iter().enumerate() {
@@ -409,11 +435,10 @@ fn export_trades_xlsx(trades: &[TradeResponse]) -> Result<(HeaderMap, Vec<u8>), 
     let mut buf = Vec::new();
     {
         let mut zw = ZipWriter::new(std::io::Cursor::new(&mut buf));
-        let opts = SimpleFileOptions::default()
-            .compression_method(zip::CompressionMethod::Deflated);
+        let opts =
+            SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
 
-        write_xlsx_static_files(&mut zw, opts)
-            .map_err(|e| AppError::Internal(e.to_string()))?;
+        write_xlsx_static_files(&mut zw, opts).map_err(|e| AppError::Internal(e.to_string()))?;
 
         let sheet_xml = build_trades_sheet_xml(trades);
         start_file(&mut zw, "xl/worksheets/sheet1.xml", opts)?;
@@ -421,8 +446,7 @@ fn export_trades_xlsx(trades: &[TradeResponse]) -> Result<(HeaderMap, Vec<u8>), 
             .map_err(|e| AppError::Internal(e.to_string()))?;
         zw.flush().map_err(|e| AppError::Internal(e.to_string()))?;
 
-        zw.finish()
-            .map_err(|e| AppError::Internal(e.to_string()))?;
+        zw.finish().map_err(|e| AppError::Internal(e.to_string()))?;
     }
 
     let mut headers = HeaderMap::new();
@@ -445,8 +469,8 @@ async fn fetch_trades_page(
     page: u64,
     page_size: u64,
 ) -> Result<Vec<TradeResponse>, AppError> {
-    use crate::db::order::trades::Entity as TradeEntity;
     use crate::db::order::trades::Column;
+    use crate::db::order::trades::Entity as TradeEntity;
 
     let paginator = TradeEntity::find()
         .filter(Column::UserId.eq(user_id))
@@ -513,14 +537,24 @@ pub async fn export_trades(
 // ─── Position export ─────────────────────────────────────────────────────────
 
 const POSITION_HEADERS: [&str; 10] = [
-    "持仓ID", "交易对", "方向", "数量", "可用数量", "开仓均价",
-    "未实现盈亏", "已实现盈亏", "模式", "创建时间",
+    "持仓ID",
+    "交易对",
+    "方向",
+    "数量",
+    "可用数量",
+    "开仓均价",
+    "未实现盈亏",
+    "已实现盈亏",
+    "模式",
+    "创建时间",
 ];
 
 fn build_positions_sheet_xml(positions: &[PositionResponse]) -> String {
-    let mut xml = String::from(r#"<?xml version="1.0" encoding="UTF-8"?>
+    let mut xml = String::from(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-<sheetData>"#);
+<sheetData>"#,
+    );
 
     xml.push_str("<row r=\"1\">");
     for (i, h) in POSITION_HEADERS.iter().enumerate() {
@@ -563,11 +597,10 @@ fn export_positions_xlsx(positions: &[PositionResponse]) -> Result<(HeaderMap, V
     let mut buf = Vec::new();
     {
         let mut zw = ZipWriter::new(std::io::Cursor::new(&mut buf));
-        let opts = SimpleFileOptions::default()
-            .compression_method(zip::CompressionMethod::Deflated);
+        let opts =
+            SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
 
-        write_xlsx_static_files(&mut zw, opts)
-            .map_err(|e| AppError::Internal(e.to_string()))?;
+        write_xlsx_static_files(&mut zw, opts).map_err(|e| AppError::Internal(e.to_string()))?;
 
         let sheet_xml = build_positions_sheet_xml(positions);
         start_file(&mut zw, "xl/worksheets/sheet1.xml", opts)?;
@@ -575,8 +608,7 @@ fn export_positions_xlsx(positions: &[PositionResponse]) -> Result<(HeaderMap, V
             .map_err(|e| AppError::Internal(e.to_string()))?;
         zw.flush().map_err(|e| AppError::Internal(e.to_string()))?;
 
-        zw.finish()
-            .map_err(|e| AppError::Internal(e.to_string()))?;
+        zw.finish().map_err(|e| AppError::Internal(e.to_string()))?;
     }
 
     let mut headers = HeaderMap::new();
@@ -627,8 +659,8 @@ async fn fetch_positions_page(
     page: u64,
     page_size: u64,
 ) -> Result<Vec<PositionResponse>, AppError> {
-    use crate::db::order::positions::Entity as PositionEntity;
     use crate::db::order::positions::Column;
+    use crate::db::order::positions::Entity as PositionEntity;
 
     let paginator = PositionEntity::find()
         .filter(Column::UserId.eq(user_id))
@@ -703,9 +735,11 @@ fn build_account_sheet_xml(
     account: &Option<paper_accounts::Model>,
     positions: &[positions::Model],
 ) -> String {
-    let mut xml = String::from(r#"<?xml version="1.0" encoding="UTF-8"?>
+    let mut xml = String::from(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-<sheetData>"#);
+<sheetData>"#,
+    );
     let mut row: usize = 1;
 
     // Account info section
@@ -734,7 +768,9 @@ fn build_account_sheet_xml(
     }
 
     // Positions sub-table
-    xml.push_str(&format!("<row r=\"{row}\"><c r=\"A{row}\" t=\"inlineStr\"><is><t>=== 持仓 ===</t></is></c></row>"));
+    xml.push_str(&format!(
+        "<row r=\"{row}\"><c r=\"A{row}\" t=\"inlineStr\"><is><t>=== 持仓 ===</t></is></c></row>"
+    ));
     row += 1;
 
     xml.push_str(&format!("<row r=\"{row}\">"));
@@ -775,15 +811,17 @@ fn build_account_sheet_xml(
     xml
 }
 
-fn export_account_xlsx(account: &Option<paper_accounts::Model>, positions: &[positions::Model]) -> Result<(HeaderMap, Vec<u8>), AppError> {
+fn export_account_xlsx(
+    account: &Option<paper_accounts::Model>,
+    positions: &[positions::Model],
+) -> Result<(HeaderMap, Vec<u8>), AppError> {
     let mut buf = Vec::new();
     {
         let mut zw = ZipWriter::new(std::io::Cursor::new(&mut buf));
-        let opts = SimpleFileOptions::default()
-            .compression_method(zip::CompressionMethod::Deflated);
+        let opts =
+            SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
 
-        write_xlsx_static_files(&mut zw, opts)
-            .map_err(|e| AppError::Internal(e.to_string()))?;
+        write_xlsx_static_files(&mut zw, opts).map_err(|e| AppError::Internal(e.to_string()))?;
 
         let sheet_xml = build_account_sheet_xml(account, positions);
         start_file(&mut zw, "xl/worksheets/sheet1.xml", opts)?;
@@ -791,8 +829,7 @@ fn export_account_xlsx(account: &Option<paper_accounts::Model>, positions: &[pos
             .map_err(|e| AppError::Internal(e.to_string()))?;
         zw.flush().map_err(|e| AppError::Internal(e.to_string()))?;
 
-        zw.finish()
-            .map_err(|e| AppError::Internal(e.to_string()))?;
+        zw.finish().map_err(|e| AppError::Internal(e.to_string()))?;
     }
 
     let mut headers = HeaderMap::new();
@@ -809,7 +846,10 @@ fn export_account_xlsx(account: &Option<paper_accounts::Model>, positions: &[pos
     Ok((headers, buf))
 }
 
-fn export_account_csv(account: &Option<paper_accounts::Model>, positions: &[positions::Model]) -> Result<(HeaderMap, Vec<u8>), AppError> {
+fn export_account_csv(
+    account: &Option<paper_accounts::Model>,
+    positions: &[positions::Model],
+) -> Result<(HeaderMap, Vec<u8>), AppError> {
     let mut wtr = Writer::from_writer(vec![]);
 
     wtr.write_record(&["=== 账户信息 ==="])
@@ -876,8 +916,8 @@ async fn fetch_account(
     db: &DatabaseConnection,
     user_id: Uuid,
 ) -> Result<Option<paper_accounts::Model>, AppError> {
-    use crate::db::order::paper_accounts::Entity as AccountEntity;
     use crate::db::order::paper_accounts::Column;
+    use crate::db::order::paper_accounts::Entity as AccountEntity;
 
     let account = AccountEntity::find()
         .filter(Column::UserId.eq(user_id))
@@ -892,8 +932,8 @@ async fn fetch_all_positions(
     db: &DatabaseConnection,
     user_id: Uuid,
 ) -> Result<Vec<positions::Model>, AppError> {
-    use crate::db::order::positions::Entity as PositionEntity;
     use crate::db::order::positions::Column;
+    use crate::db::order::positions::Entity as PositionEntity;
 
     let positions = PositionEntity::find()
         .filter(Column::UserId.eq(user_id))

@@ -20,13 +20,16 @@ pub enum MarketMode {
 /// Martingale config
 #[derive(Debug, Clone)]
 pub struct MartingaleConfig {
-    pub multiplier: f64,         // Default 2.0
-    pub max_consecutive: u32,   // Default 5
+    pub multiplier: f64,      // Default 2.0
+    pub max_consecutive: u32, // Default 5
 }
 
 impl Default for MartingaleConfig {
     fn default() -> Self {
-        Self { multiplier: 2.0, max_consecutive: 5 }
+        Self {
+            multiplier: 2.0,
+            max_consecutive: 5,
+        }
     }
 }
 
@@ -40,7 +43,11 @@ pub struct DynamicGridConfig {
 
 impl Default for DynamicGridConfig {
     fn default() -> Self {
-        Self { atr_period: 14, atr_multiplier: 2.0, min_price_step: 0.1 }
+        Self {
+            atr_period: 14,
+            atr_multiplier: 2.0,
+            min_price_step: 0.1,
+        }
     }
 }
 

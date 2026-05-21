@@ -13,8 +13,8 @@ use std::sync::Arc;
 use tracing::{info, warn};
 use uuid::Uuid;
 
-use crate::db::order::positions::{Entity as PositionEntity, Model as Position};
 use crate::db::order::PositionSide;
+use crate::db::order::positions::{Entity as PositionEntity, Model as Position};
 use crate::db::position_alerts::{
     ActiveModel as AlertActive, AlertStatus, AlertType, Entity as AlertEntity, Model as AlertModel,
     TriggerMode,

@@ -26,8 +26,8 @@ type HmacSha256 = Hmac<Sha256>;
 /// # Returns
 /// * Lowercase hex string of the HMAC-SHA256 signature
 pub fn sign_request(secret_key: &str, query_string: &str) -> String {
-    let mut mac = HmacSha256::new_from_slice(secret_key.as_bytes())
-        .expect("HMAC can take key of any size");
+    let mut mac =
+        HmacSha256::new_from_slice(secret_key.as_bytes()).expect("HMAC can take key of any size");
     mac.update(query_string.as_bytes());
     let result = mac.finalize();
     hex::encode(result.into_bytes())
@@ -42,10 +42,7 @@ pub fn sign_request(secret_key: &str, query_string: &str) -> String {
 /// # Returns
 /// * Complete query string including timestamp and signature placeholder
 pub fn build_signed_query(params: &[(&str, &str)], timestamp: i64) -> String {
-    let mut query_parts: Vec<String> = params
-        .iter()
-        .map(|(k, v)| format!("{}={}", k, v))
-        .collect();
+    let mut query_parts: Vec<String> = params.iter().map(|(k, v)| format!("{}={}", k, v)).collect();
     query_parts.sort();
     query_parts.push(format!("timestamp={}", timestamp));
     query_parts.join("&")
@@ -69,7 +66,10 @@ pub struct BinanceApiKey {
 impl BinanceApiKey {
     /// Create a new API key pair
     pub fn new(api_key: String, secret_key: String) -> Self {
-        Self { api_key, secret_key }
+        Self {
+            api_key,
+            secret_key,
+        }
     }
 }
 
@@ -81,7 +81,8 @@ mod tests {
     fn test_sign_request() {
         // Known test vector from Binance API docs
         let secret_key = "NhqPtmdSJYdKjVHjA7PHZFHf7WhY9Rq47h0hBwRklP8HBxJfKR1wd3";
-        let query_string = "symbol=BTCUSDT&side=BUY&type=LIMIT&quantity=1&price=9000&timestamp=1641381404172";
+        let query_string =
+            "symbol=BTCUSDT&side=BUY&type=LIMIT&quantity=1&price=9000&timestamp=1641381404172";
         let sig = sign_request(secret_key, query_string);
         assert_eq!(sig.len(), 64); // SHA256 hex = 64 chars
         assert!(sig.chars().all(|c| c.is_ascii_hexdigit()));

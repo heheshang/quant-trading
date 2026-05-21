@@ -54,11 +54,7 @@ impl AlertNotification {
     }
 
     /// 创建带元数据的新通知
-    pub fn with_metadata(
-        mut self,
-        key: impl Into<String>,
-        value: impl serde::Serialize,
-    ) -> Self {
+    pub fn with_metadata(mut self, key: impl Into<String>, value: impl serde::Serialize) -> Self {
         if let Ok(v) = serde_json::to_value(value) {
             if let Some(obj) = self.metadata.as_object_mut() {
                 obj.insert(key.into(), v);

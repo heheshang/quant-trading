@@ -7,10 +7,10 @@ use std::future::Future;
 use std::pin::Pin;
 
 use super::{AlertNotification, NotificationChannel};
-use lettre::message::{Mailbox, MessageBuilder};
-use lettre::transport::smtp::authentication::Credentials;
-use lettre::transport::smtp::SmtpTransport;
 use lettre::Transport;
+use lettre::message::{Mailbox, MessageBuilder};
+use lettre::transport::smtp::SmtpTransport;
+use lettre::transport::smtp::authentication::Credentials;
 
 /// SMTP 邮件通知渠道
 #[derive(Debug, Clone)]
@@ -39,13 +39,15 @@ impl EmailChannel {
         let from = env::var("SMTP_FROM").ok();
         let to = env::var("ALERT_EMAIL_TO").ok();
 
-        let credentials =
-            match (host, port, user, password) {
-                (Some(host), Some(port), Some(user), Some(password)) => {
-                    Some(SmtpCredentials { host, port, user, password })
-                }
-                _ => None,
-            };
+        let credentials = match (host, port, user, password) {
+            (Some(host), Some(port), Some(user), Some(password)) => Some(SmtpCredentials {
+                host,
+                port,
+                user,
+                password,
+            }),
+            _ => None,
+        };
 
         Self {
             credentials,
@@ -55,7 +57,14 @@ impl EmailChannel {
     }
 
     /// 直接创建渠道
-    pub fn new(host: String, port: u16, user: String, password: String, from: String, to: String) -> Self {
+    pub fn new(
+        host: String,
+        port: u16,
+        user: String,
+        password: String,
+        from: String,
+        to: String,
+    ) -> Self {
         Self {
             credentials: Some(SmtpCredentials {
                 host,
@@ -120,8 +129,13 @@ impl NotificationChannel for EmailChannel {
         Box::pin(async move {
             // Build email
             let email = MessageBuilder::new()
-                .from(from.parse::<Mailbox>().map_err(|e| format!("Invalid from address: {}", e))?)
-                .to(to.parse::<Mailbox>().map_err(|e| format!("Invalid to address: {}", e))?)
+                .from(
+                    from.parse::<Mailbox>()
+                        .map_err(|e| format!("Invalid from address: {}", e))?,
+                )
+                .to(to
+                    .parse::<Mailbox>()
+                    .map_err(|e| format!("Invalid to address: {}", e))?)
                 .subject(format!(
                     "[{}] {}",
                     notification.severity.to_uppercase(),

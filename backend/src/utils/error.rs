@@ -10,6 +10,12 @@ pub enum AppError {
     #[error("Validation error: {0}")]
     Validation(String),
 
+    #[error("Invalid input: {0}")]
+    InvalidInput(String),
+
+    #[error("Lock error: {0}")]
+    LockError(String),
+
     #[error("Invalid credentials")]
     InvalidCredentials,
 
@@ -81,6 +87,8 @@ impl AppError {
             Self::RiskViolation(_) => 40006,
             Self::RiskPaused(_, _) => 40007,
             Self::Validation(_) => 40010,
+            Self::InvalidInput(_) => 40011,
+            Self::LockError(_) => 40012,
             Self::InvalidCredentials => 40101,
             Self::TokenExpired => 40102,
             Self::TokenInvalid(_) => 40103,
@@ -106,7 +114,9 @@ impl IntoResponse for AppError {
             | Self::InsufficientPosition(_)
             | Self::RiskViolation(_)
             | Self::RiskPaused(_, _)
-            | Self::Validation(_) => StatusCode::BAD_REQUEST,
+            | Self::Validation(_)
+            | Self::InvalidInput(_)
+            | Self::LockError(_) => StatusCode::BAD_REQUEST,
             Self::InvalidCredentials | Self::TokenExpired | Self::TokenInvalid(_) => {
                 StatusCode::UNAUTHORIZED
             }

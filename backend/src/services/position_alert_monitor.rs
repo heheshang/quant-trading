@@ -500,7 +500,8 @@ impl PositionAlertMonitor {
         self.trailing_state.lock().unwrap().remove(&alert_id);
 
         // 发送通知
-        self.send_alert_notification(&alert_for_notification, exit_reason, exit_price).await;
+        self.send_alert_notification(&alert_for_notification, exit_reason, exit_price)
+            .await;
 
         Ok(())
     }
@@ -520,9 +521,7 @@ impl PositionAlertMonitor {
             format!("告警触发: {}", alert.symbol),
             format!(
                 "{} 触发 {}，执行价: {}",
-                alert.symbol,
-                exit_reason,
-                exit_price
+                alert.symbol, exit_reason, exit_price
             ),
             "position_alert".to_string(),
             match exit_reason {

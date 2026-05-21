@@ -23,7 +23,11 @@ pub struct HttpReport {
 impl HttpReport {
     pub fn from_results(scenario: &str, results: &StressTestResults) -> Self {
         let latencies: Vec<u64> = results.results.iter().map(|r| r.latency_ms).collect();
-        let success_count = results.results.iter().filter(|r| r.status >= 200 && r.status < 400).count() as u64;
+        let success_count = results
+            .results
+            .iter()
+            .filter(|r| r.status >= 200 && r.status < 400)
+            .count() as u64;
         let error_count = results.results.len() as u64 - success_count;
         let error_rate = if results.results.is_empty() {
             0.0
@@ -51,7 +55,12 @@ impl HttpReport {
         let avg_ms = if results.results.is_empty() {
             0.0
         } else {
-            results.results.iter().map(|r| r.latency_ms as f64).sum::<f64>() / results.results.len() as f64
+            results
+                .results
+                .iter()
+                .map(|r| r.latency_ms as f64)
+                .sum::<f64>()
+                / results.results.len() as f64
         };
 
         let pass = qps >= 500.0 && p(0.99) <= 200 && error_rate <= 0.01;
@@ -88,13 +97,22 @@ mod tests {
     use super::*;
     use crate::http_client::{HttpResult, StressTestResults};
 
-    fn make_results(latencies: Vec<u64>, statuses: Vec<u16>, duration_ms: u64, total: u64) -> StressTestResults {
+    fn make_results(
+        latencies: Vec<u64>,
+        statuses: Vec<u16>,
+        duration_ms: u64,
+        total: u64,
+    ) -> StressTestResults {
         StressTestResults {
-            results: latencies.into_iter().zip(statuses.into_iter()).map(|(l, s)| HttpResult {
-                latency_ms: l,
-                status: s,
-                error: None,
-            }).collect(),
+            results: latencies
+                .into_iter()
+                .zip(statuses.into_iter())
+                .map(|(l, s)| HttpResult {
+                    latency_ms: l,
+                    status: s,
+                    error: None,
+                })
+                .collect(),
             total_requests: total,
             total_duration_ms: duration_ms,
         }

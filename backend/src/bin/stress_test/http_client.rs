@@ -1,6 +1,6 @@
 use reqwest::Client;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 #[derive(Debug)]
@@ -75,12 +75,7 @@ impl HttpStressClient {
         })
     }
 
-    pub async fn request(
-        &self,
-        method: &str,
-        endpoint: &str,
-        body: Option<&str>,
-    ) -> HttpResult {
+    pub async fn request(&self, method: &str, endpoint: &str, body: Option<&str>) -> HttpResult {
         let url = format!("{}{}", self.base_url.trim_end_matches('/'), endpoint);
         let start = Instant::now();
 
@@ -94,7 +89,7 @@ impl HttpStressClient {
                     latency_ms: start.elapsed().as_millis() as u64,
                     status: 0,
                     error: Some(format!("Unknown method: {}", method)),
-                }
+                };
             }
         };
 
@@ -147,9 +142,7 @@ impl HttpStressClient {
 
                 tokio::spawn(async move {
                     while start_time.elapsed().as_secs() < duration_secs {
-                        let result = client
-                            .request(&method, &endpoint, body.as_deref())
-                            .await;
+                        let result = client.request(&method, &endpoint, body.as_deref()).await;
                         counter.fetch_add(1, Ordering::Relaxed);
                         let _ = tx.send(result);
                     }

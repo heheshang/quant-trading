@@ -15,7 +15,11 @@ pub struct MartingaleTracker {
 
 impl MartingaleTracker {
     pub fn new(config: MartingaleConfig) -> Self {
-        Self { config, consecutive_losses: Vec::new(), max_level_reached: 0 }
+        Self {
+            config,
+            consecutive_losses: Vec::new(),
+            max_level_reached: 0,
+        }
     }
 
     pub fn initialize_grids(&mut self, grid_count: u32) {
@@ -23,7 +27,11 @@ impl MartingaleTracker {
     }
 
     pub fn get_quantity_multiplier(&self, grid_level: u32) -> f64 {
-        let level = self.consecutive_losses.get(grid_level as usize).copied().unwrap_or(0);
+        let level = self
+            .consecutive_losses
+            .get(grid_level as usize)
+            .copied()
+            .unwrap_or(0);
         self.config.multiplier.powi(level as i32)
     }
 
@@ -32,19 +40,29 @@ impl MartingaleTracker {
     }
 
     pub fn record_loss(&mut self, grid_level: u32) {
-        if grid_level >= self.consecutive_losses.len() as u32 { return; }
+        if grid_level >= self.consecutive_losses.len() as u32 {
+            return;
+        }
         let current = &mut self.consecutive_losses[grid_level as usize];
-        if *current < self.config.max_consecutive { *current += 1; }
+        if *current < self.config.max_consecutive {
+            *current += 1;
+        }
         self.max_level_reached = self.max_level_reached.max(*current);
     }
 
     pub fn record_profit(&mut self, grid_level: u32) {
-        if grid_level >= self.consecutive_losses.len() as u32 { return; }
+        if grid_level >= self.consecutive_losses.len() as u32 {
+            return;
+        }
         self.consecutive_losses[grid_level as usize] = 0;
     }
 
     pub fn is_at_max_level(&self, grid_level: u32) -> bool {
-        self.consecutive_losses.get(grid_level as usize).copied().unwrap_or(0) >= self.config.max_consecutive
+        self.consecutive_losses
+            .get(grid_level as usize)
+            .copied()
+            .unwrap_or(0)
+            >= self.config.max_consecutive
     }
 
     pub fn is_globally_at_max(&self) -> bool {
@@ -52,17 +70,27 @@ impl MartingaleTracker {
     }
 
     pub fn get_level(&self, grid_level: u32) -> u32 {
-        self.consecutive_losses.get(grid_level as usize).copied().unwrap_or(0)
+        self.consecutive_losses
+            .get(grid_level as usize)
+            .copied()
+            .unwrap_or(0)
     }
 
-    pub fn max_level(&self) -> u32 { self.max_level_reached }
+    pub fn max_level(&self) -> u32 {
+        self.max_level_reached
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn cfg() -> MartingaleConfig { MartingaleConfig { multiplier: 2.0, max_consecutive: 5 } }
+    fn cfg() -> MartingaleConfig {
+        MartingaleConfig {
+            multiplier: 2.0,
+            max_consecutive: 5,
+        }
+    }
 
     #[test]
     fn test_base_is_one() {
@@ -93,7 +121,9 @@ mod tests {
     fn test_max_capped() {
         let mut t = MartingaleTracker::new(cfg());
         t.initialize_grids(10);
-        for _ in 0..10 { t.record_loss(0); }
+        for _ in 0..10 {
+            t.record_loss(0);
+        }
         assert_eq!(t.get_level(0), 5);
         assert!(t.is_at_max_level(0));
     }

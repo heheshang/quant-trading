@@ -1,3 +1,4 @@
+pub mod arbitrage_entities;
 pub mod backtest;
 pub mod backtest_results;
 pub mod dashboard;
@@ -463,10 +464,32 @@ pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), sea_orm::DbEr
         "CREATE INDEX IF NOT EXISTS idx_strategy_reviews_strategy_id ON strategy_reviews (strategy_id)".to_string()
     )).await?;
 
-    info!("Database migrations completed");
-
     // Seed default roles if none exist
     seed_default_roles(db).await?;
+
+    // P3-F1: 套利模块三表
+    let stmt = backend.build(
+        schema
+            .create_table_from_entity(arbitrage_entities::pair::Entity)
+            .if_not_exists(),
+    );
+    db.execute(stmt).await?;
+
+    let stmt = backend.build(
+        schema
+            .create_table_from_entity(arbitrage_entities::position::Entity)
+            .if_not_exists(),
+    );
+    db.execute(stmt).await?;
+
+    let stmt = backend.build(
+        schema
+            .create_table_from_entity(arbitrage_entities::signal::Entity)
+            .if_not_exists(),
+    );
+    db.execute(stmt).await?;
+
+    info!("Database migrations completed");
 
     Ok(())
 }
