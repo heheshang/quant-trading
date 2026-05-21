@@ -83,9 +83,17 @@ hex = "0.4"
 base64 = "0.22"
 dashmap = "6"
 
+# CLI
+clap = { version = "4", features = ["derive"] }
+url = "2"
+
 # Email
 lettre = "0.11"
 native-tls = "0.2"
+
+[[bin]]
+name = "stress-test"
+path = "src/bin/stress_test/main.rs"
 
 [dev-dependencies]
 mockall = "0.13"
