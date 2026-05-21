@@ -23,5 +23,6 @@ pub mod strategy;
 pub mod strategy_state_manager;
 pub mod ticker_snapshot_writer;
 pub mod trigger_order;
+pub mod kline_partition_manager;
 
 pub use alert_notification_service::AlertNotificationService;

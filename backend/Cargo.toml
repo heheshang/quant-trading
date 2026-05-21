@@ -30,6 +30,7 @@ sea-orm = { version = "1", features = [
     "with-chrono",
     "with-uuid",
 ] }
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls"] }
 
 # Auth
 jsonwebtoken = "9"
