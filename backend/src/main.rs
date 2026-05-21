@@ -283,6 +283,7 @@ fn create_router(
         // Export routes
         .route("/exports/orders", get(handlers::export::export_orders))
         .route("/exports/trades", get(handlers::export::export_trades))
+        .route("/exports/positions", get(handlers::export::export_positions))
         .route("/exports/account", get(handlers::export::export_account))
         .layer(axum::Extension(matching_engine))
         .layer(axum::Extension(order_rate_limiter))
