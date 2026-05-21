@@ -456,12 +456,9 @@ fn create_router(
                 quant_trading_backend::middleware::auth::auth_middleware,
             )),
         )
-        .nest(
-            "/api/v1",
-            handlers::arbitrage::router().layer(middleware::from_fn(
-                quant_trading_backend::middleware::auth::auth_middleware,
-            )),
-        )
+        .merge(handlers::arbitrage::router().layer(middleware::from_fn(
+            quant_trading_backend::middleware::auth::auth_middleware,
+        )))
         .nest("/api/v1", dashboard_routes)
         .nest("/api/v1", backtest_routes)
         .nest("/api/v1", exchange_routes)
