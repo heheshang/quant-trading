@@ -102,8 +102,8 @@ async function loadPendingReviews() {
   try {
     const res = await listPendingReviews()
     pendingReviews.value = res.data?.items ?? res.data ?? []
-  } catch (e: any) {
-    ElMessage.error('加载待审核列表失败: ' + (e.message || e))
+  } catch (e: unknown) {
+    ElMessage.error('加载待审核列表失败: ' + String(e))
   } finally {
     loading.value = false
   }
@@ -125,8 +125,8 @@ async function handleApprove(row: ReviewResponse) {
     await approveStrategy({ strategy_id: row.strategy_id })
     ElMessage.success('策略已批准')
     await loadPendingReviews()
-  } catch (e: any) {
-    ElMessage.error('批准失败: ' + (e.message || e))
+  } catch (e: unknown) {
+    ElMessage.error('批准失败: ' + String(e))
   } finally {
     actionLoading.value = false
   }
@@ -152,8 +152,8 @@ async function handleReject() {
     ElMessage.success('策略已拒绝')
     rejectDialogVisible.value = false
     await loadPendingReviews()
-  } catch (e: any) {
-    ElMessage.error('拒绝失败: ' + (e.message || e))
+  } catch (e: unknown) {
+    ElMessage.error('拒绝失败: ' + String(e))
   } finally {
     actionLoading.value = false
   }

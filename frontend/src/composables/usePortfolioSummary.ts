@@ -12,8 +12,8 @@ export function usePortfolioSummary() {
     error.value = null
     try {
       summary.value = await portfolioApi.getPortfolioSummary(userId)
-    } catch (err: any) {
-      error.value = err?.message || '获取组合汇总失败'
+    } catch (err: unknown) {
+      error.value = err instanceof Error ? err.message : String(err) || '获取组合汇总失败'
     } finally {
       loading.value = false
     }

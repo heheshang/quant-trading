@@ -138,7 +138,7 @@ export interface StrategyFull {
   strategy_type?: StrategyType  // T4.5: 策略类型
   template_id: string    // ADR D6: UUID 引用
   template_type: string
-  parameters: Record<string, any>
+  parameters: Record<string, unknown>
   risk_config?: {
     max_position: number
     stop_loss: number
@@ -163,7 +163,7 @@ export interface StrategyParamDef {
   name: string
   label: string
   type: 'integer' | 'float' | 'select' | 'boolean' | 'string'
-  default?: any
+  default?: unknown
   min?: number
   max?: number
   options?: string[]
@@ -177,7 +177,7 @@ export interface StrategyTemplate {
   name: string
   description: string
   category: string
-  default_parameters: Record<string, any>
+  default_parameters: Record<string, unknown>
   parameter_schema: StrategyParamDef[]
   // T4.5: strategy_type derived from category for CreateStrategyPayload
   strategy_type?: StrategyType
@@ -200,14 +200,14 @@ export interface CreateStrategyPayload {
   strategy_type: StrategyType  // ADR D1 必填
   template_id?: string     // ADR D6: UUID，兼容旧 template_type 字段
   template_type?: string   // 兼容旧版
-  parameters: Record<string, any>
+  parameters: Record<string, unknown>
   strategy_code?: string   // T4.5: 可选 .py/.js 策略代码文件路径
 }
 
 /** Update strategy payload (ADR D3: symbol/timeframe immutable after create, D6: risk_config) */
 export interface UpdateStrategyPayload {
   name?: string
-  parameters?: Record<string, any>
+  parameters?: Record<string, unknown>
   risk_config?: {
     max_position: number
     stop_loss: number
@@ -235,7 +235,7 @@ export interface BacktestParams {
   initial_capital: number
   fee_rate?: number
   slippage?: number
-  strategy_params?: Record<string, any>
+  strategy_params?: Record<string, unknown>
 }
 
 export interface BacktestResult {

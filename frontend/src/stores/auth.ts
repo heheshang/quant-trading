@@ -59,8 +59,8 @@ export const useAuthStore = defineStore('auth', () => {
       user.value = res.user
       sessionStorage.setItem('auth_user', JSON.stringify(res.user))
       return true
-    } catch (e: any) {
-      error.value = e.response?.data?.message || e.message || 'Login failed'
+    } catch (e: unknown) {
+      error.value = (e as { response?: { data?: { message?: string }; message?: string }; message?: string })?.response?.data?.message || (e as { message?: string })?.message || 'Login failed'
       return false
     } finally {
       loading.value = false
@@ -76,8 +76,8 @@ export const useAuthStore = defineStore('auth', () => {
       user.value = res.user
       sessionStorage.setItem('auth_user', JSON.stringify(res.user))
       return true
-    } catch (e: any) {
-      error.value = e.response?.data?.message || e.message || 'Registration failed'
+    } catch (e: unknown) {
+      error.value = (e as { response?: { data?: { message?: string }; message?: string }; message?: string })?.response?.data?.message || (e as { message?: string })?.message || 'Registration failed'
       return false
     } finally {
       loading.value = false

@@ -111,7 +111,7 @@ export type TradeWsMessageType = 'order_update' | 'trade' | 'position_update' | 
 
 export interface TradeWsMessage {
   type: TradeWsMessageType
-  data: Record<string, any>
+  data: Record<string, unknown>
   ts: number
 }
 

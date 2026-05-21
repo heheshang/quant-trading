@@ -191,8 +191,8 @@ async function fetchOrders() {
     })
     orders.value = res.items
     total.value = res.total
-  } catch (err: any) {
-    ElMessage.error(err.message || '获取委托列表失败')
+  } catch (err: unknown) {
+    ElMessage.error((err as { message?: string })?.message || '获取委托列表失败')
   } finally {
     loading.value = false
   }
@@ -213,9 +213,9 @@ async function handleCancel(order: Order) {
     await cancelOrder(order.order_id)
     ElMessage.success('委托已撤销')
     await fetchOrders()
-  } catch (err: any) {
+  } catch (err: unknown) {
     if (err !== 'cancel') {
-      ElMessage.error(err.message || '撤单失败')
+      ElMessage.error((err as { message?: string })?.message || '撤单失败')
     }
   }
 }
@@ -233,9 +233,9 @@ async function handleCancelAll() {
     })
     ElMessage.success(`成功撤销 ${res.cancelled_count} 个委托${res.failed_count > 0 ? `，${res.failed_count} 个无法撤销` : ''}`)
     await fetchOrders()
-  } catch (err: any) {
+  } catch (err: unknown) {
     if (err !== 'cancel') {
-      ElMessage.error(err.message || '批量撤单失败')
+      ElMessage.error((err as { message?: string })?.message || '批量撤单失败')
     }
   }
 }

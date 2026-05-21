@@ -16,6 +16,7 @@ import BacktestView from '@/views/backtest/BacktestView.vue'
 import TradingView from '@/views/trade/TradingView.vue'
 import OrderManagementView from '@/views/order/OrderManagementView.vue'
 import PortfolioView from '@/views/portfolio/PortfolioView.vue'
+import RiskDashboardView from '@/views/risk/RiskDashboardView.vue'
 import SystemAdminView from '@/views/system/SystemAdminView.vue'
 import ApiKeyManagementView from '@/views/ApiKeyManagementView.vue'
 import LoginView from '@/views/dashboard/LoginView.vue'
@@ -127,6 +128,12 @@ const routes: RouteRecordRaw[] = [
         name: 'Portfolio',
         component: PortfolioView,
         meta: { requiresAuth: true, title: '持仓' },
+      },
+      {
+        path: 'risk',
+        name: 'RiskDashboard',
+        component: RiskDashboardView,
+        meta: { requiresAuth: true, title: '风控面板' },
       },
       {
         path: 'admin',

@@ -80,7 +80,7 @@ const form = reactive({
   confirmPassword: '',
 })
 
-const validateConfirm = (_rule: any, value: string, callback: any) => {
+const validateConfirm = (_rule: unknown, value: string, callback: (err?: Error) => void) => {
   if (value !== form.password) {
     callback(new Error('Passwords do not match'))
   } else {

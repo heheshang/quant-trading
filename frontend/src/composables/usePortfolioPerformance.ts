@@ -12,8 +12,8 @@ export function usePortfolioPerformance() {
     error.value = null
     try {
       performance.value = await portfolioApi.getPortfolioPerformance(userId)
-    } catch (err: any) {
-      error.value = err?.message || '获取策略绩效失败'
+    } catch (err: unknown) {
+      error.value = err instanceof Error ? err.message : String(err)
     } finally {
       loading.value = false
     }

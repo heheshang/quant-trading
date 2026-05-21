@@ -19,15 +19,15 @@ export function usePortfolioPositions() {
     loading.value = true
     error.value = null
     try {
-      const params: Record<string, any> = {
+      const params: Record<string, unknown> = {
         page: pagination.page,
         size: pagination.size,
       }
       if (filters.symbol) params.symbol = filters.symbol
       if (filters.side) params.side = filters.side
       positions.value = await portfolioApi.listPortfolioPositions(params)
-    } catch (err: any) {
-      error.value = err?.message || '获取持仓数据失败'
+    } catch (err: unknown) {
+      error.value = err instanceof Error ? err.message : String(err)
     } finally {
       loading.value = false
     }

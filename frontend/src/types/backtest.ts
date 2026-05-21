@@ -115,7 +115,7 @@ export interface BacktestParams {
   initial_capital: number
   fee_rate: number
   slippage_rate: number
-  strategy_params?: Record<string, any>
+  strategy_params?: Record<string, unknown>
 }
 
 /** @deprecated Use TradeRecord */

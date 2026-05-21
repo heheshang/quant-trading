@@ -53,7 +53,7 @@ client.interceptors.response.use(
     if (body.code !== 0) {
       return Promise.reject(new Error(body.message || 'Request failed'))
     }
-    return body.data as any
+    return body.data as unknown
   },
   async (error: AxiosError<ApiResponse<unknown>>) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean }

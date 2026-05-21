@@ -142,7 +142,7 @@ const formRules = computed<FormRules>(() => ({
     ? [
         { required: true, message: '请输入价格', trigger: 'blur' },
         {
-          validator: (_rule: any, value: string, callback: (err?: Error) => void) => {
+          validator: (_rule: unknown, value: string, callback: (err?: Error) => void) => {
             const num = parseFloat(value)
             if (isNaN(num) || num <= 0) {
               callback(new Error('价格必须大于0'))
@@ -163,7 +163,7 @@ const formRules = computed<FormRules>(() => ({
   quantity: [
     { required: true, message: '请输入数量', trigger: 'blur' },
     {
-      validator: (_rule: any, value: string, callback: (err?: Error) => void) => {
+      validator: (_rule: unknown, value: string, callback: (err?: Error) => void) => {
         const num = parseFloat(value)
         if (isNaN(num) || num <= 0) {
           callback(new Error('数量必须大于0'))
@@ -329,8 +329,8 @@ async function handleSubmit() {
         ? (props.bestAsk ?? '')
         : (props.bestBid ?? '')
     }
-  } catch (err: any) {
-    ElMessage.error(err.message || '委托提交失败')
+  } catch (err: unknown) {
+    ElMessage.error((err as { message?: string })?.message || '委托提交失败')
   } finally {
     submitting.value = false
   }

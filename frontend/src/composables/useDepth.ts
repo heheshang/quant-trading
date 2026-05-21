@@ -107,8 +107,8 @@ export function useDepth(symbol: Ref<string>, levels: Ref<number>) {
       depth.value.asks.sort((a, b) => a.price - b.price)
       recalculateTotals(depth.value.bids, 'desc')
       recalculateTotals(depth.value.asks, 'asc')
-    } catch (e: any) {
-      error.value = e.message || '获取深度数据失败'
+    } catch (e: unknown) {
+      error.value = e instanceof Error ? e.message : String(e)
     } finally {
       loading.value = false
     }

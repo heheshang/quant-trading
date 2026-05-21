@@ -25,8 +25,8 @@ export function useEquityCurve() {
         end_date: dateRange.value[1],
         granularity: granularity.value,
       })
-    } catch (err: any) {
-      error.value = err?.message || '获取权益曲线失败'
+    } catch (err: unknown) {
+      error.value = err instanceof Error ? err.message : String(err) || '获取权益曲线失败'
     } finally {
       loading.value = false
     }
