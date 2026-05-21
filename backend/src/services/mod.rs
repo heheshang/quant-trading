@@ -19,6 +19,7 @@ pub mod redis_cache;
 pub mod review;
 pub mod risk_manager;
 pub mod strategy;
+pub mod strategy_state_manager;
 pub mod ticker_snapshot_writer;
 pub mod trigger_order;
 

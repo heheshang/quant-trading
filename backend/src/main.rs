@@ -15,6 +15,8 @@ use quant_trading_backend::services::kline_writer::KlineWriter;
 use quant_trading_backend::services::matching_engine::MatchingEngine;
 use quant_trading_backend::services::order_rate_limiter::OrderRateLimiter;
 use quant_trading_backend::services::redis_cache::RedisCache;
+use quant_trading_backend::services::risk_manager::RiskManager;
+use quant_trading_backend::services::strategy_state_manager::StrategyStateManager;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use tower_http::cors::{Any, CorsLayer};
@@ -98,6 +100,14 @@ async fn main() {
             .build(),
     );
     ws_hub.start();
+
+    // F6: Initialize RiskManager and StrategyStateManager (断线暂停监控)
+    let risk_manager = Arc::new(RiskManager::new(db.clone()));
+    let state_manager = Arc::new(StrategyStateManager::new(
+        ws_hub.clone(),
+        risk_manager.clone(),
+    ));
+    state_manager.start();
 
     // Build application
     let app = create_router(

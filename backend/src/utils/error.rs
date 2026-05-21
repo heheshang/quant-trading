@@ -43,6 +43,10 @@ pub enum AppError {
     #[error("Risk violation: {0}")]
     RiskViolation(String),
 
+    /// F6: 40007 - 策略因断线已暂停（ERR_PAUSED = RF-004）
+    #[error("Strategy paused: {1} ({0})")]
+    RiskPaused(String, String),
+
     /// ADR D11: 40004 - 交易对不可交易
     #[error("Symbol not tradable: {0}")]
     SymbolNotTradable(String),
@@ -75,6 +79,7 @@ impl AppError {
             Self::SymbolNotTradable(_) => 40004,
             Self::InsufficientPosition(_) => 40005,
             Self::RiskViolation(_) => 40006,
+            Self::RiskPaused(_, _) => 40007,
             Self::Validation(_) => 40010,
             Self::InvalidCredentials => 40101,
             Self::TokenExpired => 40102,
@@ -100,6 +105,7 @@ impl IntoResponse for AppError {
             | Self::SymbolNotTradable(_)
             | Self::InsufficientPosition(_)
             | Self::RiskViolation(_)
+            | Self::RiskPaused(_, _)
             | Self::Validation(_) => StatusCode::BAD_REQUEST,
             Self::InvalidCredentials | Self::TokenExpired | Self::TokenInvalid(_) => {
                 StatusCode::UNAUTHORIZED

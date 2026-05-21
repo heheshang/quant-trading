@@ -185,6 +185,11 @@ impl WsHub {
         }
     }
 
+    /// F6: 返回策略是否因断线被暂停
+    pub fn is_strategy_paused(&self) -> bool {
+        self.strategy_paused_by_disconnect.load(Ordering::SeqCst)
+    }
+
     /// 记录一次 Binance 心跳（收到消息时调用）
     pub fn record_heartbeat(&self) {
         if let Ok(now) = UNIX_EPOCH.elapsed() {
