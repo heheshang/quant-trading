@@ -3,6 +3,7 @@ pub mod auth;
 pub mod backtest;
 pub mod backtest_engine;
 pub mod binance_rest;
+pub mod binance_signer;
 pub mod dashboard;
 pub mod exchange;
 pub mod indicator;
