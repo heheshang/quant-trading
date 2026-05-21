@@ -46,3 +46,60 @@ pub fn get_scenario(name: &str) -> Option<Box<Scenario>> {
 pub fn list_scenarios() -> Vec<&'static str> {
     vec!["order_write", "order_read", "portfolio", "health"]
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_scenario_order_write() {
+        let s = get_scenario("order_write").unwrap();
+        assert_eq!(s.name, "order_write");
+        assert_eq!(s.scenario_type, "http");
+        assert_eq!(s.method, "POST");
+        assert_eq!(s.endpoint, "/api/v1/orders");
+        assert!(s.body.is_some());
+    }
+
+    #[test]
+    fn test_scenario_order_read() {
+        let s = get_scenario("order_read").unwrap();
+        assert_eq!(s.name, "order_read");
+        assert_eq!(s.scenario_type, "http");
+        assert_eq!(s.method, "GET");
+        assert!(s.body.is_none());
+    }
+
+    #[test]
+    fn test_scenario_portfolio() {
+        let s = get_scenario("portfolio").unwrap();
+        assert_eq!(s.name, "portfolio");
+        assert_eq!(s.scenario_type, "http");
+        assert_eq!(s.method, "GET");
+        assert_eq!(s.endpoint, "/api/v1/portfolio/positions");
+    }
+
+    #[test]
+    fn test_scenario_health() {
+        let s = get_scenario("health").unwrap();
+        assert_eq!(s.name, "health");
+        assert_eq!(s.scenario_type, "http");
+        assert_eq!(s.method, "GET");
+        assert_eq!(s.endpoint, "/health");
+        assert!(s.body.is_none());
+    }
+
+    #[test]
+    fn test_scenario_unknown() {
+        assert!(get_scenario("unknown_scenario").is_none());
+    }
+
+    #[test]
+    fn test_list_scenarios() {
+        let scenarios = list_scenarios();
+        assert!(scenarios.contains(&"order_write"));
+        assert!(scenarios.contains(&"order_read"));
+        assert!(scenarios.contains(&"portfolio"));
+        assert!(scenarios.contains(&"health"));
+    }
+}

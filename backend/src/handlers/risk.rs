@@ -266,11 +266,11 @@ pub async fn connection_status(
 
 pub fn router() -> Router<Arc<DatabaseConnection>> {
     Router::new()
-        .route("/rules", get(get_risk_rules).put(update_risk_rules))
-        .route("/logs", get(get_risk_logs))
-        .route("/check", post(manual_risk_check))
-        .route("/emergency-close", post(emergency_close))
-        .route("/pause", post(pause_trading))
-        .route("/resume", post(resume_trading))
-        .route("/connection-status", get(connection_status))
+        .route("/risk/rules", get(get_risk_rules).put(update_risk_rules))
+        .route("/risk/logs", get(get_risk_logs))
+        .route("/risk/check", post(manual_risk_check))
+        .route("/risk/emergency-close", post(emergency_close))
+        .route("/risk/pause", post(pause_trading))
+        .route("/risk/resume", post(resume_trading))
+        .route("/risk/connection-status", get(connection_status))
 }

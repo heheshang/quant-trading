@@ -82,3 +82,68 @@ impl ReportGenerator {
         HttpReport::from_results(scenario, results)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::http_client::{HttpResult, StressTestResults};
+
+    fn make_results(latencies: Vec<u64>, statuses: Vec<u16>, duration_ms: u64, total: u64) -> StressTestResults {
+        StressTestResults {
+            results: latencies.into_iter().zip(statuses.into_iter()).map(|(l, s)| HttpResult {
+                latency_ms: l,
+                status: s,
+                error: None,
+            }).collect(),
+            total_requests: total,
+            total_duration_ms: duration_ms,
+        }
+    }
+
+    #[test]
+    fn test_report_pass_conditions() {
+        // 5 requests in 10ms = QPS 500, which meets threshold
+        let results = make_results(
+            vec![10, 10, 10, 10, 10],
+            vec![200, 200, 200, 200, 200],
+            10,
+            5,
+        );
+        let report = HttpReport::from_results("test", &results);
+        assert!(report.pass);
+        assert_eq!(report.total_requests, 5);
+    }
+
+    #[test]
+    fn test_report_qps_calculation() {
+        let results = make_results(vec![10, 10], vec![200, 200], 1000, 2);
+        let report = HttpReport::from_results("test", &results);
+        assert!((report.qps - 2.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_report_error_rate_zero() {
+        let results = make_results(vec![5, 5, 5], vec![200, 200, 200], 1000, 3);
+        let report = HttpReport::from_results("test", &results);
+        assert_eq!(report.error_rate, 0.0);
+        assert_eq!(report.success_count, 3);
+        assert_eq!(report.error_count, 0);
+    }
+
+    #[test]
+    fn test_report_error_rate_full() {
+        let results = make_results(vec![5, 5], vec![500, 500], 1000, 2);
+        let report = HttpReport::from_results("test", &results);
+        assert_eq!(report.error_rate, 1.0);
+        assert_eq!(report.success_count, 0);
+        assert_eq!(report.error_count, 2);
+    }
+
+    #[test]
+    fn test_report_empty_results() {
+        let results = StressTestResults::new();
+        let report = HttpReport::from_results("empty", &results);
+        assert_eq!(report.qps, 0.0);
+        assert_eq!(report.total_requests, 0);
+    }
+}
