@@ -6,6 +6,48 @@
 
 ---
 
+## [0.9.0] — 2026-05-21
+
+### 新增
+
+#### Phase 4 风控模块
+
+- **F2: 单笔亏损限制**
+  - `risk_manager.rs` 实现真实单笔亏损率计算
+  - 公式：`|order_price - stop_loss_price| * quantity / equity`
+  - 集成到 `order.rs` 下单流程
+
+- **F6: 策略状态管理**
+  - 新增 `StrategyStateManager` 服务
+  - 断线监控后台任务（30s 检测 Binance WS 连接状态）
+  - 断线时自动暂停策略
+
+- **F8: 紧急全平后端增强**
+  - 新增错误码 `RF-004`（RiskPaused 拒绝新订单）
+  - 平仓前检查资产余额
+
+- **F14: 紧急全平前端**
+  - 新增 `RiskDashboardView.vue` 页面
+  - 二次确认对话框 + 逐笔订单盈亏展示
+  - `useRiskDashboard.ts` Composable
+
+- **F15: 断线状态指示器**
+  - 实时轮询 `/api/v1/risk/connection-status`（10s 间隔）
+  - 三级颜色圆点 + 脉冲动画 + 策略暂停标签
+
+### 新增 ADR
+
+- ADR-015: ATR 追踪止损
+- ADR-016: 策略状态控制
+- ADR-017: 风控仪表盘前端
+
+### 测试
+
+- 后端单元测试：254（+6 风控测试）
+- 前端单元测试：708
+
+---
+
 ## [0.7.0] — 2026-05-14
 
 ### 新增
