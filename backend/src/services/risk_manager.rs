@@ -396,3 +396,85 @@ impl RiskManager {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_error_codes_defined() {
+        assert_eq!(ERR_DAILY_LOSS, "RF-001");
+        assert_eq!(ERR_SINGLE_TRADE_LOSS, "RF-002");
+        assert_eq!(ERR_DRAWDOWN, "RF-003");
+        assert_eq!(ERR_PAUSED, "RF-004");
+    }
+
+    #[test]
+    fn test_risk_rules_default_values() {
+        let rules = RiskRules {
+            daily_loss_limit: Decimal::new(1000, 0),
+            daily_loss_auto_close: true,
+            single_trade_loss_ratio: Decimal::new(2, 2), // 0.02
+            max_drawdown_ratio: Decimal::new(10, 2), // 0.10
+            drawdown_auto_close: true,
+            stop_loss_type: "fixed".to_string(),
+            atr_period: Some(14),
+            atr_multiplier: Some(Decimal::new(15, 1)), // 1.5
+            is_active: true,
+        };
+        assert!(rules.is_active);
+        assert_eq!(rules.daily_loss_limit, Decimal::new(1000, 0));
+        assert_eq!(rules.single_trade_loss_ratio, Decimal::new(2, 2));
+    }
+
+    #[test]
+    fn test_risk_check_result_serialization() {
+        let result = RiskCheckResult {
+            passed: true,
+            triggered_rules: vec![],
+            daily_loss: Decimal::ZERO,
+            single_trade_loss: None,
+            drawdown: Decimal::ZERO,
+            equity: Decimal::new(10000, 0),
+            peak_equity: Decimal::new(11000, 0),
+        };
+        let json = serde_json::to_string(&result).unwrap();
+        assert!(json.contains("\"passed\":true"));
+        assert!(json.contains("\"equity\":\"10000\""));
+    }
+
+    #[test]
+    fn test_emergency_close_result_serialization() {
+        let result = EmergencyCloseResult {
+            total_closed: 2,
+            positions_closed: vec!["BTC".to_string(), "ETH".to_string()],
+            errors: vec![],
+        };
+        let json = serde_json::to_string(&result).unwrap();
+        assert!(json.contains("\"total_closed\":2"));
+        assert!(json.contains("BTC"));
+    }
+
+    #[test]
+    fn test_pause_response_serialization() {
+        let resp = PauseResponse {
+            paused: true,
+            reason: "断线超过30秒".to_string(),
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains("\"paused\":true"));
+        assert!(json.contains("断线超过30秒"));
+    }
+
+    #[test]
+    fn test_account_snapshot_debug() {
+        let snap = AccountSnapshot {
+            equity: Decimal::new(9500, 0),
+            peak_equity: Decimal::new(10000, 0),
+            daily_pnl: Decimal::new(-500, 0),
+        };
+        let debug = format!("{:?}", snap);
+        assert!(debug.contains("9500"));
+        assert!(debug.contains("10000"));
+    }
+}
