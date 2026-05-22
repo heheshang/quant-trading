@@ -163,7 +163,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Install cargo-llvm-cov
-        uses: taiki-e/cargo-llvm-cov-action@v3
+        uses: taiki-e/cargo-llvm-cov-action@v0
         with:
           version: latest
 
@@ -210,7 +210,7 @@ jobs:
           path: backend/
 
       - name: Install cargo-llvm-cov
-        uses: taiki-e/cargo-llvm-cov-action@v3
+        uses: taiki-e/cargo-llvm-cov-action@v0
         with:
           version: latest
 
