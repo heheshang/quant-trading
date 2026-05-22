@@ -421,10 +421,28 @@ pub fn router() -> Router<DbPool> {
     Router::new()
         .route("/api/v1/arbitrage/pairs", axum::routing::post(create_pair))
         .route("/api/v1/arbitrage/pairs", axum::routing::get(list_pairs))
-        .route("/api/v1/arbitrage/pairs/{pair_id}", axum::routing::get(get_pair))
-        .route("/api/v1/arbitrage/pairs/{pair_id}", axum::routing::put(update_pair))
-        .route("/api/v1/arbitrage/pairs/{pair_id}", axum::routing::delete(delete_pair))
-        .route("/api/v1/arbitrage/spread/{pair_id}", axum::routing::get(get_spread))
-        .route("/api/v1/arbitrage/positions", axum::routing::get(list_positions))
-        .route("/api/v1/arbitrage/signals", axum::routing::get(list_signals))
+        .route(
+            "/api/v1/arbitrage/pairs/{pair_id}",
+            axum::routing::get(get_pair),
+        )
+        .route(
+            "/api/v1/arbitrage/pairs/{pair_id}",
+            axum::routing::put(update_pair),
+        )
+        .route(
+            "/api/v1/arbitrage/pairs/{pair_id}",
+            axum::routing::delete(delete_pair),
+        )
+        .route(
+            "/api/v1/arbitrage/spread/{pair_id}",
+            axum::routing::get(get_spread),
+        )
+        .route(
+            "/api/v1/arbitrage/positions",
+            axum::routing::get(list_positions),
+        )
+        .route(
+            "/api/v1/arbitrage/signals",
+            axum::routing::get(list_signals),
+        )
 }

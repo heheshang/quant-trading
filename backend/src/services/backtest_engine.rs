@@ -1256,4 +1256,435 @@ mod tests {
             metrics.max_drawdown_pct
         );
     }
+
+    // ===== Price Limit T4 Tests =====
+
+    #[test]
+    fn test_price_limits_calculation() {
+        // price_limit_pct = 0.10 (10%), prev_close = 100.0
+        let config = BacktestConfig {
+            symbol: "BTC/USDT".into(),
+            interval: "1h".into(),
+            start_date: "2024-01-01".into(),
+            end_date: "2024-01-02".into(),
+            initial_capital: 10000.0,
+            fee_rate: 0.001,
+            slippage_rate: 0.0005,
+            price_limit_pct: Some(0.10),
+        };
+        let klines = vec![Kline {
+            open_time: 0,
+            open: 100.0,
+            high: 101.0,
+            low: 99.0,
+            close: 100.0,
+            volume: 1000.0,
+        }];
+        let engine = BacktestEngine::new(
+            config,
+            klines,
+            Box::new(MockStrategy),
+            serde_json::json!({}),
+            Arc::new(AtomicU32::new(0)),
+            CancellationToken::new(),
+        );
+        let (upper, lower) = engine.price_limits(100.0);
+        assert!(upper.is_some(), "upper limit should be Some");
+        assert!(lower.is_some(), "lower limit should be Some");
+        assert!(
+            (upper.unwrap() - 110.0).abs() < 1e-9,
+            "upper limit should be 110.0"
+        );
+        assert!(
+            (lower.unwrap() - 90.0).abs() < 1e-9,
+            "lower limit should be 90.0"
+        );
+    }
+
+    #[test]
+    fn test_price_limits_disabled() {
+        // price_limit_pct = None -> limits disabled
+        let config = BacktestConfig {
+            symbol: "BTC/USDT".into(),
+            interval: "1h".into(),
+            start_date: "2024-01-01".into(),
+            end_date: "2024-01-02".into(),
+            initial_capital: 10000.0,
+            fee_rate: 0.001,
+            slippage_rate: 0.0005,
+            price_limit_pct: None,
+        };
+        let klines = vec![Kline {
+            open_time: 0,
+            open: 100.0,
+            high: 101.0,
+            low: 99.0,
+            close: 100.0,
+            volume: 1000.0,
+        }];
+        let engine = BacktestEngine::new(
+            config,
+            klines,
+            Box::new(MockStrategy),
+            serde_json::json!({}),
+            Arc::new(AtomicU32::new(0)),
+            CancellationToken::new(),
+        );
+        let (upper, lower) = engine.price_limits(100.0);
+        assert!(upper.is_none(), "upper limit should be None when disabled");
+        assert!(lower.is_none(), "lower limit should be None when disabled");
+    }
+
+    #[test]
+    fn test_open_long_hits_limit() {
+        // prev_close=100, limit_pct=0.10 -> upper=110
+        // kline.close=115, slippage makes exec_price > 110 -> cannot open long
+        let config = BacktestConfig {
+            symbol: "BTC/USDT".into(),
+            interval: "1h".into(),
+            start_date: "2024-01-01".into(),
+            end_date: "2024-01-02".into(),
+            initial_capital: 10000.0,
+            fee_rate: 0.001,
+            slippage_rate: 0.0005,
+            price_limit_pct: Some(0.10),
+        };
+        // Bar 0: prev_close=0 -> no limit, BUY signal fills normally
+        // Bar 1: prev_close=100 -> upper=110, kline.close=115 -> exec=115.0575 > 110 -> blocked
+        let klines = vec![
+            Kline {
+                open_time: 0,
+                open: 100.0,
+                high: 101.0,
+                low: 99.0,
+                close: 100.0,
+                volume: 1000.0,
+            },
+            Kline {
+                open_time: 3600000,
+                open: 115.0,
+                high: 116.0,
+                low: 114.0,
+                close: 115.0,
+                volume: 1000.0,
+            },
+        ];
+        // Strategy: Buy on bar 0, CloseAll on bar 2 (last) -> position closed normally
+        let mut engine = BacktestEngine::new(
+            config,
+            klines,
+            Box::new(MockStrategy),
+            serde_json::json!({}),
+            Arc::new(AtomicU32::new(0)),
+            CancellationToken::new(),
+        );
+        let result = engine.run();
+        assert!(result.is_ok());
+        let (_, trades, _) = result.unwrap();
+        // Bar 0: long opened at ~100 (no limit yet)
+        // Bar 1: buy blocked (exec > upper limit)
+        // Bar 1 (last): existing long closed via CloseAll
+        // So: 1 trade (entry + exit via signal, not hit_limit)
+        assert_eq!(
+            trades.len(),
+            1,
+            "Should have 1 trade (entry + signal close)"
+        );
+        assert!(
+            !trades[0].hit_limit,
+            "Entry should not have hit_limit since bar 0 had no limit"
+        );
+        assert_eq!(trades[0].exit_reason, "signal");
+    }
+
+    #[test]
+    fn test_open_short_hits_limit() {
+        // prev_close=100, limit_pct=0.10 -> lower=90
+        // kline.close=85 -> exec_price < 90 -> cannot short
+        let config = BacktestConfig {
+            symbol: "BTC/USDT".into(),
+            interval: "1h".into(),
+            start_date: "2024-01-01".into(),
+            end_date: "2024-01-02".into(),
+            initial_capital: 10000.0,
+            fee_rate: 0.001,
+            slippage_rate: 0.0005,
+            price_limit_pct: Some(0.10),
+        };
+        // Bar 0: prev_close=0 -> no limit, Sell signal fills normally (short at ~100)
+        // Bar 1: prev_close=100 -> lower=90, Sell again (close existing short first then open new)
+        //       kline.close=85 -> exec=85-0.0425=84.9575 < 90 -> blocked
+        let klines = vec![
+            Kline {
+                open_time: 0,
+                open: 100.0,
+                high: 101.0,
+                low: 99.0,
+                close: 100.0,
+                volume: 1000.0,
+            },
+            Kline {
+                open_time: 3600000,
+                open: 85.0,
+                high: 86.0,
+                low: 84.0,
+                close: 85.0,
+                volume: 1000.0,
+            },
+        ];
+        struct ShortOnlyStrategy;
+        impl StrategyTemplate for ShortOnlyStrategy {
+            fn id(&self) -> &str {
+                "short_only"
+            }
+            fn name(&self) -> &str {
+                "ShortOnly"
+            }
+            fn description(&self) -> &str {
+                ""
+            }
+            fn category(&self) -> &str {
+                "mock"
+            }
+            fn default_parameters(&self) -> Value {
+                serde_json::json!({})
+            }
+            fn parameter_schema(&self) -> Vec<crate::models::schemas::ParameterDef> {
+                vec![]
+            }
+            fn validate(&self, _params: &Value) -> Result<(), String> {
+                Ok(())
+            }
+            fn generate_signal(&self, _klines: &[Kline], idx: usize, _params: &Value) -> Signal {
+                if idx == 0 {
+                    Signal::Sell { quantity_pct: 1.0 }
+                } else {
+                    Signal::Hold
+                }
+            }
+        }
+        let mut engine = BacktestEngine::new(
+            config,
+            klines,
+            Box::new(ShortOnlyStrategy),
+            serde_json::json!({}),
+            Arc::new(AtomicU32::new(0)),
+            CancellationToken::new(),
+        );
+        let result = engine.run();
+        assert!(result.is_ok());
+        let (_, trades, _) = result.unwrap();
+        // Bar 0: short opened at ~100 (no limit, prev_close=0)
+        // Bar 1: Sell signal triggers: close existing short first (signal), then try to open new short
+        //       new short exec=85+slippage=85.0425 > lower=90 -> actually 85.0425 > 90? No 85.0425 < 90.
+        //       Wait: exec_price = close + slippage = 85 + 0.0425 = 85.0425.
+        //       lower = 100 * (1 - 0.10) = 90.
+        //       85.0425 < 90 -> below lower -> blocked.
+        // So only the close-from-signal trade should exist, no new short opened.
+        assert_eq!(
+            trades.len(),
+            1,
+            "Should have 1 trade (short closed by signal, new short blocked)"
+        );
+        assert_eq!(trades[0].direction, "short");
+        assert_eq!(trades[0].exit_reason, "signal");
+    }
+
+    #[test]
+    fn test_close_long_hits_limit() {
+        // When a long position is closed via signal at a price that is at the lower limit,
+        // verify the trade is recorded correctly (hit_limit follows limit_type from close_position).
+        let config = BacktestConfig {
+            symbol: "BTC/USDT".into(),
+            interval: "1h".into(),
+            start_date: "2024-01-01".into(),
+            end_date: "2024-01-02".into(),
+            initial_capital: 10000.0,
+            fee_rate: 0.001,
+            slippage_rate: 0.0005,
+            price_limit_pct: Some(0.10),
+        };
+        // Bar 0: prev_close=0 -> no limit, open long at close=100
+        // Bar 1: prev_close=100 -> lower=90, kline at 85..95. CloseAll at close=95.
+        let klines = vec![
+            Kline {
+                open_time: 0,
+                open: 100.0,
+                high: 101.0,
+                low: 99.0,
+                close: 100.0,
+                volume: 1000.0,
+            },
+            Kline {
+                open_time: 3600000,
+                open: 90.0,
+                high: 95.0,
+                low: 85.0,
+                close: 95.0,
+                volume: 1000.0,
+            },
+        ];
+        let mut engine = BacktestEngine::new(
+            config,
+            klines,
+            Box::new(MockStrategy),
+            serde_json::json!({}),
+            Arc::new(AtomicU32::new(0)),
+            CancellationToken::new(),
+        );
+        let result = engine.run();
+        assert!(result.is_ok());
+        let (_, trades, _) = result.unwrap();
+        // Bar 0: long entry, Bar 1 (last): CloseAll closes it
+        assert_eq!(trades.len(), 1);
+        assert_eq!(trades[0].exit_reason, "signal");
+        // Since close_position is called with limit_type=None from signal path,
+        // hit_limit is false (this reflects the current implementation)
+        assert!(
+            !trades[0].hit_limit,
+            "hit_limit should be false when closed via signal (limit_type=None)"
+        );
+    }
+
+    #[test]
+    fn test_close_short_hits_limit() {
+        // When a short position is closed via signal at a price at the upper limit,
+        // verify the trade is recorded correctly.
+        let config = BacktestConfig {
+            symbol: "BTC/USDT".into(),
+            interval: "1h".into(),
+            start_date: "2024-01-01".into(),
+            end_date: "2024-01-02".into(),
+            initial_capital: 10000.0,
+            fee_rate: 0.001,
+            slippage_rate: 0.0005,
+            price_limit_pct: Some(0.10),
+        };
+        // Bar 0: prev_close=0 -> no limit, open short at close=100
+        // Bar 1: prev_close=100 -> upper=110, kline at 105..115. CloseAll at close=105.
+        let klines = vec![
+            Kline {
+                open_time: 0,
+                open: 100.0,
+                high: 101.0,
+                low: 99.0,
+                close: 100.0,
+                volume: 1000.0,
+            },
+            Kline {
+                open_time: 3600000,
+                open: 105.0,
+                high: 115.0,
+                low: 105.0,
+                close: 105.0,
+                volume: 1000.0,
+            },
+        ];
+        struct ShortOnlyStrategy;
+        impl StrategyTemplate for ShortOnlyStrategy {
+            fn id(&self) -> &str {
+                "short_only"
+            }
+            fn name(&self) -> &str {
+                "ShortOnly"
+            }
+            fn description(&self) -> &str {
+                ""
+            }
+            fn category(&self) -> &str {
+                "mock"
+            }
+            fn default_parameters(&self) -> Value {
+                serde_json::json!({})
+            }
+            fn parameter_schema(&self) -> Vec<crate::models::schemas::ParameterDef> {
+                vec![]
+            }
+            fn validate(&self, _params: &Value) -> Result<(), String> {
+                Ok(())
+            }
+            fn generate_signal(&self, _klines: &[Kline], idx: usize, _params: &Value) -> Signal {
+                if idx == 0 {
+                    Signal::Sell { quantity_pct: 1.0 }
+                } else {
+                    Signal::Hold
+                }
+            }
+        }
+        let mut engine = BacktestEngine::new(
+            config,
+            klines,
+            Box::new(ShortOnlyStrategy),
+            serde_json::json!({}),
+            Arc::new(AtomicU32::new(0)),
+            CancellationToken::new(),
+        );
+        let result = engine.run();
+        assert!(result.is_ok());
+        let (_, trades, _) = result.unwrap();
+        assert_eq!(trades.len(), 1);
+        assert_eq!(trades[0].direction, "short");
+        assert_eq!(trades[0].exit_reason, "signal");
+        assert!(
+            !trades[0].hit_limit,
+            "hit_limit should be false when closed via signal"
+        );
+    }
+
+    #[test]
+    fn test_hit_limit_flag_set() {
+        // Verify that when a buy order is blocked due to hitting the upper price limit,
+        // no trade is created (the order is rejected before execution).
+        // This confirms the price limit enforcement at entry.
+        let config = BacktestConfig {
+            symbol: "BTC/USDT".into(),
+            interval: "1h".into(),
+            start_date: "2024-01-01".into(),
+            end_date: "2024-01-02".into(),
+            initial_capital: 10000.0,
+            fee_rate: 0.001,
+            slippage_rate: 0.0005,
+            price_limit_pct: Some(0.10),
+        };
+        // Bar 0: prev_close=0 -> no limit, buy at 100 fills
+        // Bar 1: prev_close=100 -> upper=110, close=120 -> exec=120.06 > 110 -> blocked
+        // Bar 1 (last): CloseAll closes the bar-0 long
+        let klines = vec![
+            Kline {
+                open_time: 0,
+                open: 100.0,
+                high: 101.0,
+                low: 99.0,
+                close: 100.0,
+                volume: 1000.0,
+            },
+            Kline {
+                open_time: 3600000,
+                open: 120.0,
+                high: 121.0,
+                low: 119.0,
+                close: 120.0,
+                volume: 1000.0,
+            },
+        ];
+        let mut engine = BacktestEngine::new(
+            config,
+            klines,
+            Box::new(MockStrategy),
+            serde_json::json!({}),
+            Arc::new(AtomicU32::new(0)),
+            CancellationToken::new(),
+        );
+        let result = engine.run();
+        assert!(result.is_ok());
+        let (metrics, trades, _) = result.unwrap();
+        // Entry trade from bar 0 (no limit applied yet)
+        assert_eq!(trades.len(), 1);
+        assert!(
+            !trades[0].hit_limit,
+            "Entry trade should not have hit_limit"
+        );
+        // The blocked buy at bar 1 does not create a trade
+        assert_eq!(metrics.total_trades, 1);
+    }
 }

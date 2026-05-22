@@ -99,7 +99,6 @@ jobs:
       - name: Run typos
         uses: crate-ci/typos@v1
         with:
-          format: toml
           config: .typos.toml
 
   # ─── Backend: Build ────

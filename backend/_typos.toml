@@ -2,6 +2,6 @@
 # https://github.com/crate-ci/typos
 
 [default.extend-words]
-
+wrk="wrk"
 [files]
 extend-exclude = ["CHANGELOG.md", "vendors/", "**/*.sql"]

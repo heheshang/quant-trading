@@ -169,4 +169,74 @@ mod tests {
         );
         assert!(result.is_err());
     }
+
+    // === T4 新增测试 ===
+
+    #[test]
+    fn test_calc_spread_percentage() {
+        // (ask - bid) / ask * 100
+        // price_a=ask=102, price_b=bid=100 -> (102-100)/102*100 ≈ 1.96%
+        let calc = SpreadCalculator::new(20);
+        let result = calc
+            .calculate_spread(
+                1,
+                Decimal::from(102),
+                Decimal::from(100),
+                &SpreadCalculationMode::Percentage,
+            )
+            .unwrap();
+        assert_eq!(result.spread, Decimal::from(2));
+        assert_eq!(result.spread_pct, Decimal::from(2)); // +2%
+    }
+
+    #[test]
+    fn test_calc_spread_ratio() {
+        // price_a / price_b = 100 / 102 ≈ 0.9804
+        let calc = SpreadCalculator::new(20);
+        let result = calc
+            .calculate_spread(
+                1,
+                Decimal::from(100),
+                Decimal::from(102),
+                &SpreadCalculationMode::Ratio,
+            )
+            .unwrap();
+        let expected_ratio = Decimal::from(100) / Decimal::from(102);
+        assert_eq!(result.spread, expected_ratio);
+        // spread_pct = (ratio - 1) * 100 = (100/102 - 1) * 100 ≈ -1.96%
+        let expected_pct = (expected_ratio - Decimal::ONE) * Decimal::from(100);
+        assert_eq!(result.spread_pct, expected_pct);
+    }
+
+    #[test]
+    fn test_calc_arbitrage_profit_opportunity() {
+        // 当 spread > threshold 时存在套利机会
+        // price_a=ask=105, price_b=bid=100 -> spread = 5%
+        let calc = SpreadCalculator::new(20);
+        let result = calc
+            .calculate_spread(
+                1,
+                Decimal::from(105),
+                Decimal::from(100),
+                &SpreadCalculationMode::Percentage,
+            )
+            .unwrap();
+        // spread_pct = 5%，超过常见 threshold (如 1%)
+        assert!(result.spread_pct > Decimal::from(1));
+    }
+
+    #[test]
+    fn test_no_arbitrage_when_spread_negative() {
+        // price_a < price_b 时，spread_pct 为负，无套利机会
+        let calc = SpreadCalculator::new(20);
+        let result = calc
+            .calculate_spread(
+                1,
+                Decimal::from(98),
+                Decimal::from(100),
+                &SpreadCalculationMode::Percentage,
+            )
+            .unwrap();
+        assert!(result.spread_pct < Decimal::ZERO);
+    }
 }

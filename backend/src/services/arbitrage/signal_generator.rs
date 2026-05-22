@@ -308,4 +308,132 @@ mod tests {
             SignalDirection::Neutral
         );
     }
+
+    // === T4 新增测试 ===
+
+    #[test]
+    fn test_generate_signal_bid_ask_cross() {
+        // 买卖价差为正时（价差被高估）-> EntryShort (做空价差)
+        let signal_gen = SignalGenerator::default_with_entry_threshold(
+            Decimal::from(2),
+            Decimal::from(50) / Decimal::from(100),
+        );
+        // price_a > price_b，spread_pct = +2%，超过 entry threshold 2.0
+        // 使用 spread_pct > entry_threshold 判断
+        let spread = LiveSpread {
+            pair_id: 1,
+            price_a: Decimal::from(102),
+            price_b: Decimal::from(100),
+            spread: Decimal::from(2),
+            spread_pct: Decimal::from(2), // 2% > 2.0 threshold -> should be EntryShort
+            z_score: None,                // 无 z_score，使用 spread_pct 兜底逻辑
+            timestamp: Utc::now(),
+        };
+        let signal = signal_gen
+            .generate_signal(
+                &spread,
+                Decimal::from(2),
+                Decimal::from(50) / Decimal::from(100),
+                None,
+            )
+            .unwrap();
+        // spread_pct=2 > entry_threshold=2 是边界，按代码逻辑 spread_f > entry_f 时 EntryShort
+        // 实际 spread_f=2.0, entry_f=2.0, 2.0 > 2.0 为 false
+        // 改用更明显的场景
+        let spread2 = LiveSpread {
+            spread_pct: Decimal::from(3), // 3% > 2%
+            ..spread.clone()
+        };
+        let signal2 = signal_gen
+            .generate_signal(
+                &spread2,
+                Decimal::from(2),
+                Decimal::from(50) / Decimal::from(100),
+                None,
+            )
+            .unwrap();
+        assert_eq!(signal2, Some(SignalType::EntryShort));
+    }
+
+    #[test]
+    fn test_generate_signal_no_cross() {
+        // 价差为负或不足时生成 None (Hold)
+        let signal_gen = SignalGenerator::default_with_entry_threshold(
+            Decimal::from(2),
+            Decimal::from(50) / Decimal::from(100),
+        );
+        // spread_pct = 0.5%，低于 entry threshold 2%
+        let spread = LiveSpread {
+            pair_id: 1,
+            price_a: Decimal::from(10050),
+            price_b: Decimal::from(10000),
+            spread: Decimal::from(50),
+            spread_pct: Decimal::from(50) / Decimal::from(100), // 0.5%
+            z_score: None,
+            timestamp: Utc::now(),
+        };
+        let signal = signal_gen
+            .generate_signal(
+                &spread,
+                Decimal::from(2),
+                Decimal::from(50) / Decimal::from(100),
+                None,
+            )
+            .unwrap();
+        assert_eq!(signal, None); // 无信号，Hold
+    }
+
+    #[test]
+    fn test_signal_threshold_respected() {
+        // threshold=0.01 (1%)，spread=0.005 (0.5%) 时应 Hold
+        let signal_gen = SignalGenerator::default_with_entry_threshold(
+            Decimal::from(1), // 1% entry threshold
+            Decimal::from(50) / Decimal::from(100),
+        );
+        let spread = LiveSpread {
+            pair_id: 1,
+            price_a: Decimal::from(10050),
+            price_b: Decimal::from(10000),
+            spread: Decimal::from(50),
+            spread_pct: Decimal::from(5) / Decimal::from(10), // 0.5%
+            z_score: None,
+            timestamp: Utc::now(),
+        };
+        let signal = signal_gen
+            .generate_signal(
+                &spread,
+                Decimal::from(1), // 1% threshold
+                Decimal::from(50) / Decimal::from(100),
+                None,
+            )
+            .unwrap();
+        assert_eq!(signal, None); // 0.5% < 1%，应 Hold
+    }
+
+    #[test]
+    fn test_generate_signal_entry_long_on_negative_spread() {
+        // spread_pct 负向偏离时（价差被低估）-> EntryLong
+        let signal_gen = SignalGenerator::default_with_entry_threshold(
+            Decimal::from(2),
+            Decimal::from(50) / Decimal::from(100),
+        );
+        let spread = LiveSpread {
+            pair_id: 1,
+            price_a: Decimal::from(98),
+            price_b: Decimal::from(100),
+            spread: Decimal::from(-2),
+            spread_pct: Decimal::from(-3), // -3% < -2%
+            z_score: None,
+            timestamp: Utc::now(),
+        };
+        let signal = signal_gen
+            .generate_signal(
+                &spread,
+                Decimal::from(2),
+                Decimal::from(50) / Decimal::from(100),
+                None,
+            )
+            .unwrap();
+        assert_eq!(signal, Some(SignalType::EntryLong));
+    }
 }
