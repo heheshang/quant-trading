@@ -181,7 +181,6 @@ jobs:
           REDIS_URL: redis://localhost:6379
 
       - name: Upload coverage
-        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: coverage
@@ -220,19 +219,19 @@ jobs:
       - name: Check handlers coverage (threshold 90%)
         run: |
           cargo llvm-cov report --lcov-path backend/lcov.info \
-            --filter 'backend/src/handlers/**' \
+            --filter 'src/handlers/**' \
             --fail-under-lines 90 || exit 1
 
       - name: Check services coverage (threshold 75%)
         run: |
           cargo llvm-cov report --lcov-path backend/lcov.info \
-            --filter 'backend/src/services/**' \
+            --filter 'src/services/**' \
             --fail-under-lines 75 || exit 1
 
       - name: Check db coverage (threshold 70%)
         run: |
           cargo llvm-cov report --lcov-path backend/lcov.info \
-            --filter 'backend/src/db/**' \
+            --filter 'src/db/**' \
             --fail-under-lines 70 || exit 1
 
   # ─── Frontend: TypeScript + Lint ────
@@ -377,7 +376,7 @@ jobs:
             pg_isready -h quant-postgres-ci -p 5432 -U quant && break
             sleep 1
           done
-          docker exec quant-redis-ci redis-cli -a ci_test_pw --no-auth-warning ping | grep -q PONG || true
+          docker exec quant-redis-ci redis-cli ping | grep -q PONG || true
 
       - name: Run backend container and verify
         run: |
@@ -393,8 +392,8 @@ jobs:
           sleep 10
           docker exec quant-backend-ci ls /app/server 2>/dev/null && echo "Binary exists OK"
 
-          HTTP_CODE=$(docker exec quant-backend-ci sh -c 'wget -qO- --timeout=5 http://localhost:8080/api/v1/portfolio/summary 2>/dev/null || echo "000" | head -c 3')
-          echo "Portfolio summary response code: $HTTP_CODE"
+          HTTP_CODE=$(docker exec quant-backend-ci sh -c 'wget -qO- --timeout=5 http://localhost:8080/api/v1/health 2>/dev/null || echo "HTTPERR"')
+          echo "Health response: $HTTP_CODE"
 
           docker stop quant-backend-ci || true
 
