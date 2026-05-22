@@ -1,6 +1,9 @@
+pub mod ab_experiment_logs;
+pub mod ai_signals;
 pub mod arbitrage_entities;
 pub mod backtest;
 pub mod backtest_results;
+pub mod model_versions;
 pub mod dashboard;
 pub mod exchange_api_keys;
 pub mod kline;
@@ -488,6 +491,39 @@ pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), sea_orm::DbEr
             .if_not_exists(),
     );
     db.execute(stmt).await?;
+
+    // P3-F3: AI量化模块三表
+    let stmt = backend.build(
+        schema
+            .create_table_from_entity(model_versions::Entity)
+            .if_not_exists(),
+    );
+    db.execute(stmt).await?;
+
+    let stmt = backend.build(
+        schema
+            .create_table_from_entity(ai_signals::Entity)
+            .if_not_exists(),
+    );
+    db.execute(stmt).await?;
+
+    let stmt = backend.build(
+        schema
+            .create_table_from_entity(ab_experiment_logs::Entity)
+            .if_not_exists(),
+    );
+    db.execute(stmt).await?;
+
+    db.execute(sea_orm::Statement::from_string(
+        backend,
+        "CREATE INDEX IF NOT EXISTS idx_ai_signals_lookup ON ai_signals (user_id, symbol, interval, created_at DESC)".to_string(),
+    ))
+    .await?;
+    db.execute(sea_orm::Statement::from_string(
+        backend,
+        "CREATE INDEX IF NOT EXISTS idx_ab_experiment_logs_experiment ON ab_experiment_logs (experiment_id, model_version)".to_string(),
+    ))
+    .await?;
 
     info!("Database migrations completed");
 

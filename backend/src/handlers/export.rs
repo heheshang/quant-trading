@@ -11,7 +11,7 @@ use axum::{
 use csv::Writer;
 use sea_orm::{
     ColumnTrait, DatabaseConnection, EntityTrait, Order as DbOrder, PaginatorTrait, QueryFilter,
-    QueryOrder, QuerySelect,
+    QueryOrder,
 };
 use serde::Deserialize;
 use uuid::Uuid;
@@ -20,11 +20,9 @@ use zip::write::SimpleFileOptions;
 
 use crate::db::order::paper_accounts;
 use crate::db::order::positions;
-use crate::db::order::trades;
-use crate::handlers::order::{AccountResponse, OrderResponse, PositionResponse, TradeResponse};
+use crate::handlers::order::{OrderResponse, PositionResponse, TradeResponse};
 use crate::middleware::auth::AuthenticatedUser;
 use crate::utils::error::AppError;
-use chrono::Local;
 
 #[derive(Debug, Deserialize)]
 pub struct ExportQuery {
@@ -51,7 +49,7 @@ fn col_letter(col_idx: usize) -> String {
     let mut s = String::new();
     let mut n = col_idx;
     loop {
-        s.push(((b'A' + (n % 26) as u8) as char));
+        s.push((b'A' + (n % 26) as u8) as char);
         n = n / 26;
         if n == 0 {
             break;
