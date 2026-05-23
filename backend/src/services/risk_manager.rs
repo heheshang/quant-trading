@@ -142,7 +142,7 @@ impl RiskManager {
         // 从 trades 表统计 UTC 今日所有成交的 realized_pnl
         // trades 表记录每一笔成交，realized_pnl 在持仓关闭时从 positions 表汇总
         let today = chrono::Utc::now().date_naive();
-        let _today_start = today.and_hms_opt(0, 0, 0).unwrap().and_utc();
+        let _today_start = today.and_hms_opt(0, 0, 0).unwrap_or_else(|| today.and_hms(0, 0, 0)).and_utc();
 
         // 查询今日所有成交记录，关联 positions 获取 realized_pnl
         // 注意：trades 表当前无 realized_pnl 字段，从 positions.unrealized_pnl 快照估算
@@ -403,7 +403,7 @@ impl RiskManager {
                 daily_loss_limit: Decimal::ZERO,
                 daily_loss_auto_close: false,
                 single_trade_loss_ratio: Decimal::ZERO,
-                max_drawdown_ratio: std::str::FromStr::from_str("0.1").unwrap(),
+                max_drawdown_ratio: Decimal::new(1, 1), // 0.1
                 drawdown_auto_close: false,
                 stop_loss_type: "fixed".to_string(),
                 atr_period: None,

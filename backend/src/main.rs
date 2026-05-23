@@ -305,6 +305,7 @@ fn create_router(
         .route("/risk/pause", post(handlers::risk::pause_trading))
         .route("/risk/resume", post(handlers::risk::resume_trading))
         .route("/risk/connection-status", get(handlers::risk::connection_status))
+        .route("/risk/check", post(handlers::risk::manual_risk_check))
         .layer(Extension(ws_hub.clone()))
         .layer(middleware::from_fn(
             quant_trading_backend::middleware::auth::auth_middleware,
