@@ -149,6 +149,17 @@ pub async fn update_risk_rules(
         },
     };
 
+    // Clone req fields for INSERT path (UPDATE consumes them with if-let-move)
+    let req_daily_loss_limit = req.daily_loss_limit.clone();
+    let req_daily_loss_auto_close = req.daily_loss_auto_close;
+    let req_single_trade_loss_ratio = req.single_trade_loss_ratio.clone();
+    let req_max_drawdown_ratio = req.max_drawdown_ratio.clone();
+    let req_drawdown_auto_close = req.drawdown_auto_close;
+    let req_stop_loss_type = req.stop_loss_type.clone();
+    let req_atr_period = req.atr_period;
+    let req_atr_multiplier = req.atr_multiplier.clone();
+    let req_is_active = req.is_active;
+
     if let Some(v) = req.daily_loss_limit {
         active.daily_loss_limit = sea_orm::Set(v.parse().unwrap_or_default());
     }
@@ -200,28 +211,31 @@ pub async fn update_risk_rules(
             // INSERT path: build new model with defaults + req fields
             let mut new_active: ActiveModel = ActiveModel {
                 user_id: sea_orm::Set(user.user_id),
-                daily_loss_limit: req.daily_loss_limit
+                daily_loss_limit: req_daily_loss_limit
                     .map(|v| sea_orm::Set(v.parse().unwrap_or_default()))
                     .unwrap_or(sea_orm::Set(Decimal::ZERO)),
-                daily_loss_auto_close: req.daily_loss_auto_close
+                daily_loss_auto_close: req_daily_loss_auto_close
                     .map(sea_orm::Set)
                     .unwrap_or(sea_orm::Set(false)),
-                single_trade_loss_ratio: req.single_trade_loss_ratio
+                single_trade_loss_ratio: req_single_trade_loss_ratio
                     .map(|v| sea_orm::Set(v.parse().unwrap_or_default()))
                     .unwrap_or(sea_orm::Set(Decimal::ZERO)),
-                max_drawdown_ratio: req.max_drawdown_ratio
+                max_drawdown_ratio: req_max_drawdown_ratio
                     .map(|v| sea_orm::Set(v.parse().unwrap_or_default()))
                     .unwrap_or(sea_orm::Set(std::str::FromStr::from_str("0.1").unwrap())),
-                drawdown_auto_close: req.drawdown_auto_close
+                drawdown_auto_close: req_drawdown_auto_close
                     .map(sea_orm::Set)
                     .unwrap_or(sea_orm::Set(false)),
-                stop_loss_type: req.stop_loss_type
+                stop_loss_type: req_stop_loss_type
                     .map(sea_orm::Set)
                     .unwrap_or(sea_orm::Set("fixed".to_string())),
-                atr_period: req.atr_period.map(|v| sea_orm::Set(Some(v))),
-                atr_multiplier: req.atr_multiplier
-                    .map(|v| sea_orm::Set(Some(v.parse().unwrap_or_default()))),
-                is_active: req.is_active
+                atr_period: req_atr_period
+                    .map(|v| sea_orm::Set(Some(v)))
+                    .unwrap_or(sea_orm::Set(None)),
+                atr_multiplier: req_atr_multiplier
+                    .map(|v| sea_orm::Set(Some(v.parse().unwrap_or_default())))
+                    .unwrap_or(sea_orm::Set(None)),
+                is_active: req_is_active
                     .map(sea_orm::Set)
                     .unwrap_or(sea_orm::Set(false)),
                 created_at: sea_orm::Set(chrono::Utc::now()),
