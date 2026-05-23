@@ -3,9 +3,8 @@
 //! REST API for strategy review workflow: submit, approve, reject, list pending
 
 use axum::{
-    Extension, Json,
-    extract::{Path, Query, State},
-    http::StatusCode,
+    Json,
+    extract::{Path, State},
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -13,9 +12,9 @@ use std::sync::Arc;
 use sea_orm::DatabaseConnection;
 use uuid::Uuid;
 
-use crate::db::review::{Model as ReviewModel, ReviewStatus};
+use crate::db::review::Model as ReviewModel;
 use crate::middleware::auth::AuthenticatedUser;
-use crate::models::schemas::{PaginatedResponse, PaginationParams};
+use crate::models::schemas::PaginatedResponse;
 use crate::services::review as review_service;
 use crate::utils::error::AppError;
 use crate::utils::response::ApiResponse;

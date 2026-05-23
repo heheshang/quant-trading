@@ -4,8 +4,7 @@
 //! Review state is stored in a separate `strategy_reviews` table (not on Strategy model)
 //! to avoid DeriveEntityModel compile-time introspection issues.
 
-use crate::db::review as review_module;
-use crate::db::review::{
+ use crate::db::review::{
     ActiveModel as ReviewActiveModel, Column as ReviewColumn, Entity as ReviewEntity,
     Model as ReviewModel, ReviewStatus,
 };
@@ -13,7 +12,7 @@ use crate::db::strategy::ActiveModel as StrategyActiveModel;
 use crate::db::strategy::Entity as StrategyEntity;
 use crate::utils::error::AppError;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter,
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
     QuerySelect, Set,
 };
 use uuid::Uuid;

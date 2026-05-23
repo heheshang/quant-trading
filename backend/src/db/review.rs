@@ -18,6 +18,8 @@ impl ReviewStatus {
         }
     }
 
+    #[allow(clippy::should_implement_trait)]
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "pending_review" => Some(ReviewStatus::PendingReview),

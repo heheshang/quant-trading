@@ -127,7 +127,7 @@ impl GridEngine {
     }
 
     pub fn get_status(&self) -> GridStatus {
-        let mut unrealized_pnl = 0.0;
+        let unrealized_pnl = 0.0;
         let filled_grids: Vec<u32> = self.positions.keys().copied().collect();
         let market_mode = self
             .market_detector

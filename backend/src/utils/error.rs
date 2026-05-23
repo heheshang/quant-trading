@@ -73,6 +73,9 @@ pub enum AppError {
     /// ADR D11: 50301 - 服务不可用
     #[error("Service unavailable: {0}")]
     ServiceUnavailable(String),
+
+    #[error("External service error: {0}")]
+    ExternalServiceError(String),
 }
 
 impl AppError {
@@ -96,10 +99,11 @@ impl AppError {
             Self::NotFound(_) => 40401,
             Self::Conflict(_) => 40901,
             Self::RateLimit => 42901,
+            Self::TooManyRequests(_) => 42902,
             Self::Database(_) => 50002,
             Self::Internal(_) => 50001,
-            Self::TooManyRequests(_) => 42902,
             Self::ServiceUnavailable(_) => 50301,
+            Self::ExternalServiceError(_) => 50302,
         }
     }
 }
@@ -126,6 +130,7 @@ impl IntoResponse for AppError {
             Self::RateLimit | Self::TooManyRequests(_) => StatusCode::TOO_MANY_REQUESTS,
             Self::Database(_) | Self::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Self::ServiceUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
+            Self::ExternalServiceError(_) => StatusCode::SERVICE_UNAVAILABLE,
         };
 
         let body = serde_json::json!({

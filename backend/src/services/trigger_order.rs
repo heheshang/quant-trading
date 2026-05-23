@@ -193,6 +193,7 @@ impl TriggerOrderService {
 
     /// 创建OCO单 (One-Cancels-Other)
     /// 当一个触发时，另一个自动取消
+    #[allow(clippy::too_many_arguments)]
     pub async fn create_oco(
         &self,
         user_id: Uuid,
@@ -344,6 +345,7 @@ impl TriggerOrderService {
     }
 
     /// 创建TWAP单 (Time-Weighted Average Price)
+    #[allow(clippy::too_many_arguments)]
     pub async fn create_twap(
         &self,
         user_id: Uuid,
@@ -388,7 +390,7 @@ impl TriggerOrderService {
             twap_start_time: Set(Some(now)),
             twap_end_time: Set(Some(end_time)),
             twap_executed_slices: Set(0),
-            twap_max_slices: Set((duration_secs / interval_secs)),
+            twap_max_slices: Set(duration_secs / interval_secs),
             oco_pair_id: Set(None),
             triggered_order_id: Set(None),
             trigger_reason: Set(None),

@@ -24,6 +24,16 @@ pub enum Direction {
     Neutral,
 }
 
+impl std::fmt::Display for Direction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Direction::Long => write!(f, "long"),
+            Direction::Short => write!(f, "short"),
+            Direction::Neutral => write!(f, "neutral"),
+        }
+    }
+}
+
 /// AI model signal with its confidence score.
 #[derive(Debug, Clone, Copy)]
 pub struct AiSignal {
@@ -104,10 +114,10 @@ fn is_ai_weak(ai_confidence: f64) -> bool {
 
 /// Checks whether two directions conflict (are opposite non-neutral directions).
 fn directions_conflict(ai_dir: Direction, rule_dir: Direction) -> bool {
-    match (ai_dir, rule_dir) {
-        (Direction::Long, Direction::Short) | (Direction::Short, Direction::Long) => true,
-        _ => false,
-    }
+    matches!(
+        (ai_dir, rule_dir),
+        (Direction::Long, Direction::Short) | (Direction::Short, Direction::Long)
+    )
 }
 
 /// Computes the fused confidence from two confidence scores and their weights.
@@ -296,9 +306,9 @@ mod tests {
             confidence: 0.7,
         };
         let result = fuse_signals(ai, rule);
-        // AI is in 0.6-0.8 range, rule > 0.7 → weights (0.6, 0.4)
-        assert!((result.weights.0 - 0.6).abs() < 1e-9);
-        assert!((result.weights.1 - 0.4).abs() < 1e-9);
+        // AI=0.6, rule=0.7 → rule > 0.7 is false → Balanced (0.5, 0.5)
+        assert!((result.weights.0 - 0.5).abs() < 1e-9);
+        assert!((result.weights.1 - 0.5).abs() < 1e-9);
         // Direction falls back to AI direction when conflicting
         assert_eq!(result.direction, Direction::Short);
     }

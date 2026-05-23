@@ -295,7 +295,6 @@ pub async fn cancel_trigger_order(
 }
 
 /// ==================== 路由注册 ====================
-
 /// 注册触发订单路由
 pub fn router() -> Router<Arc<DatabaseConnection>> {
     Router::new()

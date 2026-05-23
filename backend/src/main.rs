@@ -17,6 +17,7 @@ use quant_trading_backend::services::order_rate_limiter::OrderRateLimiter;
 use quant_trading_backend::services::redis_cache::RedisCache;
 use quant_trading_backend::services::risk_manager::RiskManager;
 use quant_trading_backend::services::strategy_state_manager::StrategyStateManager;
+use quant_trading_backend::services::ai::feature_engine::NormalizeMethod;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use tower_http::cors::{Any, CorsLayer};
@@ -144,6 +145,7 @@ fn create_router(
     signed_client: Arc<SignedBinanceClient>,
     key_store: Arc<ApiKeyStore>,
 ) -> Router {
+    let mut app = Router::new();
     // Auth routes (no auth required)
     let auth_routes = Router::new()
         .route("/register", post(handlers::auth::register))
@@ -429,7 +431,7 @@ fn create_router(
         .route("/api/v1/ws", get(handlers::ws::ws_handler))
         .layer(Extension(ws_hub.clone()));
 
-    Router::new()
+    app = Router::new()
         .nest("/api/v1/auth", auth_routes)
         .nest("/api/v1/auth", auth_protected)
         .nest("/api/v1", user_routes)
@@ -464,8 +466,29 @@ fn create_router(
         .nest("/api/v1", exchange_routes)
         .nest("/api/v1", api_key_routes)
         .nest("/api/v1/admin", admin_api_key_routes)
-        .nest("/api/v1", review_routes)
-        // public_routes: /health and /ws — NOT nested under /api/v1 to avoid route shadowing
+        .nest("/api/v1", review_routes);
+
+    // P3-F3 AI Quant services — injected via Extension into AI handlers
+    let ai_services = Arc::new(handlers::ai::AiServices {
+        model_client: quant_trading_backend::services::ai::ModelClient::new(
+            std::env::var("AI_MODEL_SERVICE_URL")
+                .unwrap_or_else(|_| "http://localhost:8001".to_string()),
+            2,
+        ),
+        feature_engine: quant_trading_backend::services::ai::FeatureEngine::new(
+            100,
+            NormalizeMethod::ZScore,
+        ),
+    });
+
+    app
+        .merge(
+            handlers::ai::router()
+                .layer(axum::Extension(ai_services))
+                .layer(middleware::from_fn(
+                    quant_trading_backend::middleware::auth::auth_middleware,
+                )),
+        )
         .merge(public_routes)
         .layer(cors)
         .layer(TraceLayer::new_for_http())

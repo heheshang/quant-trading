@@ -1,3 +1,4 @@
+pub mod ai;
 pub mod api_key;
 pub mod arbitrage;
 pub mod auth;

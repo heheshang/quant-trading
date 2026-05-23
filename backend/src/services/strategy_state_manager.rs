@@ -124,7 +124,6 @@ impl StrategyStateManager {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[tokio::test]
     async fn test_state_manager_creation() {

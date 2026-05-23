@@ -199,10 +199,12 @@ mod tests {
         fn with_failure(name: &str) -> Self {
             Self {
                 name: name.to_string(),
+                #[allow(dead_code)]
                 call_count: std::sync::atomic::AtomicUsize::new(0),
                 should_fail: true,
             }
         }
+        #[allow(dead_code)]
         fn call_count(&self) -> usize {
             self.call_count.load(Ordering::SeqCst)
         }

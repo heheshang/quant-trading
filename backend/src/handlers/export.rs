@@ -50,7 +50,7 @@ fn col_letter(col_idx: usize) -> String {
     let mut n = col_idx;
     loop {
         s.push((b'A' + (n % 26) as u8) as char);
-        n = n / 26;
+        n /= 26;
         if n == 0 {
             break;
         }
@@ -140,7 +140,7 @@ const ORDER_HEADERS: [&str; 13] = [
 
 fn export_orders_csv(orders: &[OrderResponse]) -> Result<(HeaderMap, Vec<u8>), AppError> {
     let mut wtr = Writer::from_writer(vec![]);
-    wtr.write_record(&ORDER_HEADERS)
+    wtr.write_record(ORDER_HEADERS)
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
     for order in orders {
@@ -357,7 +357,7 @@ const TRADE_HEADERS: [&str; 9] = [
 
 fn export_trades_csv(trades: &[TradeResponse]) -> Result<(HeaderMap, Vec<u8>), AppError> {
     let mut wtr = Writer::from_writer(vec![]);
-    wtr.write_record(&TRADE_HEADERS)
+    wtr.write_record(TRADE_HEADERS)
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
     for trade in trades {
@@ -625,7 +625,7 @@ fn export_positions_xlsx(positions: &[PositionResponse]) -> Result<(HeaderMap, V
 
 fn export_positions_csv(positions: &[PositionResponse]) -> Result<(HeaderMap, Vec<u8>), AppError> {
     let mut wtr = Writer::from_writer(vec![]);
-    wtr.write_record(&POSITION_HEADERS)
+    wtr.write_record(POSITION_HEADERS)
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
     for pos in positions {
@@ -850,9 +850,9 @@ fn export_account_csv(
 ) -> Result<(HeaderMap, Vec<u8>), AppError> {
     let mut wtr = Writer::from_writer(vec![]);
 
-    wtr.write_record(&["=== 账户信息 ==="])
+    wtr.write_record(["=== 账户信息 ==="])
         .map_err(|e| AppError::Internal(e.to_string()))?;
-    wtr.write_record(&["项目", "值"])
+    wtr.write_record(["项目", "值"])
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
     if let Some(acc) = account {
@@ -867,23 +867,23 @@ fn export_account_csv(
             ),
         ];
         for (k, v) in fields {
-            wtr.write_record(&[k, v.as_str()])
+            wtr.write_record([k, v.as_str()])
                 .map_err(|e| AppError::Internal(e.to_string()))?;
         }
     } else {
-        wtr.write_record(&["账户", "未找到"])
+        wtr.write_record(["账户", "未找到"])
             .map_err(|e| AppError::Internal(e.to_string()))?;
     }
 
     wtr.write_record::<&[&str], _>(&[])
         .map_err(|e| AppError::Internal(e.to_string()))?;
-    wtr.write_record(&["=== 持仓信息 ==="])
+    wtr.write_record(["=== 持仓信息 ==="])
         .map_err(|e| AppError::Internal(e.to_string()))?;
-    wtr.write_record(&POSITION_HEADERS)
+    wtr.write_record(POSITION_HEADERS)
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
     for pos in positions {
-        wtr.write_record(&[
+        wtr.write_record([
             &pos.id.to_string(),
             &pos.symbol,
             &format!("{:?}", pos.side),
@@ -951,8 +951,8 @@ pub async fn export_account(
 ) -> Result<impl IntoResponse, AppError> {
     let user_id = user.user_id;
 
-    let account = fetch_account(&*db, user_id).await?;
-    let positions = fetch_all_positions(&*db, user_id).await?;
+    let account = fetch_account(&db, user_id).await?;
+    let positions = fetch_all_positions(&db, user_id).await?;
 
     let (ext, _ctype) = parse_format(&query);
     if ext == "xlsx" {

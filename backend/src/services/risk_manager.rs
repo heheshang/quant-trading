@@ -129,7 +129,7 @@ impl RiskManager {
         // 从 trades 表统计 UTC 今日所有成交的 realized_pnl
         // trades 表记录每一笔成交，realized_pnl 在持仓关闭时从 positions 表汇总
         let today = chrono::Utc::now().date_naive();
-        let today_start = today.and_hms_opt(0, 0, 0).unwrap().and_utc();
+        let _today_start = today.and_hms_opt(0, 0, 0).unwrap().and_utc();
 
         // 查询今日所有成交记录，关联 positions 获取 realized_pnl
         // 注意：trades 表当前无 realized_pnl 字段，从 positions.unrealized_pnl 快照估算
@@ -204,10 +204,8 @@ impl RiskManager {
                         let sl_dec = Decimal::from_f64_retain(sl_price).unwrap_or(Decimal::ZERO);
                         let qty_dec = Decimal::from_f64_retain(qty).unwrap_or(Decimal::ZERO);
 
-                        // 估算最大潜在亏损 = |开仓价 - 止损价| * 数量
                         let estimated_loss = (price_dec - sl_dec).abs() * qty_dec;
 
-                        // 损失比例 = 估算亏损 / 账户权益
                         if snapshot.equity > Decimal::ZERO {
                             estimated_loss_ratio = estimated_loss / snapshot.equity;
                         }

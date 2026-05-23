@@ -126,7 +126,7 @@ mod tests {
         let ts = current_timestamp_ms();
         assert!(ts > 0);
         // Should be roughly current time (within 1 day)
-        let day_ms = 86400 * 1000;
+        let _day_ms = 86400 * 1000;
         assert!(ts > 1_700_000_000_000); // Sometime after 2023
     }
 }

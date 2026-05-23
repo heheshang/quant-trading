@@ -27,6 +27,7 @@ impl Default for SignalGeneratorConfig {
 
 /// 套利信号生成器
 pub struct SignalGenerator {
+    #[allow(dead_code)]
     config: SignalGeneratorConfig,
 }
 
@@ -83,9 +84,9 @@ impl SignalGenerator {
         // 已持仓时判断是否需要平仓
         if let Some(pos) = current_position {
             if pos.status == "open" {
-                let z_f = z_score.to_string().parse::<f64>().unwrap_or(0.0);
-                let exit_f = exit_threshold.to_string().parse::<f64>().unwrap_or(0.0);
-                let entry_f = entry_threshold.to_string().parse::<f64>().unwrap_or(0.0);
+                let _z_f = z_score.to_string().parse::<f64>().unwrap_or(0.0);
+                let _exit_f = exit_threshold.to_string().parse::<f64>().unwrap_or(0.0);
+                let _entry_f = entry_threshold.to_string().parse::<f64>().unwrap_or(0.0);
 
                 // 止损：z_score 继续同向扩大
                 if pos.direction == "long_spread" && z_score < -Decimal::from(2) * entry_threshold {
@@ -329,7 +330,7 @@ mod tests {
             z_score: None,                // 无 z_score，使用 spread_pct 兜底逻辑
             timestamp: Utc::now(),
         };
-        let signal = signal_gen
+        let _signal = signal_gen
             .generate_signal(
                 &spread,
                 Decimal::from(2),

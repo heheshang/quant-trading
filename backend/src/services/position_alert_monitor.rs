@@ -67,6 +67,7 @@ pub struct AlertExecutionResult {
 pub struct PositionAlertMonitor {
     db: Arc<DatabaseConnection>,
     engine: Arc<MatchingEngine>,
+    #[allow(dead_code)]
     alert_service: PositionAlertService,
     /// 追踪止损状态：alert_id → activated_price（已激活追踪的最高/最低价）
     trailing_state: std::sync::Mutex<HashMap<Uuid, f64>>,
@@ -102,7 +103,7 @@ impl PositionAlertMonitor {
         let _alert_service = PositionAlertService::new(db.clone());
 
         tokio::spawn(async move {
-            let check_interval = Duration::from_millis(interval_ms.max(100).min(5000));
+            let check_interval = Duration::from_millis(interval_ms.clamp(100, 5000));
             let mut interval_ticker = tokio::time::interval(check_interval);
 
             loop {

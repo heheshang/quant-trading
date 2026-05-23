@@ -49,6 +49,7 @@ impl KlinePartitionManager {
     }
 
     /// 获取月份的第一天的 UTC 00:00 时间戳（毫秒）
+    #[allow(dead_code)]
     fn month_start_ms(year: i32, month: u32) -> i64 {
         use chrono::{TimeZone, Utc};
         Utc.with_ymd_and_hms(year, month, 1, 0, 0, 0)
@@ -57,6 +58,7 @@ impl KlinePartitionManager {
     }
 
     /// 获取下个月的第一天的 UTC 00:00 时间戳（毫秒）
+    #[allow(dead_code)]
     fn next_month_start_ms(year: i32, month: u32) -> i64 {
         let (ny, nm) = if month == 12 {
             (year + 1, 1)
@@ -282,7 +284,7 @@ impl KlinePartitionManager {
         let running = self.running.clone();
         tokio::spawn(async move {
             let mut tick = interval(Duration::from_secs(3600)); // Check every hour
-            let mut stopped = false;
+            let stopped = false;
 
             loop {
                 tokio::select! {

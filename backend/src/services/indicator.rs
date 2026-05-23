@@ -56,8 +56,7 @@ impl Kdjk {
         // --- Pass 1: Compute RSV for each valid window ---
         let rsv: Vec<f64> = klines
             .windows(n)
-            .enumerate()
-            .map(|(_i, window)| {
+            .map(|window| {
                 let low_min = window.iter().map(|b| b.low).fold(f64::INFINITY, f64::min);
                 let high_max = window
                     .iter()
@@ -278,7 +277,7 @@ mod tests {
     #[test]
     fn test_kdj_flat_price() {
         // Flat price — RSV should be 50, K and D should converge to 50
-        let prices: Vec<(f64, f64, f64)> = (0..20).map(|i| (100.0, 90.0, 95.0)).collect();
+        let prices: Vec<(f64, f64, f64)> = (0..20).map(|_i| (100.0, 90.0, 95.0)).collect();
         let klines = make_klines(&prices);
         let result = compute_kdj(&klines, 9, 3, 3);
         assert!(!result.is_empty());

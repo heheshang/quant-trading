@@ -13,7 +13,7 @@ WORKDIR /app
 # Copy source + lockfiles first so cargo can detect unchanged deps
 # Build context is project root (.), source paths are relative to context
 COPY backend/Cargo.toml ./Cargo.toml
-COPY backend/Cargo.lock* ./Cargo.lock 2>/dev/null || true
+COPY backend/Cargo.lock ./Cargo.lock 
 COPY .cargo/config.toml ./.cargo/config.toml
 COPY backend/src ./src
 

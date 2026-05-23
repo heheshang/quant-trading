@@ -98,7 +98,7 @@ fn require_admin(user: &AuthenticatedUser) -> Result<(), AppError> {
 /// 列出当前用户的所有 API Key（脱敏：只返回后4位）
 pub async fn list_api_keys(
     user: AuthenticatedUser,
-    State(db): State<Arc<DatabaseConnection>>,
+    State(_db): State<Arc<DatabaseConnection>>,
     Extension(key_store): Extension<Arc<ApiKeyStore>>,
 ) -> Result<Json<ApiResponse<Vec<ApiKeyResponse>>>, AppError> {
     let keys = key_store.find_by_user(user.user_id).await?;
@@ -113,7 +113,7 @@ pub async fn list_api_keys(
 /// 创建新 API Key
 pub async fn create_api_key(
     user: AuthenticatedUser,
-    State(db): State<Arc<DatabaseConnection>>,
+    State(_db): State<Arc<DatabaseConnection>>,
     Extension(key_store): Extension<Arc<ApiKeyStore>>,
     Json(body): Json<CreateApiKeyRequest>,
 ) -> Result<(StatusCode, Json<ApiResponse<ApiKeyResponse>>), AppError> {

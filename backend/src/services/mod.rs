@@ -1,4 +1,5 @@
 pub mod alert_notification_service;
+pub mod ai;
 pub mod arbitrage;
 pub mod auth;
 pub mod backtest;

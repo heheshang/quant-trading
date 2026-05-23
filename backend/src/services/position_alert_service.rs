@@ -415,11 +415,7 @@ impl PositionAlertService {
                             }
                         } else {
                             // 尚未激活（价格从未高于开仓价 + 一定距离）
-                            if current_price >= alert.trigger_price {
-                                (false, None, String::new()) // 追踪未触发，仅记录
-                            } else {
-                                (false, None, String::new())
-                            }
+                            (false, None, String::new())
                         }
                     }
                     PositionSide::Short => {
