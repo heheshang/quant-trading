@@ -1,6 +1,7 @@
 pub mod ai;
 pub mod alert_notification_service;
 pub mod arbitrage;
+pub mod atr_stop_loss;
 pub mod auth;
 pub mod backtest;
 pub mod backtest_engine;

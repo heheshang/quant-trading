@@ -1,6 +1,7 @@
 pub mod ab_experiment_logs;
 pub mod ai_signals;
 pub mod arbitrage_entities;
+pub mod atr_stop_loss;
 pub mod backtest;
 pub mod backtest_results;
 pub mod dashboard;
@@ -492,6 +493,30 @@ pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), sea_orm::DbEr
     db.execute(sea_orm::Statement::from_string(
         backend,
         "CREATE INDEX IF NOT EXISTS idx_strategy_reviews_strategy_id ON strategy_reviews (strategy_id)".to_string()
+    )).await?;
+
+    // P0-F2: atr_stop_loss 表（ATR 追踪止损 - ADR-015）
+    db.execute(sea_orm::Statement::from_string(
+        backend,
+        r#"
+        CREATE TABLE IF NOT EXISTS atr_stop_loss (
+            id              UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
+            position_id     UUID            NOT NULL REFERENCES positions(id) ON DELETE CASCADE,
+            entry_price     DECIMAL(20, 8)  NOT NULL,
+            current_stop    DECIMAL(20, 8)  NOT NULL,
+            atr_value       DECIMAL(20, 8)  NOT NULL,
+            atr_period      INT             NOT NULL DEFAULT 14,
+            multiplier      DECIMAL(10, 4)  NOT NULL,
+            position_side   VARCHAR(10)     NOT NULL,
+            created_at      TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+            updated_at      TIMESTAMPTZ     NOT NULL DEFAULT NOW()
+        )
+        "#.to_string()
+    )).await?;
+
+    db.execute(sea_orm::Statement::from_string(
+        backend,
+        "CREATE INDEX IF NOT EXISTS idx_atr_stop_loss_position_id ON atr_stop_loss (position_id)".to_string()
     )).await?;
 
     // Seed default roles if none exist

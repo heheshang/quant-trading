@@ -123,9 +123,22 @@ impl RiskManager {
             .map(|a| rust_decimal::Decimal::from_f64_retain(a.balance).unwrap_or(Decimal::ZERO))
             .unwrap_or(Decimal::ZERO);
 
-        // 2. 计算当日盈亏（从 trades 表按日期统计）
-        let _today = chrono::Utc::now().date_naive();
-        let daily_pnl = Decimal::ZERO; // TODO: 从 trades.realized_pnl SUM
+        // 2. 计算当日已实现盈亏（从 positions 已平仓记录统计）
+        // trades 表无 realized_pnl，从今日平仓的 positions.quantity=0 记录获取 realized_pnl
+        let today = chrono::Utc::now().date_naive();
+        let today_start = today.and_hms_opt(0, 0, 0).unwrap_or_else(|| today.and_hms(0, 0, 0)).and_utc();
+        let closed_positions = crate::db::order::positions::Entity::find()
+            .filter(crate::db::order::positions::Column::UserId.eq(user_id))
+            .filter(crate::db::order::positions::Column::Quantity.eq(0.0))
+            .filter(crate::db::order::positions::Column::UpdatedAt.gte(today_start))
+            .all(self.db.as_ref())
+            .await
+            .map_err(|e| AppError::Internal(e.to_string()))?;
+        let daily_realized_pnl: Decimal = closed_positions
+            .iter()
+            .map(|p| Decimal::try_from(p.realized_pnl).unwrap_or(Decimal::ZERO))
+            .sum();
+        let daily_pnl = daily_realized_pnl;
 
         // 3. 历史峰值（从 paper_accounts.peak_equity 或单独记录）
         let peak_equity = equity; // MVP: 简化处理，后续扩展
@@ -139,31 +152,24 @@ impl RiskManager {
 
     /// 计算当日累计亏损（正向为盈利，负向为亏损）
     pub(crate) async fn get_daily_loss(&self, user_id: Uuid) -> Result<Decimal, AppError> {
-        // 从 trades 表统计 UTC 今日所有成交的 realized_pnl
-        // trades 表记录每一笔成交，realized_pnl 在持仓关闭时从 positions 表汇总
         let today = chrono::Utc::now().date_naive();
-        let _today_start = today.and_hms_opt(0, 0, 0).unwrap_or_else(|| today.and_hms(0, 0, 0)).and_utc();
+        let today_start = today.and_hms_opt(0, 0, 0).unwrap_or_else(|| today.and_hms(0, 0, 0)).and_utc();
 
-        // 查询今日所有成交记录，关联 positions 获取 realized_pnl
-        // 注意：trades 表当前无 realized_pnl 字段，从 positions.unrealized_pnl 快照估算
-        // 实际实现需要 trades 表增加 realized_pnl 列或新增 daily_pnl_summary 表
-        // MVP：使用 positions 表的当日 unrealized_pnl 变动来近似
-
-        // 查询用户当前持仓的 unrealized_pnl 总和作为浮动盈亏
-        let positions = crate::db::order::positions::Entity::find()
+        // 查询 UTC 今日已平仓的 positions（quantity=0），汇总 realized_pnl
+        let closed_positions = crate::db::order::positions::Entity::find()
             .filter(crate::db::order::positions::Column::UserId.eq(user_id))
+            .filter(crate::db::order::positions::Column::Quantity.eq(0.0))
+            .filter(crate::db::order::positions::Column::UpdatedAt.gte(today_start))
             .all(self.db.as_ref())
             .await
             .map_err(|e| AppError::Internal(e.to_string()))?;
 
-        let unrealized: Decimal = positions
+        let daily_loss: Decimal = closed_positions
             .iter()
-            .map(|p| Decimal::try_from(p.unrealized_pnl).unwrap_or(Decimal::ZERO))
+            .map(|p| Decimal::try_from(p.realized_pnl).unwrap_or(Decimal::ZERO))
             .sum();
 
-        // 今日已实现盈亏：从 positions_history 或 daily_summary 获取（简化：返回 unrealized）
-        // TODO: 实现每日已实现盈亏统计表
-        Ok(unrealized)
+        Ok(daily_loss)
     }
 
     /// 前置风控检查 — 每次下单前必须调用
@@ -297,41 +303,76 @@ impl RiskManager {
     }
 
     /// 紧急全平（不受任何风控条件限制）
+    /// 实际更新数据库持仓为 0，unrealized_pnl 计入 realized_pnl
     pub async fn emergency_close(
         &self,
         user_id: Uuid,
         _admin: bool,
     ) -> Result<EmergencyCloseResult, AppError> {
-        // 1. 获取当前所有持仓
+        // 1. 获取当前所有持仓（quantity > 0）
         let positions = <crate::db::order::positions::Entity as EntityTrait>::find()
             .filter(crate::db::order::positions::Column::UserId.eq(user_id))
-            .filter(crate::db::order::positions::Column::Quantity.gt(Decimal::ZERO))
+            .filter(crate::db::order::positions::Column::Quantity.gt(0.0_f64))
             .all(self.db.as_ref())
             .await?;
 
         let mut details = vec![];
 
         for pos in positions {
-            // 2. 市价全平（调用撮合引擎）
-            // MVP: 直接更新持仓为 0，记录风控日志
-            // TODO: 实际调用 matching_engine.market_close(user_id, pos.symbol)
             let symbol = pos.symbol.clone();
-            let side = match pos.side {
+            let quantity = pos.quantity;
+            let side_str = match pos.side {
                 crate::db::order::PositionSide::Long => "long",
                 crate::db::order::PositionSide::Short => "short",
             };
+            let unrealized = pos.unrealized_pnl;
+            let new_realized = pos.realized_pnl + unrealized;
+            let pos_id = pos.id;
+
+            // 2. 实际平仓：更新持仓为 0，unrealized_pnl 计入 realized_pnl
+            let mut active_model: crate::db::order::positions::ActiveModel = pos.into();
+            active_model.quantity = sea_orm::Set(0.0_f64);
+            active_model.available_quantity = sea_orm::Set(0.0_f64);
+            active_model.unrealized_pnl = sea_orm::Set(0.0_f64);
+            active_model.realized_pnl = sea_orm::Set(new_realized);
+            active_model.updated_at = sea_orm::Set(chrono::Utc::now());
+
+            crate::db::order::positions::Entity::update(active_model)
+                .exec(self.db.as_ref())
+                .await
+                .map_err(|e| AppError::Internal(e.to_string()))?;
+
+            // 3. 记录风控日志
+            self.log_risk_event(
+                user_id,
+                "emergency",
+                Decimal::ZERO,
+                Decimal::ZERO,
+                Decimal::ZERO,
+                "closed_all",
+                Some(pos_id),
+            )
+            .await?;
+
             details.push(EmergencyCloseOrder {
                 symbol,
-                side: side.to_string(),
-                executed_qty: format!("{:.8}", pos.quantity),
-                pnl: format!("{:.2}", pos.realized_pnl),
+                side: side_str.to_string(),
+                executed_qty: format!("{:.8}", quantity),
+                pnl: format!("{:.2}", new_realized),
             });
         }
 
-        let total_pnl: Decimal = details.iter().map(|d| d.pnl.parse::<Decimal>().unwrap_or_default()).sum();
+        let total_pnl: Decimal = details
+            .iter()
+            .map(|d| d.pnl.parse::<Decimal>().unwrap_or_default())
+            .sum();
         Ok(EmergencyCloseResult {
             success: true,
-            message: if details.is_empty() { "No positions to close".to_string() } else { format!("Closed {} positions", details.len()) },
+            message: if details.is_empty() {
+                "No positions to close".to_string()
+            } else {
+                format!("Closed {} positions", details.len())
+            },
             closed_positions: details.len() as i32,
             total_pnl: total_pnl.to_string(),
             details,
