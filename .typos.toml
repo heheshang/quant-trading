@@ -9,6 +9,7 @@ BA = "BA"       # By Account / Batch Assign
 UE = "UE"       # Unrealized Equity
 RTO = "RTO"     # Return to Origin (websocket RTO scenario)
 strat = "strat" # abbreviation for strategy in test variables
+wrk  = "wrk"   # wrk2 load testing tool abbreviation
 
 [files]
 extend-exclude = [

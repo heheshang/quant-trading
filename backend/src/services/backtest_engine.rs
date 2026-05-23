@@ -197,6 +197,7 @@ impl BacktestEngine {
         let exec_price = kline.close + slippage;
 
         // Price limit enforcement: long entry cannot buy above limit-up
+        #[allow(clippy::collapsible_if)]
         if let Some(upper_limit) = upper_limit {
             if exec_price > upper_limit {
                 return; // 涨停，无法买入
@@ -246,6 +247,7 @@ impl BacktestEngine {
         let exec_price = kline.close - slippage;
 
         // Price limit enforcement: short entry cannot sell below limit-down
+        #[allow(clippy::collapsible_if)]
         if let Some(lower) = lower_limit {
             if exec_price < lower {
                 return; // 跌停，无法卖出

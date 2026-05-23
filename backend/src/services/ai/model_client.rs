@@ -94,8 +94,8 @@ impl Default for CircuitBreakerState {
 /// AI model prediction response.
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct PredictionResponse {
-    pub direction: String,        // "long" | "short" | "neutral"
-    pub confidence: f64,            // 0.0 ~ 1.0
+    pub direction: String, // "long" | "short" | "neutral"
+    pub confidence: f64,   // 0.0 ~ 1.0
     pub model_version: String,
     #[serde(alias = "timestamp", default)]
     pub generated_at: String,
@@ -131,6 +131,7 @@ pub struct HealthResponse {
 #[derive(Clone)]
 pub struct ModelClient {
     base_url: String,
+    #[allow(dead_code)]
     timeout_secs: u64,
     client: Client,
     circuit_breaker: Arc<RwLock<CircuitBreakerState>>,
@@ -202,12 +203,7 @@ impl ModelClient {
                 .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         }
 
-        let resp = self
-            .client
-            .post(&url)
-            .json(&body)
-            .send()
-            .await;
+        let resp = self.client.post(&url).json(&body).send().await;
 
         match resp {
             Ok(r) if r.status().is_success() => {
@@ -252,11 +248,7 @@ impl ModelClient {
                 .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         }
 
-        let resp = self
-            .client
-            .get(&url)
-            .send()
-            .await;
+        let resp = self.client.get(&url).send().await;
 
         match resp {
             Ok(r) if r.status().is_success() => {
@@ -305,8 +297,7 @@ impl ModelClient {
     /// Returns the total number of requests made (test helper).
     #[cfg(test)]
     pub fn request_count(&self) -> u64 {
-        self.request_count
-            .load(std::sync::atomic::Ordering::SeqCst)
+        self.request_count.load(std::sync::atomic::Ordering::SeqCst)
     }
 }
 

@@ -2,5 +2,8 @@
   "devDependencies": {
     "@playwright/test": "^1.60.0",
     "playwright": "^1.60.0"
-  }
+  },
+  "name": "quant-trading",
+  "private": true,
+  "version": "0.1.0"
 }

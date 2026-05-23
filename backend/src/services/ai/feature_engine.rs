@@ -34,7 +34,10 @@ impl Default for FeatureEngine {
 impl FeatureEngine {
     /// Create a new FeatureEngine with custom settings.
     pub fn new(lookback: usize, normalize_method: NormalizeMethod) -> Self {
-        Self { lookback, normalize_method }
+        Self {
+            lookback,
+            normalize_method,
+        }
     }
 
     /// Extract a feature vector from a slice of OHLCV klines.
@@ -146,8 +149,14 @@ pub fn normalize_minmax(features: &[f64]) -> Vec<f64> {
     if features.is_empty() {
         return vec![];
     }
-    let min_val = features.iter().cloned().fold(f64::INFINITY, |a, b| a.min(b));
-    let max_val = features.iter().cloned().fold(f64::NEG_INFINITY, |a, b| a.max(b));
+    let min_val = features
+        .iter()
+        .cloned()
+        .fold(f64::INFINITY, |a, b| a.min(b));
+    let max_val = features
+        .iter()
+        .cloned()
+        .fold(f64::NEG_INFINITY, |a, b| a.max(b));
     let range = max_val - min_val;
     if range < f64::EPSILON {
         // All identical — return 0.5 as neutral
@@ -279,7 +288,7 @@ mod tests {
         prices
             .iter()
             .enumerate()
-            .map(|(i, (o, h, l, c))| KlineInput {
+            .map(|(i, (_, h, l, c))| KlineInput {
                 open_time: (i as i64) * 60000,
                 high: *h,
                 low: *l,
@@ -357,7 +366,11 @@ mod tests {
         let rsi = features[2];
         let ma_ratio = features[4];
         assert!(rsi > 50.0, "RSI in uptrend should be > 50, got {}", rsi);
-        assert!(ma_ratio > 1.0, "MA ratio in uptrend should be > 1, got {}", ma_ratio);
+        assert!(
+            ma_ratio > 1.0,
+            "MA ratio in uptrend should be > 1, got {}",
+            ma_ratio
+        );
     }
 
     #[test]
@@ -409,7 +422,11 @@ mod tests {
         let normalized = normalize_zscore(&features);
         // mean=3, std≈1.414
         let mean: f64 = normalized.iter().sum::<f64>() / 5.0;
-        assert!(mean.abs() < 1e-10, "Z-score normalized mean should be ~0, got {}", mean);
+        assert!(
+            mean.abs() < 1e-10,
+            "Z-score normalized mean should be ~0, got {}",
+            mean
+        );
     }
 
     #[test]
@@ -481,7 +498,11 @@ mod tests {
             })
             .collect();
         let rsi = compute_rsi(&klines, 14);
-        assert!(rsi > 50.0 || rsi == 100.0, "RSI for flat price should be > 50 or 100, got {}", rsi);
+        assert!(
+            rsi > 50.0 || rsi == 100.0,
+            "RSI for flat price should be > 50 or 100, got {}",
+            rsi
+        );
     }
 
     #[test]
@@ -504,7 +525,11 @@ mod tests {
     fn test_ma_ratio_above_one_in_uptrend() {
         let klines = make_trend_klines(20);
         let ratio = compute_ma_ratio(&klines, 14);
-        assert!(ratio > 1.0, "MA ratio in uptrend should be > 1, got {}", ratio);
+        assert!(
+            ratio > 1.0,
+            "MA ratio in uptrend should be > 1, got {}",
+            ratio
+        );
     }
 
     #[test]
@@ -522,7 +547,11 @@ mod tests {
             })
             .collect();
         let ratio = compute_ma_ratio(&klines, 14);
-        assert!(ratio < 1.0, "MA ratio in downtrend should be < 1, got {}", ratio);
+        assert!(
+            ratio < 1.0,
+            "MA ratio in downtrend should be < 1, got {}",
+            ratio
+        );
     }
 
     #[test]
@@ -536,6 +565,10 @@ mod tests {
             })
             .collect();
         let vc = compute_volume_change(&klines);
-        assert!(vc.abs() < 1e-6, "Volume change for flat price should be ~0, got {}", vc);
+        assert!(
+            vc.abs() < 1e-6,
+            "Volume change for flat price should be ~0, got {}",
+            vc
+        );
     }
 }

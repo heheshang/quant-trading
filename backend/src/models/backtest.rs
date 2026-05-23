@@ -249,10 +249,10 @@ impl BacktestConfig {
             return Err("slippage_rate must be 0..0.01".into());
         }
 
-        if let Some(pct) = self.price_limit_pct {
-            if !(0.0..=0.5).contains(&pct) {
-                return Err("price_limit_pct must be 0..0.5".into());
-            }
+        if let Some(pct) = self.price_limit_pct
+            && !(0.0..=0.5).contains(&pct)
+        {
+            return Err("price_limit_pct must be 0..0.5".into());
         }
 
         Ok(())

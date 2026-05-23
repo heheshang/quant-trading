@@ -71,8 +71,8 @@ impl AlertNotificationService {
 
         let mut cache = self.deduplication_cache.write().await;
 
-        if let Some(last_sent) = cache.get(&key) {
-            if last_sent.elapsed() < window {
+        match cache.get(&key) {
+            Some(last_sent) if last_sent.elapsed() < window => {
                 tracing::debug!(
                     "Deduplicating alert: key={}, elapsed={:?}",
                     key,
@@ -80,6 +80,7 @@ impl AlertNotificationService {
                 );
                 return true;
             }
+            _ => {}
         }
 
         // 更新发送时间
@@ -196,6 +197,7 @@ mod tests {
                 should_fail: false,
             }
         }
+        #[allow(dead_code)]
         fn with_failure(name: &str) -> Self {
             Self {
                 name: name.to_string(),

@@ -108,6 +108,7 @@ impl GridEngine {
                 martingale_level: ml,
             };
             self.positions.insert(order.grid_level, pos);
+            #[allow(clippy::collapsible_if)]
             if order.is_martingale {
                 if let Some(ref mut mg) = self.martingale {
                     mg.record_loss(order.grid_level);

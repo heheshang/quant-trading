@@ -337,14 +337,19 @@ pub async fn get_equity_curve(
     let mut query = portfolio::Entity::find().filter(portfolio::Column::UserId.eq(user_id));
 
     // Date range filter
+    // Date range filter
+    #[allow(clippy::collapsible_if)]
     if let Some(ref start_date) = params.start_date {
+        #[allow(clippy::collapsible_if)]
         if let Ok(dt) = NaiveDate::parse_from_str(start_date, "%Y-%m-%d") {
             let start_utc = Utc.from_utc_datetime(&dt.and_hms_opt(0, 0, 0).unwrap_or_default());
             query = query.filter(portfolio::Column::Timestamp.gte(start_utc));
         }
     }
 
+    #[allow(clippy::collapsible_if)]
     if let Some(ref end_date) = params.end_date {
+        #[allow(clippy::collapsible_if)]
         if let Ok(dt) = NaiveDate::parse_from_str(end_date, "%Y-%m-%d") {
             let end_utc = Utc.from_utc_datetime(&dt.and_hms_opt(23, 59, 59).unwrap_or_default());
             query = query.filter(portfolio::Column::Timestamp.lte(end_utc));

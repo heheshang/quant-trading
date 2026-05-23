@@ -82,8 +82,8 @@ impl SignalGenerator {
         current_position: Option<&ArbitragePosition>,
     ) -> Result<Option<SignalType>, AppError> {
         // 已持仓时判断是否需要平仓
-        if let Some(pos) = current_position {
-            if pos.status == "open" {
+        match current_position {
+            Some(pos) if pos.status == "open" => {
                 let _z_f = z_score.to_string().parse::<f64>().unwrap_or(0.0);
                 let _exit_f = exit_threshold.to_string().parse::<f64>().unwrap_or(0.0);
                 let _entry_f = entry_threshold.to_string().parse::<f64>().unwrap_or(0.0);
@@ -105,6 +105,7 @@ impl SignalGenerator {
 
                 return Ok(None);
             }
+            _ => {}
         }
 
         // 无持仓时的入场判断
@@ -131,8 +132,8 @@ impl SignalGenerator {
         let exit_f = exit_threshold.to_string().parse::<f64>().unwrap_or(0.5);
         let spread_f = spread_pct.to_string().parse::<f64>().unwrap_or(0.0);
 
-        if let Some(pos) = current_position {
-            if pos.status == "open" {
+        match current_position {
+            Some(pos) if pos.status == "open" => {
                 // 持仓中，检测平仓
                 if (pos.direction == "long_spread" && spread_f >= -exit_f)
                     || (pos.direction == "short_spread" && spread_f <= exit_f)
@@ -141,6 +142,7 @@ impl SignalGenerator {
                 }
                 return None;
             }
+            _ => {}
         }
 
         if spread_f < -entry_f {

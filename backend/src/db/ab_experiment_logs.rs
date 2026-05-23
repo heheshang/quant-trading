@@ -16,7 +16,7 @@ pub struct Model {
     pub traffic_ratio: i32,       // % traffic assigned at time of decision
     pub decision_at: DateTimeUtc,
     pub order_result: Option<String>, // "filled" | "rejected" | "pending" | null
-    pub pnl: Option<f64>,            // PnL if order completed
+    pub pnl: Option<f64>,             // PnL if order completed
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

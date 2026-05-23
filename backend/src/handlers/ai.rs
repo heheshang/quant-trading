@@ -8,9 +8,9 @@
 //!   POST /api/v1/ai/backtest            — AI信号回测
 
 use axum::{
+    Json, Router,
     extract::{Extension, Path, Query, State},
     routing::{get, post},
-    Json, Router,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -18,8 +18,8 @@ use std::sync::Arc;
 use crate::db::DbPool;
 use crate::middleware::auth::AuthenticatedUser;
 use crate::models::schemas::{KlineQueryParams, KlineResponse};
+use crate::services::ai::signal_fusion::{AiSignal, Direction, RuleSignal, fuse_signals};
 use crate::services::ai::{FeatureEngine, ModelClient};
-use crate::services::ai::signal_fusion::{fuse_signals, AiSignal, Direction, RuleSignal};
 use crate::utils::error::AppError;
 
 // ==================== 请求/响应结构 ====================
@@ -183,13 +183,9 @@ pub async fn get_prediction(
         size: Some(200),
     };
 
-    let kline_list = crate::services::kline::query_klines(
-        db.as_ref(),
-        _user.user_id,
-        kline_params,
-    )
-    .await
-    .map_err(|e| AppError::Internal(e.to_string()))?;
+    let kline_list = crate::services::kline::query_klines(db.as_ref(), _user.user_id, kline_params)
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?;
 
     let klines: Vec<KlineResponse> = kline_list.data;
 
@@ -203,16 +199,16 @@ pub async fn get_prediction(
     let kline_inputs: Vec<crate::services::indicator::KlineInput> = klines
         .iter()
         .rev()
-        .filter_map(|k| {
+        .map(|k| {
             let close = k.close;
             let high = k.high;
             let low = k.low;
-            Some(crate::services::indicator::KlineInput {
+            crate::services::indicator::KlineInput {
                 open_time: k.open_time,
                 high,
                 low,
                 close,
-            })
+            }
         })
         .collect();
 
@@ -220,7 +216,9 @@ pub async fn get_prediction(
         return Err(AppError::BadRequest("Insufficient kline data".to_string()));
     }
 
-    let features = services.feature_engine.extract_kline_features(&kline_inputs);
+    let features = services
+        .feature_engine
+        .extract_kline_features(&kline_inputs);
 
     // Step 3: 调用AI模型服务
     let ai_response = services
@@ -301,7 +299,7 @@ pub async fn get_prediction(
 pub async fn ai_backtest(
     _user: AuthenticatedUser,
     State(db): State<DbPool>,
-    Extension(services): Extension<Arc<AiServices>>,
+    Extension(_services): Extension<Arc<AiServices>>,
     Json(req): Json<BacktestRequest>,
 ) -> Result<Json<BacktestResponse>, AppError> {
     let backtest_id = format!(
@@ -335,13 +333,9 @@ pub async fn ai_backtest(
         size: Some(5000),
     };
 
-    let kline_list = crate::services::kline::query_klines(
-        db.as_ref(),
-        _user.user_id,
-        kline_params,
-    )
-    .await
-    .map_err(|e| AppError::Internal(e.to_string()))?;
+    let kline_list = crate::services::kline::query_klines(db.as_ref(), _user.user_id, kline_params)
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?;
 
     if kline_list.data.len() < 100 {
         return Err(AppError::BadRequest(format!(

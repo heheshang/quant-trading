@@ -129,6 +129,6 @@ mod tests {
     async fn test_state_manager_creation() {
         // Basic test to ensure the module compiles
         // Integration tests would require mocked WsHub and RiskManager
-        assert!(true);
+        let _ = std::env::var("TEST_MODULE"); // no-op placeholder
     }
 }

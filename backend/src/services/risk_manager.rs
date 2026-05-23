@@ -196,9 +196,12 @@ impl RiskManager {
             // loss_ratio = estimated_loss / equity
             let mut estimated_loss_ratio = Decimal::ZERO;
 
+            #[allow(clippy::collapsible_if)]
             if let (Some(price), Some(sl_price)) = (order_price, stop_loss_price) {
+                #[allow(clippy::collapsible_if)]
                 if price > 0.0 && sl_price > 0.0 {
                     let qty: f64 = order_quantity.parse().unwrap_or(0.0);
+                    #[allow(clippy::collapsible_if)]
                     if qty > 0.0 {
                         let price_dec = Decimal::from_f64_retain(price).unwrap_or(Decimal::ZERO);
                         let sl_dec = Decimal::from_f64_retain(sl_price).unwrap_or(Decimal::ZERO);
@@ -206,6 +209,7 @@ impl RiskManager {
 
                         let estimated_loss = (price_dec - sl_dec).abs() * qty_dec;
 
+                        #[allow(clippy::collapsible_if)]
                         if snapshot.equity > Decimal::ZERO {
                             estimated_loss_ratio = estimated_loss / snapshot.equity;
                         }

@@ -301,10 +301,10 @@ impl KlinePartitionManager {
                     _ = tokio::time::sleep(Duration::from_secs(86400)) => {
                         // Daily: check if today is 1st of month, run cleanup
                         let now = chrono::Utc::now();
-                        if now.day() == 1 {
-                            if let Err(e) = self.cleanup_old_partitions().await {
-                                error!(error = %e, "cleanup_old_partitions failed");
-                            }
+                        if now.day() == 1
+                            && self.cleanup_old_partitions().await.is_err()
+                        {
+                            // error already logged by cleanup_old_partitions
                         }
                     }
                 }

@@ -5,6 +5,7 @@ use axum::{
 use quant_trading_backend::CONFIG;
 use quant_trading_backend::db::{DbPool, init_db, run_migrations};
 use quant_trading_backend::handlers;
+use quant_trading_backend::services::ai::feature_engine::NormalizeMethod;
 use quant_trading_backend::services::binance_rest::BinanceRestClient;
 use quant_trading_backend::services::exchange::ws_hub::{WsHub, WsHubBuilder};
 use quant_trading_backend::services::exchange::{
@@ -17,7 +18,6 @@ use quant_trading_backend::services::order_rate_limiter::OrderRateLimiter;
 use quant_trading_backend::services::redis_cache::RedisCache;
 use quant_trading_backend::services::risk_manager::RiskManager;
 use quant_trading_backend::services::strategy_state_manager::StrategyStateManager;
-use quant_trading_backend::services::ai::feature_engine::NormalizeMethod;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use tower_http::cors::{Any, CorsLayer};
@@ -481,18 +481,17 @@ fn create_router(
         ),
     });
 
-    app
-        .merge(
-            handlers::ai::router()
-                .layer(axum::Extension(ai_services))
-                .layer(middleware::from_fn(
-                    quant_trading_backend::middleware::auth::auth_middleware,
-                )),
-        )
-        .merge(public_routes)
-        .layer(cors)
-        .layer(TraceLayer::new_for_http())
-        .with_state(db)
+    app.merge(
+        handlers::ai::router()
+            .layer(axum::Extension(ai_services))
+            .layer(middleware::from_fn(
+                quant_trading_backend::middleware::auth::auth_middleware,
+            )),
+    )
+    .merge(public_routes)
+    .layer(cors)
+    .layer(TraceLayer::new_for_http())
+    .with_state(db)
 }
 
 // Helper: Since axum 0.8 uses method routing differently for DELETE
