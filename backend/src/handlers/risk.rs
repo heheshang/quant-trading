@@ -3,12 +3,14 @@
 //! ADR-013 D3: 7 个 API 端点
 
 use axum::{
-    Json, Router,
+    body::Body,
     extract::{Extension, Query, State},
     routing::{get, post},
+    Json, Router,
 };
-use serde::{Deserialize, Serialize};
+use axum::body::Bytes;
 use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -334,8 +336,13 @@ pub async fn emergency_close(
 pub async fn pause_trading(
     State(db): State<Arc<DatabaseConnection>>,
     user: AuthenticatedUser,
-    Json(req): Json<RiskPauseRequest>,
+    body: Bytes,
 ) -> Result<Json<ApiResponse<PauseResponse>>, AppError> {
+    let req: RiskPauseRequest = if body.is_empty() {
+        RiskPauseRequest { reason: None }
+    } else {
+        serde_json::from_slice(&body).unwrap_or(RiskPauseRequest { reason: None })
+    };
     let rm = RiskManager::new(db);
     let reason = req.reason.unwrap_or_else(|| "手动暂停".to_string());
     let result = rm.pause(user.user_id, &reason).await?;
