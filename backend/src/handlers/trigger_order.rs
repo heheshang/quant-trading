@@ -298,14 +298,14 @@ pub async fn cancel_trigger_order(
 /// 注册触发订单路由
 pub fn router() -> Router<Arc<DatabaseConnection>> {
     Router::new()
-        .route("/api/v1/trigger-orders/stop-loss", post(create_stop_loss))
+        .route("/trigger-orders/stop-loss", post(create_stop_loss))
         .route(
-            "/api/v1/trigger-orders/take-profit",
+            "/trigger-orders/take-profit",
             post(create_take_profit),
         )
-        .route("/api/v1/trigger-orders/oco", post(create_oco))
-        .route("/api/v1/trigger-orders/twap", post(create_twap))
-        .route("/api/v1/trigger-orders", get(list_trigger_orders))
-        .route("/api/v1/trigger-orders/{id}", get(get_trigger_order))
-        .route("/api/v1/trigger-orders/{id}", delete(cancel_trigger_order))
+        .route("/trigger-orders/oco", post(create_oco))
+        .route("/trigger-orders/twap", post(create_twap))
+        .route("/trigger-orders", get(list_trigger_orders))
+        .route("/trigger-orders/{id}", get(get_trigger_order))
+        .route("/trigger-orders/{id}", delete(cancel_trigger_order))
 }

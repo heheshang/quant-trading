@@ -23,6 +23,7 @@ fn model_to_response(m: kline::Model) -> KlineResponse {
         user_id: m.user_id,
         symbol: m.symbol,
         interval: m.interval,
+        timestamp: m.open_time,
         open_time: m.open_time,
         open: m.open.parse().unwrap_or(0.0),
         high: m.high.parse().unwrap_or(0.0),
@@ -46,6 +47,7 @@ fn model_to_phase4_response(m: crate::models::kline_entity::Model) -> KlineRespo
         user_id: uuid::Uuid::nil(), // Phase4 has no user_id; use nil UUID
         symbol: m.symbol,
         interval: m.interval,
+        timestamp: m.open_time.timestamp_millis(),
         open_time: m.open_time.timestamp_millis(),
         open: m.open.to_f64().unwrap_or(0.0),
         high: m.high.to_f64().unwrap_or(0.0),

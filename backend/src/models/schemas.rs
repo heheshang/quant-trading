@@ -283,6 +283,7 @@ pub struct KlineResponse {
     pub user_id: Uuid,
     pub symbol: String,
     pub interval: String,
+    pub timestamp: i64,
     pub open_time: i64,
     pub open: f64,
     pub high: f64,

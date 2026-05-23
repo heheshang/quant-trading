@@ -8,6 +8,7 @@ use axum::{
     routing::{get, post},
 };
 use serde::{Deserialize, Serialize};
+use rust_decimal::Decimal;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -37,7 +38,8 @@ pub struct RiskPauseRequest {
 
 #[derive(Debug, Serialize)]
 pub struct RiskRulesResponse {
-    pub user_id: Uuid,
+    pub id: String,
+    pub user_id: String,
     pub daily_loss_limit: String,
     pub daily_loss_auto_close: bool,
     pub single_trade_loss_ratio: String,
@@ -47,6 +49,29 @@ pub struct RiskRulesResponse {
     pub atr_period: Option<i32>,
     pub atr_multiplier: Option<String>,
     pub is_active: bool,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct RiskLogResponse {
+    pub id: Uuid,
+    pub user_id: Uuid,
+    #[serde(rename = "triggered_rule")]
+    pub rule_type: String,
+    pub action: String,
+    pub severity: String,
+    pub details: String,
+    #[serde(rename = "equity_snapshot")]
+    pub account_equity: String,
+    #[serde(rename = "threshold_snapshot")]
+    pub threshold: String,
+    #[serde(rename = "created_at")]
+    pub triggered_at: String,
+    pub order_id: Option<Uuid>,
+    pub notification_sent: bool,
+    pub position_value: Option<String>,
+    pub actual_value: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -85,7 +110,8 @@ pub async fn get_risk_rules(
     let rules = rm.get_rules_internal(user.user_id).await?;
 
     Ok(Json(ApiResponse::success(RiskRulesResponse {
-        user_id: user.user_id,
+        id: user.user_id.to_string(),
+        user_id: user.user_id.to_string(),
         daily_loss_limit: rules.daily_loss_limit.to_string(),
         daily_loss_auto_close: rules.daily_loss_auto_close,
         single_trade_loss_ratio: rules.single_trade_loss_ratio.to_string(),
@@ -95,6 +121,8 @@ pub async fn get_risk_rules(
         atr_period: rules.atr_period,
         atr_multiplier: rules.atr_multiplier.map(|d| d.to_string()),
         is_active: rules.is_active,
+        created_at: rules.created_at.map(|t| t.to_rfc3339()).unwrap_or_default(),
+        updated_at: rules.updated_at.map(|t| t.to_rfc3339()).unwrap_or_default(),
     })))
 }
 
@@ -114,7 +142,7 @@ pub async fn update_risk_rules(
         .await?;
 
     let mut active: ActiveModel = match existing {
-        Some(e) => e.into(),
+        Some(ref e) => e.clone().into(),
         None => ActiveModel {
             user_id: sea_orm::Set(user.user_id),
             ..Default::default()
@@ -148,15 +176,70 @@ pub async fn update_risk_rules(
     if let Some(v) = req.is_active {
         active.is_active = sea_orm::Set(v);
     }
-    active.updated_at = sea_orm::Set(chrono::Utc::now());
+    // Set defaults for any unset fields (for new records)
+    if active.daily_loss_limit == sea_orm::Set(Decimal::ZERO.into()) {
+        active.daily_loss_limit = sea_orm::Set(Decimal::ZERO);
+    }
+    if active.updated_at.is_not_set() {
+        active.updated_at = sea_orm::Set(chrono::Utc::now());
+    }
+    if active.created_at.is_not_set() {
+        active.created_at = sea_orm::Set(chrono::Utc::now());
+    }
 
-    let saved = RiskRulesEntity::update(active)
-        .filter(Column::UserId.eq(user.user_id))
-        .exec(db.as_ref())
-        .await?;
+    // Upsert: separate update and insert paths to avoid move conflict
+    let saved = match existing {
+        Some(_) => {
+            // UPDATE path: active already populated above, just update
+            RiskRulesEntity::update(active)
+                .filter(Column::UserId.eq(user.user_id))
+                .exec(db.as_ref())
+                .await?
+        }
+        None => {
+            // INSERT path: build new model with defaults + req fields
+            let mut new_active: ActiveModel = ActiveModel {
+                user_id: sea_orm::Set(user.user_id),
+                daily_loss_limit: req.daily_loss_limit
+                    .map(|v| sea_orm::Set(v.parse().unwrap_or_default()))
+                    .unwrap_or(sea_orm::Set(Decimal::ZERO)),
+                daily_loss_auto_close: req.daily_loss_auto_close
+                    .map(sea_orm::Set)
+                    .unwrap_or(sea_orm::Set(false)),
+                single_trade_loss_ratio: req.single_trade_loss_ratio
+                    .map(|v| sea_orm::Set(v.parse().unwrap_or_default()))
+                    .unwrap_or(sea_orm::Set(Decimal::ZERO)),
+                max_drawdown_ratio: req.max_drawdown_ratio
+                    .map(|v| sea_orm::Set(v.parse().unwrap_or_default()))
+                    .unwrap_or(sea_orm::Set(std::str::FromStr::from_str("0.1").unwrap())),
+                drawdown_auto_close: req.drawdown_auto_close
+                    .map(sea_orm::Set)
+                    .unwrap_or(sea_orm::Set(false)),
+                stop_loss_type: req.stop_loss_type
+                    .map(sea_orm::Set)
+                    .unwrap_or(sea_orm::Set("fixed".to_string())),
+                atr_period: req.atr_period.map(|v| sea_orm::Set(Some(v))),
+                atr_multiplier: req.atr_multiplier
+                    .map(|v| sea_orm::Set(Some(v.parse().unwrap_or_default()))),
+                is_active: req.is_active
+                    .map(sea_orm::Set)
+                    .unwrap_or(sea_orm::Set(false)),
+                created_at: sea_orm::Set(chrono::Utc::now()),
+                updated_at: sea_orm::Set(chrono::Utc::now()),
+            };
+            RiskRulesEntity::insert(new_active)
+                .exec(db.as_ref())
+                .await?;
+            RiskRulesEntity::find_by_id(user.user_id)
+                .one(db.as_ref())
+                .await?
+                .ok_or_else(|| AppError::Internal("Failed to fetch inserted risk rules".into()))?
+        }
+    };
 
     Ok(Json(ApiResponse::success(RiskRulesResponse {
-        user_id: saved.user_id,
+        id: saved.user_id.to_string(),
+        user_id: saved.user_id.to_string(),
         daily_loss_limit: saved.daily_loss_limit.to_string(),
         daily_loss_auto_close: saved.daily_loss_auto_close,
         single_trade_loss_ratio: saved.single_trade_loss_ratio.to_string(),
@@ -166,6 +249,8 @@ pub async fn update_risk_rules(
         atr_period: saved.atr_period,
         atr_multiplier: saved.atr_multiplier.map(|d| d.to_string()),
         is_active: saved.is_active,
+        created_at: saved.created_at.to_rfc3339(),
+        updated_at: saved.updated_at.to_rfc3339(),
     })))
 }
 
@@ -174,7 +259,7 @@ pub async fn get_risk_logs(
     State(db): State<Arc<DatabaseConnection>>,
     user: AuthenticatedUser,
     Query(params): Query<RiskLogQuery>,
-) -> Result<Json<ApiResponse<Vec<serde_json::Value>>>, AppError> {
+) -> Result<Json<ApiResponse<Vec<RiskLogResponse>>>, AppError> {
     use crate::db::risk_logs::Column as RiskLogCol;
     use crate::db::risk_logs::Entity as RiskLogsEntity;
     use sea_orm::PaginatorTrait;
@@ -189,21 +274,22 @@ pub async fn get_risk_logs(
         .fetch_page((page - 1) as u64)
         .await?;
 
-    let data: Vec<serde_json::Value> = logs
+    let data: Vec<RiskLogResponse> = logs
         .into_iter()
-        .map(|l| {
-            serde_json::json!({
-                "id": l.id,
-                "rule_type": l.rule_type,
-                "triggered_at": l.triggered_at,
-                "position_value": l.position_value,
-                "account_equity": l.account_equity,
-                "threshold": l.threshold,
-                "actual_value": l.actual_value,
-                "action_taken": l.action_taken,
-                "order_id": l.order_id,
-                "notification_sent": l.notification_sent,
-            })
+        .map(|l| RiskLogResponse {
+            id: l.id,
+            user_id: l.user_id,
+            rule_type: l.rule_type.clone(),
+            action: l.action_taken,
+            severity: "medium".to_string(), // DB doesn't have severity, default to medium
+            details: format!("{} triggered at {}", l.rule_type, l.triggered_at),
+            account_equity: l.account_equity.to_string(),
+            threshold: l.threshold.to_string(),
+            triggered_at: l.triggered_at.to_rfc3339(),
+            order_id: l.order_id,
+            notification_sent: l.notification_sent,
+            position_value: l.position_value.map(|v| v.to_string()),
+            actual_value: Some(l.actual_value.to_string()),
         })
         .collect();
 

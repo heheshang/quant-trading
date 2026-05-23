@@ -18,12 +18,15 @@ use crate::utils::error::AppError;
 // ─── Response Types ─────────────────────────────────────────────
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct DashboardStats {
-    pub total_users: i64,
-    pub active_strategies: i64,
-    pub total_orders_today: i64,
-    pub total_pnl_today: f64,
+    pub total_pnl: f64,
+    pub daily_pnl: f64,
     pub win_rate: f64,
+    pub sharpe_ratio: f64,
+    pub active_positions: i64,
+    pub total_trades: i64,
+    pub balance: f64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -31,6 +34,8 @@ pub struct PnLPoint {
     pub timestamp: String,
     pub pnl: f64,
     pub equity: f64,
+    #[serde(skip_deserializing, default)]
+    pub value: f64, // alias for pnl, for frontend compatibility
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -146,12 +151,23 @@ pub async fn get_stats(db: &DatabaseConnection, user_id: Uuid) -> Result<Dashboa
         0.0
     };
 
+    // 6. Get account balance from paper_accounts
+    let balance = crate::db::order::paper_accounts::Entity::find()
+        .filter(crate::db::order::paper_accounts::Column::UserId.eq(user_id))
+        .one(db)
+        .await
+        .map_err(|e| AppError::Database(e.to_string()))?
+        .map(|a| a.balance.to_string().parse::<f64>().unwrap_or(0.0))
+        .unwrap_or(0.0);
+
     Ok(DashboardStats {
-        total_users,
-        active_strategies,
-        total_orders_today,
-        total_pnl_today,
+        total_pnl: total_pnl_today,
+        daily_pnl: total_pnl_today,
         win_rate,
+        sharpe_ratio: 0.0,
+        active_positions: active_strategies,
+        total_trades,
+        balance,
     })
 }
 
@@ -193,6 +209,7 @@ pub async fn get_pnl_history(
             timestamp: r.timestamp.to_rfc3339(),
             pnl: r.pnl,
             equity: r.equity,
+            value: r.pnl,
         })
         .collect();
 
@@ -252,12 +269,14 @@ async fn generate_pnl_from_orders(
                 timestamp: date.to_rfc3339(),
                 pnl: *pnl,
                 equity: running_equity,
+                value: *pnl,
             });
         } else {
             points.push(PnLPoint {
                 timestamp: date.to_rfc3339(),
                 pnl: 0.0,
                 equity: running_equity,
+                value: 0.0,
             });
         }
     }
@@ -274,16 +293,22 @@ mod tests {
     #[test]
     fn test_dashboard_stats_serialization() {
         let stats = DashboardStats {
-            total_users: 100,
-            active_strategies: 25,
-            total_orders_today: 150,
-            total_pnl_today: 1234.56,
+            total_pnl: 1234.56,
+            daily_pnl: 1234.56,
             win_rate: 65.5,
+            sharpe_ratio: 1.5,
+            active_positions: 25,
+            total_trades: 150,
+            balance: 100000.0,
         };
         let json = serde_json::to_value(&stats).unwrap();
-        assert_eq!(json["total_users"], 100);
-        assert_eq!(json["active_strategies"], 25);
-        assert!((json["total_pnl_today"].as_f64().unwrap() - 1234.56).abs() < 0.01);
+        assert_eq!(json["totalPnl"], 1234.56);
+        assert_eq!(json["dailyPnl"], 1234.56);
+        assert_eq!(json["winRate"], 65.5);
+        assert_eq!(json["sharpeRatio"], 1.5);
+        assert_eq!(json["activePositions"], 25);
+        assert_eq!(json["totalTrades"], 150);
+        assert_eq!(json["balance"], 100000.0);
     }
 
     #[test]
@@ -292,10 +317,12 @@ mod tests {
             timestamp: "2026-05-14T00:00:00Z".to_string(),
             pnl: 500.25,
             equity: 100500.75,
+            value: 500.25,
         };
         let json = serde_json::to_value(&point).unwrap();
         assert_eq!(json["timestamp"], "2026-05-14T00:00:00Z");
         assert!((json["pnl"].as_f64().unwrap() - 500.25).abs() < 0.01);
+        assert!((json["value"].as_f64().unwrap() - 500.25).abs() < 0.01);
     }
 
     #[test]
@@ -306,11 +333,13 @@ mod tests {
                     timestamp: "2026-05-14T00:00:00Z".to_string(),
                     pnl: 500.0,
                     equity: 100500.0,
+                    value: 500.0,
                 },
                 PnLPoint {
                     timestamp: "2026-05-15T00:00:00Z".to_string(),
                     pnl: 250.0,
                     equity: 100750.0,
+                    value: 250.0,
                 },
             ],
         };

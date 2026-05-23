@@ -213,6 +213,33 @@ pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), sea_orm::DbEr
     );
     db.execute(stmt).await?;
 
+    // Create risk_rules table (runs only if table doesn't exist)
+    let stmt = backend.build(
+        schema
+            .create_table_from_entity(risk_rules::Entity)
+            .if_not_exists(),
+    );
+    db.execute(stmt).await?;
+
+    // Fix risk_rules created_at/updated_at empty strings → valid timestamps (existing DB migration)
+    let fix_risk_ts = r#"
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='risk_rules' AND column_name='created_at') THEN
+                UPDATE risk_rules SET created_at = CURRENT_TIMESTAMP WHERE created_at = '';
+                UPDATE risk_rules SET updated_at = CURRENT_TIMESTAMP WHERE updated_at = '';
+                ALTER TABLE risk_rules ALTER COLUMN created_at TYPE TIMESTAMPTZ USING CASE WHEN created_at = '' THEN NULL ELSE created_at::TIMESTAMPTZ END;
+                ALTER TABLE risk_rules ALTER COLUMN updated_at TYPE TIMESTAMPTZ USING CASE WHEN updated_at = '' THEN NULL ELSE updated_at::TIMESTAMPTZ END;
+                ALTER TABLE risk_rules ALTER COLUMN created_at SET NOT NULL;
+                ALTER TABLE risk_rules ALTER COLUMN updated_at SET NOT NULL;
+            END IF;
+        EXCEPTION WHEN OTHERS THEN
+            RAISE NOTICE 'risk_rules timestamp migration skipped: %', SQLERRM;
+        END $$;
+    "#;
+    db.execute(sea_orm::Statement::from_string(backend, fix_risk_ts.to_string()))
+        .await?;
+
     // Create portfolio_equity_history table
     let stmt = backend.build(
         schema

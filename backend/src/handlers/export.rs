@@ -269,7 +269,7 @@ async fn fetch_orders_page(
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
-    Ok(models
+        Ok(models
         .into_iter()
         .map(|m| OrderResponse {
             order_id: m.id.to_string(),
@@ -283,6 +283,7 @@ async fn fetch_orders_page(
                 .and_then(|v| v.as_str().map(String::from))
                 .unwrap_or_default(),
             price: m.price.map(|p| format!("{:.8}", p)),
+            stop_price: None,
             quantity: format!("{:.8}", m.quantity),
             filled_quantity: format!("{:.8}", m.filled_quantity),
             avg_fill_price: m.avg_fill_price.map(|p| format!("{:.8}", p)),
@@ -295,12 +296,16 @@ async fn fetch_orders_page(
                 .and_then(|v| v.as_str().map(String::from))
                 .unwrap_or_default(),
             fee: format!("{:.8}", m.fee),
+            reject_reason: m.reject_reason,
             time_in_force: serde_json::to_value(&m.time_in_force)
                 .ok()
                 .and_then(|v| v.as_str().map(String::from))
                 .unwrap_or_default(),
+            strategy_id: m.strategy_id.map(|s| s.to_string()),
             created_at: m.created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
             updated_at: m.updated_at.format("%Y-%m-%d %H:%M:%S").to_string(),
+            cancelled_at: m.cancelled_at.map(|t| t.format("%Y-%m-%d %H:%M:%S").to_string()),
+            filled_at: m.filled_at.map(|t| t.format("%Y-%m-%d %H:%M:%S").to_string()),
         })
         .collect())
 }
@@ -674,6 +679,7 @@ async fn fetch_positions_page(
         .into_iter()
         .map(|m| PositionResponse {
             id: m.id.to_string(),
+            user_id: m.user_id.to_string(),
             symbol: m.symbol.clone(),
             side: serde_json::to_value(&m.side)
                 .ok()

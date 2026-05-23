@@ -32,6 +32,8 @@ pub struct RiskRules {
     pub atr_period: Option<i32>,
     pub atr_multiplier: Option<Decimal>,
     pub is_active: bool,
+    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 /// 风控日志条目
@@ -65,9 +67,20 @@ pub struct RiskCheckResult {
 /// 紧急全平结果
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct EmergencyCloseResult {
-    pub total_closed: i32,
-    pub positions_closed: Vec<String>,
-    pub errors: Vec<String>,
+    pub success: bool,
+    pub message: String,
+    pub closed_positions: i32,
+    pub total_pnl: String,
+    pub details: Vec<EmergencyCloseOrder>,
+}
+
+/// 紧急全平订单详情
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct EmergencyCloseOrder {
+    pub symbol: String,
+    pub side: String,
+    pub executed_qty: String,
+    pub pnl: String,
 }
 
 /// 暂停/恢复响应
@@ -296,21 +309,32 @@ impl RiskManager {
             .all(self.db.as_ref())
             .await?;
 
-        let mut closed = vec![];
-        let errors = vec![];
+        let mut details = vec![];
 
         for pos in positions {
             // 2. 市价全平（调用撮合引擎）
             // MVP: 直接更新持仓为 0，记录风控日志
             // TODO: 实际调用 matching_engine.market_close(user_id, pos.symbol)
             let symbol = pos.symbol.clone();
-            closed.push(symbol);
+            let side = match pos.side {
+                crate::db::order::PositionSide::Long => "long",
+                crate::db::order::PositionSide::Short => "short",
+            };
+            details.push(EmergencyCloseOrder {
+                symbol,
+                side: side.to_string(),
+                executed_qty: format!("{:.8}", pos.quantity),
+                pnl: format!("{:.2}", pos.realized_pnl),
+            });
         }
 
+        let total_pnl: Decimal = details.iter().map(|d| d.pnl.parse::<Decimal>().unwrap_or_default()).sum();
         Ok(EmergencyCloseResult {
-            total_closed: closed.len() as i32,
-            positions_closed: closed,
-            errors,
+            success: true,
+            message: if details.is_empty() { "No positions to close".to_string() } else { format!("Closed {} positions", details.len()) },
+            closed_positions: details.len() as i32,
+            total_pnl: total_pnl.to_string(),
+            details,
         })
     }
 
@@ -372,6 +396,8 @@ impl RiskManager {
                 atr_period: r.atr_period,
                 atr_multiplier: r.atr_multiplier,
                 is_active: r.is_active,
+                created_at: Some(r.created_at),
+                updated_at: Some(r.updated_at),
             })
             .unwrap_or_else(|| RiskRules {
                 daily_loss_limit: Decimal::ZERO,
@@ -383,6 +409,8 @@ impl RiskManager {
                 atr_period: None,
                 atr_multiplier: None,
                 is_active: false,
+                created_at: None,
+                updated_at: None,
             }))
     }
 
@@ -445,6 +473,8 @@ mod tests {
             atr_period: Some(14),
             atr_multiplier: Some(Decimal::new(15, 1)), // 1.5
             is_active: true,
+            created_at: None,
+            updated_at: None,
         };
         assert!(rules.is_active);
         assert_eq!(rules.daily_loss_limit, Decimal::new(1000, 0));
@@ -470,12 +500,28 @@ mod tests {
     #[test]
     fn test_emergency_close_result_serialization() {
         let result = EmergencyCloseResult {
-            total_closed: 2,
-            positions_closed: vec!["BTC".to_string(), "ETH".to_string()],
-            errors: vec![],
+            success: true,
+            message: "Closed 2 positions".to_string(),
+            closed_positions: 2,
+            total_pnl: "123.45".to_string(),
+            details: vec![
+                EmergencyCloseOrder {
+                    symbol: "BTC".to_string(),
+                    side: "long".to_string(),
+                    executed_qty: "0.50000000".to_string(),
+                    pnl: "100.00".to_string(),
+                },
+                EmergencyCloseOrder {
+                    symbol: "ETH".to_string(),
+                    side: "short".to_string(),
+                    executed_qty: "2.00000000".to_string(),
+                    pnl: "23.45".to_string(),
+                },
+            ],
         };
         let json = serde_json::to_string(&result).unwrap();
-        assert!(json.contains("\"total_closed\":2"));
+        assert!(json.contains("\"success\":true"));
+        assert!(json.contains("\"closed_positions\":2"));
         assert!(json.contains("BTC"));
     }
 

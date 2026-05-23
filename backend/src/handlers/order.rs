@@ -86,15 +86,20 @@ pub struct OrderResponse {
     pub side: String,
     pub order_type: String,
     pub price: Option<String>,
+    pub stop_price: Option<String>,
     pub quantity: String,
     pub filled_quantity: String,
     pub avg_fill_price: Option<String>,
     pub status: String,
     pub mode: String,
     pub fee: String,
+    pub reject_reason: Option<String>,
     pub time_in_force: String,
+    pub strategy_id: Option<String>,
     pub created_at: String,
     pub updated_at: String,
+    pub cancelled_at: Option<String>,
+    pub filled_at: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -129,6 +134,7 @@ pub struct Paginated<T: Serialize> {
 #[derive(Debug, Serialize)]
 pub struct PositionResponse {
     pub id: String,
+    pub user_id: String,
     pub symbol: String,
     pub side: String,
     pub quantity: String,
@@ -240,6 +246,7 @@ fn order_to_response(order: &crate::db::order::Model) -> OrderResponse {
             .and_then(|v| v.as_str().map(String::from))
             .unwrap_or_default(),
         price: order.price.map(|p| format!("{:.8}", p)),
+        stop_price: None, // stop_price not yet supported in DB model
         quantity: format!("{:.8}", order.quantity),
         filled_quantity: format!("{:.8}", order.filled_quantity),
         avg_fill_price: order.avg_fill_price.map(|p| format!("{:.8}", p)),
@@ -252,12 +259,16 @@ fn order_to_response(order: &crate::db::order::Model) -> OrderResponse {
             .and_then(|v| v.as_str().map(String::from))
             .unwrap_or_default(),
         fee: format!("{:.8}", order.fee),
+        reject_reason: order.reject_reason.clone(),
         time_in_force: serde_json::to_value(&order.time_in_force)
             .ok()
             .and_then(|v| v.as_str().map(String::from))
             .unwrap_or_default(),
+        strategy_id: order.strategy_id.map(|s| s.to_string()),
         created_at: order.created_at.to_rfc3339(),
         updated_at: order.updated_at.to_rfc3339(),
+        cancelled_at: order.cancelled_at.map(|t| t.to_rfc3339()),
+        filled_at: order.filled_at.map(|t| t.to_rfc3339()),
     }
 }
 
@@ -876,6 +887,7 @@ pub async fn list_positions(
         .iter()
         .map(|p| PositionResponse {
             id: p.id.to_string(),
+            user_id: p.user_id.to_string(),
             symbol: p.symbol.clone(),
             side: serde_json::to_value(&p.side)
                 .ok()

@@ -1,6 +1,6 @@
 use axum::{
     Extension, Router, middleware,
-    routing::{delete, get, post},
+    routing::{delete, get, post, put},
 };
 use quant_trading_backend::CONFIG;
 use quant_trading_backend::db::{DbPool, init_db, run_migrations};
@@ -296,6 +296,20 @@ fn create_router(
             quant_trading_backend::middleware::auth::auth_middleware,
         ));
 
+    // Risk management routes (authenticated)
+    let risk_routes = Router::new()
+        .route("/risk/rules", get(handlers::risk::get_risk_rules))
+        .route("/risk/rules", put(handlers::risk::update_risk_rules))
+        .route("/risk/logs", get(handlers::risk::get_risk_logs))
+        .route("/risk/emergency-close", post(handlers::risk::emergency_close))
+        .route("/risk/pause", post(handlers::risk::pause_trading))
+        .route("/risk/resume", post(handlers::risk::resume_trading))
+        .route("/risk/connection-status", get(handlers::risk::connection_status))
+        .layer(Extension(ws_hub.clone()))
+        .layer(middleware::from_fn(
+            quant_trading_backend::middleware::auth::auth_middleware,
+        ));
+
     // Dashboard routes (authenticated)
     let dashboard_routes = Router::new()
         .route("/dashboard/stats", get(handlers::dashboard::get_stats))
@@ -440,12 +454,7 @@ fn create_router(
         .nest("/api/v1", market_routes)
         .nest("/api/v1", order_routes)
         .nest("/api/v1", portfolio_routes)
-        .nest(
-            "/api/v1",
-            handlers::risk::router()
-                .layer(Extension(ws_hub.clone()))
-                .with_state(db.clone()),
-        )
+        .nest("/api/v1", risk_routes)
         .nest(
             "/api/v1",
             handlers::position_alert::router().layer(middleware::from_fn(
