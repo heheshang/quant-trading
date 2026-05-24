@@ -300,7 +300,9 @@
           <el-input v-model="form.symbolB" placeholder="如 ETHUSDT" />
         </el-form-item>
         <el-form-item label="交易所" prop="exchange">
-          <el-input v-model="form.exchange" placeholder="binance" />
+          <el-select v-model="form.exchange" class="full-width">
+            <el-option v-for="(info, key) in EXCHANGE_INFO" :key="key" :value="key" :label="info.label" />
+          </el-select>
         </el-form-item>
         <el-form-item label="计算模式" prop="calculationMode">
           <el-select v-model="form.calculationMode" class="full-width">
@@ -369,6 +371,7 @@ import {
   type ArbitragePosition,
   type ArbitrageSignal,
 } from '@/api/arbitrage'
+import { EXCHANGE_INFO } from '@/types/apiKey'
 
 // ============================================================
 // Refs

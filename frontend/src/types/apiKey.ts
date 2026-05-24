@@ -2,7 +2,7 @@
 export type ApiKeyPermission = 'read' | 'trade' | 'withdraw'
 
 /** Supported exchanges */
-export type Exchange = 'binance' | 'okx' | 'huobi' | 'bybit' | 'gateio' | 'kucoin'
+export type Exchange = 'binance' | 'okx' | 'gate' | 'bybit'
 
 /** API Key entity from backend */
 export interface ApiKey {
@@ -55,10 +55,8 @@ export interface ApiKeyListResponse {
 export const EXCHANGE_INFO: Record<Exchange, { label: string; icon: string }> = {
   binance: { label: 'Binance', icon: 'BN' },
   okx: { label: 'OKX', icon: 'OK' },
-  huobi: { label: 'Huobi', icon: 'HT' },
   bybit: { label: 'Bybit', icon: 'BY' },
-  gateio: { label: 'Gate.io', icon: 'GT' },
-  kucoin: { label: 'KuCoin', icon: 'KC' },
+  gate: { label: 'Gate.io', icon: 'GT' },
 }
 
 /** Permission display info */

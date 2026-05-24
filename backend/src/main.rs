@@ -8,6 +8,9 @@ use quant_trading_backend::handlers;
 use quant_trading_backend::services::ai::feature_engine::NormalizeMethod;
 use quant_trading_backend::services::binance_rest::BinanceRestClient;
 use quant_trading_backend::services::exchange::ws_hub::{WsHub, WsHubBuilder};
+use quant_trading_backend::services::okx_rest::OkxRestClient;
+use quant_trading_backend::services::gate_rest::GateRestClient;
+use quant_trading_backend::services::bybit_rest::BybitRestClient;
 use quant_trading_backend::services::exchange::{
     api_keys::{ApiKeyStore, get_master_key},
     signed_client::SignedBinanceClient,
@@ -81,6 +84,15 @@ async fn main() {
     // Initialize Binance REST client
     let binance_rest = Arc::new(BinanceRestClient::new());
 
+    // Initialize OKX REST client
+    let okx_rest = Arc::new(OkxRestClient::new());
+
+    // Initialize Gate.io REST client
+    let gate_rest = Arc::new(GateRestClient::new());
+
+    // Initialize Bybit REST client
+    let bybit_rest = Arc::new(BybitRestClient::new());
+
     // Initialize Signed Binance Client for authenticated API calls
     let master_key = get_master_key().unwrap_or([0u8; 32]);
     let key_store = Arc::new(ApiKeyStore::new(db.clone(), master_key));
@@ -118,6 +130,9 @@ async fn main() {
         order_rate_limiter,
         redis_cache,
         binance_rest,
+        okx_rest,
+        gate_rest,
+        bybit_rest,
         ws_hub,
         signed_client,
         key_store,
@@ -141,6 +156,9 @@ fn create_router(
     order_rate_limiter: Arc<OrderRateLimiter>,
     redis_cache: Arc<RedisCache>,
     binance_rest: Arc<BinanceRestClient>,
+    okx_rest: Arc<OkxRestClient>,
+    gate_rest: Arc<GateRestClient>,
+    bybit_rest: Arc<BybitRestClient>,
     ws_hub: Arc<WsHub>,
     signed_client: Arc<SignedBinanceClient>,
     key_store: Arc<ApiKeyStore>,
@@ -256,6 +274,9 @@ fn create_router(
         .route("/market/kline", get(handlers::market::get_kline))
         .layer(Extension(redis_cache.clone()))
         .layer(Extension(binance_rest.clone()))
+        .layer(Extension(okx_rest.clone()))
+        .layer(Extension(gate_rest.clone()))
+        .layer(Extension(bybit_rest.clone()))
         .layer(middleware::from_fn(
             quant_trading_backend::middleware::auth::auth_middleware,
         ));

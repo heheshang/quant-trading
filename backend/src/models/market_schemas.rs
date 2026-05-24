@@ -3,6 +3,20 @@
 
 use serde::{Deserialize, Serialize};
 
+// ---- Exchange ----
+
+/// Supported exchange enum
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum Exchange {
+    #[default]
+    Binance,
+    Okx,
+    Gate,
+    Bybit,
+    Huobi,
+}
+
 // ---- Ticker ----
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -28,6 +42,7 @@ const SYMBOL_MAX_LEN: usize = 10;
 #[derive(Debug, Deserialize)]
 pub struct TickerQueryParams {
     pub symbol: String,
+    pub exchange: Option<Exchange>,
 }
 
 impl TickerQueryParams {
@@ -86,6 +101,7 @@ pub struct DepthResponse {
 pub struct DepthQueryParams {
     pub symbol: String,
     pub levels: Option<i32>,
+    pub exchange: Option<Exchange>,
 }
 
 // ---- Ticker History (P1) ----
@@ -315,12 +331,21 @@ mod tests {
         assert_eq!(params.levels, Some(20));
     }
 
+    #[test]
+    fn test_depth_query_params_with_exchange() {
+        let json = r#"{"symbol":"BTCUSDT","levels":20,"exchange":"okx"}"#;
+        let params: DepthQueryParams = serde_json::from_str(json).unwrap();
+        assert_eq!(params.levels, Some(20));
+        assert_eq!(params.exchange, Some(Exchange::Okx));
+    }
+
     // === F-08: Symbol format validation tests ===
 
     #[test]
     fn test_symbol_validation_valid_btc() {
         let params = TickerQueryParams {
             symbol: "BTCUSDT".into(),
+            exchange: None,
         };
         assert!(params.validate_symbol().is_ok());
     }
@@ -329,6 +354,7 @@ mod tests {
     fn test_symbol_validation_valid_eth() {
         let params = TickerQueryParams {
             symbol: "ETHUSDT".into(),
+            exchange: None,
         };
         assert!(params.validate_symbol().is_ok());
     }
@@ -337,6 +363,7 @@ mod tests {
     fn test_symbol_validation_valid_long_prefix() {
         let params = TickerQueryParams {
             symbol: "SOLANAUSDT".into(),
+            exchange: None,
         };
         assert!(params.validate_symbol().is_ok());
     }
@@ -346,6 +373,7 @@ mod tests {
         // "BtcUSDT" has uppercase USDT suffix but lowercase 'Btc' prefix
         let params = TickerQueryParams {
             symbol: "BtcUSDT".into(),
+            exchange: None,
         };
         let result = params.validate_symbol();
         assert!(result.is_err());
@@ -356,6 +384,7 @@ mod tests {
     fn test_symbol_validation_invalid_wrong_suffix() {
         let params = TickerQueryParams {
             symbol: "BTCUSD".into(),
+            exchange: None,
         };
         let result = params.validate_symbol();
         assert!(result.is_err());
@@ -366,6 +395,7 @@ mod tests {
     fn test_symbol_validation_invalid_too_short() {
         let params = TickerQueryParams {
             symbol: "BUSDT".into(),
+            exchange: None,
         }; // 1 letter prefix
         let result = params.validate_symbol();
         assert!(result.is_err());
@@ -375,6 +405,7 @@ mod tests {
     fn test_symbol_validation_invalid_too_long() {
         let params = TickerQueryParams {
             symbol: "VERYLONGCOINNAMEUSDT".into(),
+            exchange: None,
         }; // 15 letter prefix
         let result = params.validate_symbol();
         assert!(result.is_err());
@@ -384,6 +415,7 @@ mod tests {
     fn test_symbol_validation_invalid_with_numbers() {
         let params = TickerQueryParams {
             symbol: "BTC123USDT".into(),
+            exchange: None,
         };
         let result = params.validate_symbol();
         assert!(result.is_err());

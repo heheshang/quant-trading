@@ -1,11 +1,14 @@
 use crate::middleware::auth::AuthenticatedUser;
-use crate::models::market_schemas::TickerHistoryResponse;
+use crate::models::market_schemas::{Exchange, TickerHistoryResponse};
 use crate::models::schemas::{
     DepthQueryParams, DepthResponse, KlineQueryParams, KlineQueryResponse,
     TickerHistoryQueryParams, TickerQueryParams, TickerResponse,
 };
 use crate::services::binance_rest::BinanceRestClient;
+use crate::services::bybit_rest::BybitRestClient;
+use crate::services::gate_rest::GateRestClient;
 use crate::services::market_data;
+use crate::services::okx_rest::OkxRestClient;
 use crate::services::redis_cache::RedisCache;
 use crate::utils::error::AppError;
 use crate::utils::response::ApiResponse;
@@ -33,8 +36,13 @@ pub async fn get_tickers(
     State(db): State<Arc<DatabaseConnection>>,
     Extension(redis): Extension<Arc<RedisCache>>,
     Extension(binance): Extension<Arc<BinanceRestClient>>,
+    Extension(okx): Extension<Arc<OkxRestClient>>,
+    Extension(gate): Extension<Arc<GateRestClient>>,
+    Extension(bybit): Extension<Arc<BybitRestClient>>,
+    Query(params): Query<TickerQueryParams>,
 ) -> Result<Json<ApiResponse<Vec<TickerResponse>>>, AppError> {
-    let tickers = market_data::get_all_tickers(&db, &redis, &binance).await?;
+    let exchange = params.exchange.unwrap_or_default();
+    let tickers = market_data::get_all_tickers(&db, &redis, &binance, &okx, &gate, &bybit, exchange).await?;
     Ok(Json(ApiResponse::success(tickers)))
 }
 
@@ -44,22 +52,28 @@ pub async fn get_ticker(
     State(db): State<Arc<DatabaseConnection>>,
     Extension(redis): Extension<Arc<RedisCache>>,
     Extension(binance): Extension<Arc<BinanceRestClient>>,
+    Extension(okx): Extension<Arc<OkxRestClient>>,
+    Extension(gate): Extension<Arc<GateRestClient>>,
+    Extension(bybit): Extension<Arc<BybitRestClient>>,
     Query(params): Query<TickerQueryParams>,
 ) -> Result<Json<ApiResponse<TickerResponse>>, AppError> {
     // F-08: Validate symbol format
     if let Err(msg) = params.validate_symbol() {
         return Err(AppError::BadRequest(msg));
     }
-    let ticker = market_data::get_ticker_by_symbol(&db, &redis, &binance, &params.symbol).await?;
+    let exchange = params.exchange.unwrap_or_default();
+    let ticker = market_data::get_ticker_by_symbol(&db, &redis, &binance, &okx, &gate, &bybit, &params.symbol, exchange).await?;
     Ok(Json(ApiResponse::success(ticker)))
 }
-
 /// GET /api/v1/market/depth — 获取深度数据
 pub async fn get_depth(
     user: AuthenticatedUser,
     State(db): State<Arc<DatabaseConnection>>,
     Extension(redis): Extension<Arc<RedisCache>>,
     Extension(binance): Extension<Arc<BinanceRestClient>>,
+    Extension(okx): Extension<Arc<OkxRestClient>>,
+    Extension(gate): Extension<Arc<GateRestClient>>,
+    Extension(bybit): Extension<Arc<BybitRestClient>>,
     Query(params): Query<DepthQueryParams>,
 ) -> Result<Json<ApiResponse<DepthResponse>>, AppError> {
     // Validate levels parameter
@@ -82,10 +96,10 @@ pub async fn get_depth(
         ));
     }
 
-    let depth = market_data::get_depth(&db, &redis, &binance, &params.symbol, levels).await?;
+    let exchange = params.exchange.unwrap_or_default();
+    let depth = market_data::get_depth(&db, &redis, &binance, &okx, &gate, &bybit, &params.symbol, levels, exchange).await?;
     Ok(Json(ApiResponse::success(depth)))
 }
-
 /// GET /api/v1/market/ticker/history — Ticker 历史快照查询 (P1)
 pub async fn get_ticker_history(
     _user: AuthenticatedUser,
@@ -126,20 +140,25 @@ mod tests {
 
     /// Build mock dependencies for handler tests
     /// Uses unwrap because tests run in isolation with no real Redis/Binance connection
-    async fn make_test_deps() -> (Arc<RedisCache>, Arc<BinanceRestClient>) {
+    async fn make_test_deps() -> (Arc<RedisCache>, Arc<BinanceRestClient>, Arc<OkxRestClient>) {
         let redis = RedisCache::new("redis://127.0.0.1:6379")
             .await
             .expect("RedisCache::new for tests");
         let binance = BinanceRestClient::new();
-        (Arc::new(redis), Arc::new(binance))
+        let okx = OkxRestClient::new();
+        (Arc::new(redis), Arc::new(binance), Arc::new(okx))
     }
 
     #[tokio::test]
     async fn test_get_tickers_handler() {
         let db = Arc::new(sea_orm::DatabaseConnection::Disconnected);
-        let (redis, binance) = make_test_deps().await;
+        let (redis, binance, okx) = make_test_deps().await;
         let user = make_auth_user("trader");
-        let result = get_tickers(user, State(db), Extension(redis), Extension(binance)).await;
+        let params = TickerQueryParams {
+            symbol: "BTCUSDT".to_string(),
+            exchange: None,
+        };
+        let result = get_tickers(user, State(db), Extension(redis), Extension(binance), Extension(okx), Query(params)).await;
         assert!(result.is_ok());
         let resp = result.unwrap();
         let body = serde_json::to_value(&*resp).unwrap();
@@ -151,16 +170,18 @@ mod tests {
     #[tokio::test]
     async fn test_get_ticker_handler_found() {
         let db = Arc::new(sea_orm::DatabaseConnection::Disconnected);
-        let (redis, binance) = make_test_deps().await;
+        let (redis, binance, okx) = make_test_deps().await;
         let user = make_auth_user("trader");
         let params = TickerQueryParams {
             symbol: "BTCUSDT".to_string(),
+            exchange: None,
         };
         let result = get_ticker(
             user,
             State(db),
             Extension(redis),
             Extension(binance),
+            Extension(okx),
             Query(params),
         )
         .await;
@@ -174,16 +195,18 @@ mod tests {
     #[tokio::test]
     async fn test_get_ticker_handler_not_found() {
         let db = Arc::new(sea_orm::DatabaseConnection::Disconnected);
-        let (redis, binance) = make_test_deps().await;
+        let (redis, binance, okx) = make_test_deps().await;
         let user = make_auth_user("trader");
         let params = TickerQueryParams {
-            symbol: "NOTREALUSDT".to_string(), // valid format but doesn't exist on Binance
+            symbol: "NOTREALUSDT".to_string(),
+            exchange: None,
         };
         let result = get_ticker(
             user,
             State(db),
             Extension(redis),
             Extension(binance),
+            Extension(okx),
             Query(params),
         )
         .await;
@@ -196,17 +219,19 @@ mod tests {
     #[tokio::test]
     async fn test_get_depth_handler_default_levels() {
         let db = Arc::new(sea_orm::DatabaseConnection::Disconnected);
-        let (redis, binance) = make_test_deps().await;
+        let (redis, binance, okx) = make_test_deps().await;
         let user = make_auth_user("trader");
         let params = DepthQueryParams {
             symbol: "BTCUSDT".to_string(),
             levels: None, // default 10
+            exchange: None,
         };
         let result = get_depth(
             user,
             State(db),
             Extension(redis),
             Extension(binance),
+            Extension(okx),
             Query(params),
         )
         .await;
@@ -221,17 +246,19 @@ mod tests {
     #[tokio::test]
     async fn test_get_depth_handler_custom_levels() {
         let db = Arc::new(sea_orm::DatabaseConnection::Disconnected);
-        let (redis, binance) = make_test_deps().await;
+        let (redis, binance, okx) = make_test_deps().await;
         let user = make_auth_user("pro-trader");
         let params = DepthQueryParams {
             symbol: "ETHUSDT".to_string(),
             levels: Some(20),
+            exchange: None,
         };
         let result = get_depth(
             user,
             State(db),
             Extension(redis),
             Extension(binance),
+            Extension(okx),
             Query(params),
         )
         .await;
@@ -245,17 +272,19 @@ mod tests {
     #[tokio::test]
     async fn test_get_depth_invalid_levels() {
         let db = Arc::new(sea_orm::DatabaseConnection::Disconnected);
-        let (redis, binance) = make_test_deps().await;
+        let (redis, binance, okx) = make_test_deps().await;
         let user = make_auth_user("trader");
         let params = DepthQueryParams {
             symbol: "BTCUSDT".to_string(),
             levels: Some(0),
+            exchange: None,
         };
         let result = get_depth(
             user,
             State(db),
             Extension(redis),
             Extension(binance),
+            Extension(okx),
             Query(params),
         )
         .await;
@@ -267,17 +296,19 @@ mod tests {
     #[tokio::test]
     async fn test_get_depth_trader_50_forbidden() {
         let db = Arc::new(sea_orm::DatabaseConnection::Disconnected);
-        let (redis, binance) = make_test_deps().await;
+        let (redis, binance, okx) = make_test_deps().await;
         let user = make_auth_user("trader");
         let params = DepthQueryParams {
             symbol: "BTCUSDT".to_string(),
             levels: Some(50),
+            exchange: None,
         };
         let result = get_depth(
             user,
             State(db),
             Extension(redis),
             Extension(binance),
+            Extension(okx),
             Query(params),
         )
         .await;
@@ -289,17 +320,19 @@ mod tests {
     #[tokio::test]
     async fn test_get_depth_pro_trader_50_allowed() {
         let db = Arc::new(sea_orm::DatabaseConnection::Disconnected);
-        let (redis, binance) = make_test_deps().await;
+        let (redis, binance, okx) = make_test_deps().await;
         let user = make_auth_user("pro-trader");
         let params = DepthQueryParams {
             symbol: "BTCUSDT".to_string(),
             levels: Some(50),
+            exchange: None,
         };
         let result = get_depth(
             user,
             State(db),
             Extension(redis),
             Extension(binance),
+            Extension(okx),
             Query(params),
         )
         .await;
@@ -312,17 +345,19 @@ mod tests {
     #[tokio::test]
     async fn test_get_depth_admin_50_allowed() {
         let db = Arc::new(sea_orm::DatabaseConnection::Disconnected);
-        let (redis, binance) = make_test_deps().await;
+        let (redis, binance, okx) = make_test_deps().await;
         let user = make_auth_user("admin");
         let params = DepthQueryParams {
             symbol: "BTCUSDT".to_string(),
             levels: Some(50),
+            exchange: None,
         };
         let result = get_depth(
             user,
             State(db),
             Extension(redis),
             Extension(binance),
+            Extension(okx),
             Query(params),
         )
         .await;
@@ -332,17 +367,19 @@ mod tests {
     #[tokio::test]
     async fn test_get_depth_invalid_levels_15() {
         let db = Arc::new(sea_orm::DatabaseConnection::Disconnected);
-        let (redis, binance) = make_test_deps().await;
+        let (redis, binance, okx) = make_test_deps().await;
         let user = make_auth_user("trader");
         let params = DepthQueryParams {
             symbol: "BTCUSDT".to_string(),
             levels: Some(15), // not in [5,10,20,50]
+            exchange: None,
         };
         let result = get_depth(
             user,
             State(db),
             Extension(redis),
             Extension(binance),
+            Extension(okx),
             Query(params),
         )
         .await;

@@ -37,8 +37,8 @@ export const useAuthStore = defineStore('auth', () => {
   initFromStorage()
 
   const isAuthenticated = computed(() => !!token.value && !!user.value)
-  const isAdmin = computed(() => user.value?.role === 'admin')
-  const userRole = computed(() => user.value?.role || '')
+  const isAdmin = computed(() => (user.value?.role as any)?.name === 'admin')
+  const userRole = computed(() => (user.value?.role as any)?.name || '')
   const userInitial = computed(() => user.value?.username?.charAt(0)?.toUpperCase() || 'U')
 
   function saveTokens(accessToken: string, refreshTokenStr: string) {

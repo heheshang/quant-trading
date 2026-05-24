@@ -1,9 +1,12 @@
 use crate::db::ticker_snapshot;
 use crate::models::market_schemas::{
-    TickerHistoryQueryParams, TickerHistoryResponse, TickerSnapshotResponse,
+    Exchange, TickerHistoryQueryParams, TickerHistoryResponse, TickerSnapshotResponse,
 };
 use crate::models::schemas::{DepthLevel, DepthResponse, TickerResponse};
 use crate::services::binance_rest::BinanceRestClient;
+use crate::services::bybit_rest::BybitRestClient;
+use crate::services::gate_rest::GateRestClient;
+use crate::services::okx_rest::OkxRestClient;
 use crate::services::redis_cache::RedisCache;
 use crate::utils::error::AppError;
 use sea_orm::{
@@ -111,35 +114,47 @@ pub async fn get_all_tickers(
     _db: &sea_orm::DatabaseConnection,
     redis: &RedisCache,
     binance: &BinanceRestClient,
+    okx: &OkxRestClient,
+    gate: &GateRestClient,
+    bybit: &BybitRestClient,
+    exchange: Exchange,
 ) -> Result<Vec<TickerResponse>, AppError> {
-    // Step 1: Try Redis cache first
+    // Step 1: Try Redis cache first (cache key includes exchange)
     match redis.get_all_tickers().await {
         Ok(Some(tickers)) => {
-            info!(count = tickers.len(), "Returning tickers from Redis cache");
+            info!(count = tickers.len(), exchange = ?exchange, "Returning tickers from Redis cache");
             return Ok(tickers);
         }
         Ok(None) => {
-            // Cache miss, continue to fetch from Binance
-            debug!("Redis cache miss for all tickers, fetching from Binance");
+            debug!(exchange = ?exchange, "Redis cache miss for all tickers, fetching from exchange");
         }
         Err(e) => {
-            warn!(error = %e, "Redis error, falling back to Binance");
+            warn!(error = %e, exchange = ?exchange, "Redis error, falling back to exchange API");
         }
     }
 
-    // Step 2: Fetch from Binance REST API
-    match binance.get_all_tickers().await {
+    // Step 2: Fetch from the selected exchange REST API
+    let result = match exchange {
+        Exchange::Binance => binance.get_all_tickers().await,
+        Exchange::Okx => okx.get_all_tickers().await,
+        Exchange::Gate => gate.get_all_tickers().await,
+        Exchange::Bybit => bybit.get_all_tickers().await,
+        Exchange::Huobi => {
+            warn!(exchange = ?exchange, "Exchange not implemented, falling back to mock");
+            Err(AppError::Internal(format!("{:?} not implemented", exchange)))
+        }
+    };
+
+    match result {
         Ok(tickers) => {
-            // Cache the result in Redis (best effort, don't fail if Redis write fails)
             if let Err(e) = redis.set_tickers_cache(&tickers).await {
                 warn!(error = %e, "Failed to cache tickers in Redis");
             }
-            info!(count = tickers.len(), "Returning tickers from Binance API");
+            info!(count = tickers.len(), exchange = ?exchange, "Returning tickers from exchange API");
             Ok(tickers)
         }
         Err(e) => {
-            warn!(error = %e, "Binance API failed, falling back to mock data");
-            // Step 3: Fall back to mock data
+            warn!(error = %e, exchange = ?exchange, "Exchange API failed, falling back to mock data");
             let tickers: Vec<TickerResponse> = SUPPORTED_SYMBOLS
                 .iter()
                 .filter_map(|s| build_mock_ticker(s))
@@ -160,36 +175,48 @@ pub async fn get_ticker_by_symbol(
     _db: &sea_orm::DatabaseConnection,
     redis: &RedisCache,
     binance: &BinanceRestClient,
+    okx: &OkxRestClient,
+    gate: &GateRestClient,
+    bybit: &BybitRestClient,
     symbol: &str,
+    exchange: Exchange,
 ) -> Result<TickerResponse, AppError> {
     // Step 1: Try Redis cache first
     match redis.get_ticker(symbol).await {
         Ok(Some(ticker)) => {
-            info!(symbol = %symbol, "Returning ticker from Redis cache");
+            info!(symbol = %symbol, exchange = ?exchange, "Returning ticker from Redis cache");
             return Ok(ticker);
         }
         Ok(None) => {
-            // Cache miss, continue to fetch from Binance
-            debug!(symbol = %symbol, "Redis cache miss for ticker, fetching from Binance");
+            debug!(symbol = %symbol, exchange = ?exchange, "Redis cache miss for ticker, fetching from exchange");
         }
         Err(e) => {
-            warn!(symbol = %symbol, error = %e, "Redis error, falling back to Binance");
+            warn!(symbol = %symbol, error = %e, exchange = ?exchange, "Redis error, falling back to exchange API");
         }
     }
 
-    // Step 2: Fetch from Binance REST API
-    match binance.get_ticker(symbol).await {
+    // Step 2: Fetch from the selected exchange REST API
+    let result = match exchange {
+        Exchange::Binance => binance.get_ticker(symbol).await,
+        Exchange::Okx => okx.get_ticker(symbol).await,
+        Exchange::Gate => gate.get_ticker(symbol).await,
+        Exchange::Bybit => bybit.get_ticker(symbol).await,
+        Exchange::Huobi => {
+            warn!(exchange = ?exchange, "Exchange not implemented, falling back to mock");
+            Err(AppError::Internal(format!("{:?} not implemented", exchange)))
+        }
+    };
+
+    match result {
         Ok(ticker) => {
-            // Cache the result in Redis (best effort, don't fail if Redis write fails)
             if let Err(e) = redis.set_ticker(&ticker).await {
                 warn!(symbol = %symbol, error = %e, "Failed to cache ticker in Redis");
             }
-            info!(symbol = %symbol, "Returning ticker from Binance API");
+            info!(symbol = %symbol, exchange = ?exchange, "Returning ticker from exchange API");
             Ok(ticker)
         }
         Err(e) => {
-            warn!(symbol = %symbol, error = %e, "Binance API failed, falling back to mock data");
-            // Step 3: Fall back to mock data
+            warn!(symbol = %symbol, error = %e, exchange = ?exchange, "Exchange API failed, falling back to mock data");
             match build_mock_ticker(symbol) {
                 Some(ticker) => {
                     info!(symbol = %symbol, "Returning mock ticker");
@@ -214,8 +241,12 @@ pub async fn get_depth(
     _db: &sea_orm::DatabaseConnection,
     redis: &RedisCache,
     binance: &BinanceRestClient,
+    okx: &OkxRestClient,
+    gate: &GateRestClient,
+    bybit: &BybitRestClient,
     symbol: &str,
     levels: i32,
+    exchange: Exchange,
 ) -> Result<DepthResponse, AppError> {
     // Check if symbol is supported
     if !SUPPORTED_SYMBOLS.contains(&symbol) {
@@ -226,31 +257,39 @@ pub async fn get_depth(
     // Step 1: Try Redis cache first
     match redis.get_depth(symbol).await {
         Ok(Some(depth)) => {
-            info!(symbol = %symbol, "Returning depth from Redis cache");
+            info!(symbol = %symbol, exchange = ?exchange, "Returning depth from Redis cache");
             return Ok(depth);
         }
         Ok(None) => {
-            // Cache miss, continue to fetch from Binance
-            debug!(symbol = %symbol, "Redis cache miss for depth, fetching from Binance");
+            debug!(symbol = %symbol, exchange = ?exchange, "Redis cache miss for depth, fetching from exchange");
         }
         Err(e) => {
-            warn!(symbol = %symbol, error = %e, "Redis error, falling back to Binance");
+            warn!(symbol = %symbol, error = %e, exchange = ?exchange, "Redis error, falling back to exchange API");
         }
     }
 
-    // Step 2: Fetch from Binance REST API
-    match binance.get_depth(symbol, levels).await {
+    // Step 2: Fetch from the selected exchange REST API
+    let result = match exchange {
+        Exchange::Binance => binance.get_depth(symbol, levels).await,
+        Exchange::Okx => okx.get_depth(symbol, levels).await,
+        Exchange::Gate => gate.get_depth(symbol, levels).await,
+        Exchange::Bybit => bybit.get_depth(symbol, levels).await,
+        Exchange::Huobi => {
+            warn!(exchange = ?exchange, "Exchange not implemented, falling back to mock");
+            Err(AppError::Internal(format!("{:?} not implemented", exchange)))
+        }
+    };
+
+    match result {
         Ok(depth) => {
-            // Cache the result in Redis (best effort, don't fail if Redis write fails)
             if let Err(e) = redis.set_depth(symbol, &depth).await {
                 warn!(symbol = %symbol, error = %e, "Failed to cache depth in Redis");
             }
-            info!(symbol = %symbol, "Returning depth from Binance API");
+            info!(symbol = %symbol, exchange = ?exchange, "Returning depth from exchange API");
             Ok(depth)
         }
         Err(e) => {
-            warn!(symbol = %symbol, error = %e, "Binance API failed, falling back to mock data");
-            // Step 3: Fall back to mock data
+            warn!(symbol = %symbol, error = %e, exchange = ?exchange, "Exchange API failed, falling back to mock data");
             let levels_usize = levels as usize;
             match build_mock_depth(symbol, levels_usize) {
                 Some(depth) => {

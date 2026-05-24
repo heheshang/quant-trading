@@ -225,7 +225,7 @@ import { ElMessage } from 'element-plus'
 import { Upload, ArrowLeft, ArrowRight, Check, Document, Connection, ShoppingCart, CircleCheck, Warning, CircleClose } from '@element-plus/icons-vue'
 import { uploadKlinesCSV, importKlines, fetchKlinesFromExchange, getKlineSymbols } from '@/api/kline'
 import { KLINE_INTERVALS } from '@/types/kline'
-import type { KlineImportResult } from '@/types/kline'
+import type { KlineImportResult, KlineFetchRequest } from '@/types/kline'
 import type { UploadFile } from 'element-plus'
 
 const router = useRouter()
@@ -290,7 +290,7 @@ async function startImport() {
       const result = await fetchKlinesFromExchange({
         symbol: exchangeForm.symbol,
         interval: exchangeForm.interval,
-        exchange: exchangeForm.exchange as 'binance',
+        exchange: exchangeForm.exchange as KlineFetchRequest['exchange'],
         start_time: exchangeForm.startTime ?? undefined,
         end_time: exchangeForm.endTime ?? undefined,
       })

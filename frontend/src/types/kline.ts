@@ -132,7 +132,7 @@ export interface KlineCleanResult {
 export interface KlineFetchRequest {
   symbol: string
   interval: string
-  exchange: 'binance'
+  exchange: 'binance' | 'okx' | 'gate' | 'bybit'
   start_time?: number
   end_time?: number
 }
