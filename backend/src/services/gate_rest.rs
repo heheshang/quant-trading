@@ -101,15 +101,10 @@ impl GateRestClient {
     pub async fn get_all_tickers(&self) -> Result<Vec<TickerResponse>, AppError> {
         let url = format!("{}/api/v4/spot/tickers", self.base_url);
 
-        let response = self
-            .client
-            .get(&url)
-            .send()
-            .await
-            .map_err(|e| {
-                error!(error = %e, "Failed to fetch all tickers from Gate.io");
-                AppError::Internal(format!("Gate.io API error: {}", e))
-            })?;
+        let response = self.client.get(&url).send().await.map_err(|e| {
+            error!(error = %e, "Failed to fetch all tickers from Gate.io");
+            AppError::Internal(format!("Gate.io API error: {}", e))
+        })?;
 
         let gate_tickers: Vec<GateTickerItem> = response.json().await.map_err(|e| {
             error!(error = %e, "Failed to parse Gate.io tickers response");

@@ -373,7 +373,10 @@ impl OkxDepthResponse {
             })
             .collect();
 
-        let timestamp: i64 = data.ts.parse().unwrap_or_else(|_| chrono::Utc::now().timestamp_millis());
+        let timestamp: i64 = data
+            .ts
+            .parse()
+            .unwrap_or_else(|_| chrono::Utc::now().timestamp_millis());
 
         Ok(DepthResponse {
             bids,

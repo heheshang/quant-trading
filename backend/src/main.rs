@@ -7,16 +7,16 @@ use quant_trading_backend::db::{DbPool, init_db, run_migrations};
 use quant_trading_backend::handlers;
 use quant_trading_backend::services::ai::feature_engine::NormalizeMethod;
 use quant_trading_backend::services::binance_rest::BinanceRestClient;
-use quant_trading_backend::services::exchange::ws_hub::{WsHub, WsHubBuilder};
-use quant_trading_backend::services::okx_rest::OkxRestClient;
-use quant_trading_backend::services::gate_rest::GateRestClient;
 use quant_trading_backend::services::bybit_rest::BybitRestClient;
+use quant_trading_backend::services::exchange::ws_hub::{WsHub, WsHubBuilder};
 use quant_trading_backend::services::exchange::{
     api_keys::{ApiKeyStore, get_master_key},
     signed_client::SignedBinanceClient,
 };
+use quant_trading_backend::services::gate_rest::GateRestClient;
 use quant_trading_backend::services::kline_writer::KlineWriter;
 use quant_trading_backend::services::matching_engine::MatchingEngine;
+use quant_trading_backend::services::okx_rest::OkxRestClient;
 use quant_trading_backend::services::order_rate_limiter::OrderRateLimiter;
 use quant_trading_backend::services::redis_cache::RedisCache;
 use quant_trading_backend::services::risk_manager::RiskManager;
@@ -322,10 +322,16 @@ fn create_router(
         .route("/risk/rules", get(handlers::risk::get_risk_rules))
         .route("/risk/rules", put(handlers::risk::update_risk_rules))
         .route("/risk/logs", get(handlers::risk::get_risk_logs))
-        .route("/risk/emergency-close", post(handlers::risk::emergency_close))
+        .route(
+            "/risk/emergency-close",
+            post(handlers::risk::emergency_close),
+        )
         .route("/risk/pause", post(handlers::risk::pause_trading))
         .route("/risk/resume", post(handlers::risk::resume_trading))
-        .route("/risk/connection-status", get(handlers::risk::connection_status))
+        .route(
+            "/risk/connection-status",
+            get(handlers::risk::connection_status),
+        )
         .route("/risk/check", post(handlers::risk::manual_risk_check))
         .layer(Extension(ws_hub.clone()))
         .layer(middleware::from_fn(

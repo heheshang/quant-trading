@@ -42,7 +42,8 @@ pub async fn get_tickers(
     Query(params): Query<TickerQueryParams>,
 ) -> Result<Json<ApiResponse<Vec<TickerResponse>>>, AppError> {
     let exchange = params.exchange.unwrap_or_default();
-    let tickers = market_data::get_all_tickers(&db, &redis, &binance, &okx, &gate, &bybit, exchange).await?;
+    let tickers =
+        market_data::get_all_tickers(&db, &redis, &binance, &okx, &gate, &bybit, exchange).await?;
     Ok(Json(ApiResponse::success(tickers)))
 }
 
@@ -62,7 +63,17 @@ pub async fn get_ticker(
         return Err(AppError::BadRequest(msg));
     }
     let exchange = params.exchange.unwrap_or_default();
-    let ticker = market_data::get_ticker_by_symbol(&db, &redis, &binance, &okx, &gate, &bybit, &params.symbol, exchange).await?;
+    let ticker = market_data::get_ticker_by_symbol(
+        &db,
+        &redis,
+        &binance,
+        &okx,
+        &gate,
+        &bybit,
+        &params.symbol,
+        exchange,
+    )
+    .await?;
     Ok(Json(ApiResponse::success(ticker)))
 }
 /// GET /api/v1/market/depth — 获取深度数据
@@ -97,7 +108,18 @@ pub async fn get_depth(
     }
 
     let exchange = params.exchange.unwrap_or_default();
-    let depth = market_data::get_depth(&db, &redis, &binance, &okx, &gate, &bybit, &params.symbol, levels, exchange).await?;
+    let depth = market_data::get_depth(
+        &db,
+        &redis,
+        &binance,
+        &okx,
+        &gate,
+        &bybit,
+        &params.symbol,
+        levels,
+        exchange,
+    )
+    .await?;
     Ok(Json(ApiResponse::success(depth)))
 }
 /// GET /api/v1/market/ticker/history — Ticker 历史快照查询 (P1)
@@ -158,7 +180,15 @@ mod tests {
             symbol: "BTCUSDT".to_string(),
             exchange: None,
         };
-        let result = get_tickers(user, State(db), Extension(redis), Extension(binance), Extension(okx), Query(params)).await;
+        let result = get_tickers(
+            user,
+            State(db),
+            Extension(redis),
+            Extension(binance),
+            Extension(okx),
+            Query(params),
+        )
+        .await;
         assert!(result.is_ok());
         let resp = result.unwrap();
         let body = serde_json::to_value(&*resp).unwrap();

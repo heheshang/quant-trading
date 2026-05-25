@@ -269,7 +269,7 @@ async fn fetch_orders_page(
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
-        Ok(models
+    Ok(models
         .into_iter()
         .map(|m| OrderResponse {
             order_id: m.id.to_string(),
@@ -304,8 +304,12 @@ async fn fetch_orders_page(
             strategy_id: m.strategy_id.map(|s| s.to_string()),
             created_at: m.created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
             updated_at: m.updated_at.format("%Y-%m-%d %H:%M:%S").to_string(),
-            cancelled_at: m.cancelled_at.map(|t| t.format("%Y-%m-%d %H:%M:%S").to_string()),
-            filled_at: m.filled_at.map(|t| t.format("%Y-%m-%d %H:%M:%S").to_string()),
+            cancelled_at: m
+                .cancelled_at
+                .map(|t| t.format("%Y-%m-%d %H:%M:%S").to_string()),
+            filled_at: m
+                .filled_at
+                .map(|t| t.format("%Y-%m-%d %H:%M:%S").to_string()),
         })
         .collect())
 }

@@ -141,7 +141,10 @@ pub async fn get_all_tickers(
         Exchange::Bybit => bybit.get_all_tickers().await,
         Exchange::Huobi => {
             warn!(exchange = ?exchange, "Exchange not implemented, falling back to mock");
-            Err(AppError::Internal(format!("{:?} not implemented", exchange)))
+            Err(AppError::Internal(format!(
+                "{:?} not implemented",
+                exchange
+            )))
         }
     };
 
@@ -203,7 +206,10 @@ pub async fn get_ticker_by_symbol(
         Exchange::Bybit => bybit.get_ticker(symbol).await,
         Exchange::Huobi => {
             warn!(exchange = ?exchange, "Exchange not implemented, falling back to mock");
-            Err(AppError::Internal(format!("{:?} not implemented", exchange)))
+            Err(AppError::Internal(format!(
+                "{:?} not implemented",
+                exchange
+            )))
         }
     };
 
@@ -276,7 +282,10 @@ pub async fn get_depth(
         Exchange::Bybit => bybit.get_depth(symbol, levels).await,
         Exchange::Huobi => {
             warn!(exchange = ?exchange, "Exchange not implemented, falling back to mock");
-            Err(AppError::Internal(format!("{:?} not implemented", exchange)))
+            Err(AppError::Internal(format!(
+                "{:?} not implemented",
+                exchange
+            )))
         }
     };
 

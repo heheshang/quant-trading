@@ -299,10 +299,7 @@ pub async fn cancel_trigger_order(
 pub fn router() -> Router<Arc<DatabaseConnection>> {
     Router::new()
         .route("/trigger-orders/stop-loss", post(create_stop_loss))
-        .route(
-            "/trigger-orders/take-profit",
-            post(create_take_profit),
-        )
+        .route("/trigger-orders/take-profit", post(create_take_profit))
         .route("/trigger-orders/oco", post(create_oco))
         .route("/trigger-orders/twap", post(create_twap))
         .route("/trigger-orders", get(list_trigger_orders))

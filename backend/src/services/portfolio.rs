@@ -328,17 +328,26 @@ pub async fn get_performance(
 
     // Aggregate portfolio-level metrics
     let total_trades: u32 = result.iter().map(|s| s.trade_count).sum();
-    let total_pnl_sum: f64 = result.iter().map(|s| s.total_pnl.parse::<f64>().unwrap_or(0.0)).sum::<f64>();
+    let total_pnl_sum: f64 = result
+        .iter()
+        .map(|s| s.total_pnl.parse::<f64>().unwrap_or(0.0))
+        .sum::<f64>();
     let portfolio_max_drawdown = if !result.is_empty() {
-        result.iter().map(|s| s.max_drawdown.parse::<f64>().unwrap_or(0.0)).fold(0.0f64, f64::max)
+        result
+            .iter()
+            .map(|s| s.max_drawdown.parse::<f64>().unwrap_or(0.0))
+            .fold(0.0f64, f64::max)
     } else {
         0.0
     };
     let portfolio_win_rate = if total_trades > 0 {
-        let winning: f64 = result.iter().map(|s| {
-            let wr = s.win_rate.parse::<f64>().unwrap_or(0.0) / 100.0;
-            wr * s.trade_count as f64
-        }).sum();
+        let winning: f64 = result
+            .iter()
+            .map(|s| {
+                let wr = s.win_rate.parse::<f64>().unwrap_or(0.0) / 100.0;
+                wr * s.trade_count as f64
+            })
+            .sum();
         (winning / total_trades as f64) * 100.0
     } else {
         0.0

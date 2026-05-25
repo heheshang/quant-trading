@@ -14,8 +14,8 @@ use uuid::Uuid;
 
 use crate::db::atr_stop_loss;
 use crate::db::atr_stop_loss::Entity as AtrStopLossEntity;
-use crate::utils::error::AppError;
 use crate::services::indicator;
+use crate::utils::error::AppError;
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -193,10 +193,10 @@ impl AtrStopLossService {
 /// ATR 计算结果（含追踪状态）
 #[derive(Debug, Clone)]
 pub struct StopLossResult {
-    pub triggered: bool,    // 是否触发
-    pub old_stop: Decimal,  // 原止损价
-    pub new_stop: Decimal,  // 新止损价（已更新）
-    pub updated: bool,      // 止损价是否更新
+    pub triggered: bool,   // 是否触发
+    pub old_stop: Decimal, // 原止损价
+    pub new_stop: Decimal, // 新止损价（已更新）
+    pub updated: bool,     // 止损价是否更新
 }
 
 // ─── Database Entity ─────────────────────────────────────────────────────

@@ -126,7 +126,10 @@ impl RiskManager {
         // 2. 计算当日已实现盈亏（从 positions 已平仓记录统计）
         // trades 表无 realized_pnl，从今日平仓的 positions.quantity=0 记录获取 realized_pnl
         let today = chrono::Utc::now().date_naive();
-        let today_start = today.and_hms_opt(0, 0, 0).unwrap_or_else(|| today.and_hms(0, 0, 0)).and_utc();
+        let today_start = today
+            .and_hms_opt(0, 0, 0)
+            .unwrap_or_else(|| today.and_hms(0, 0, 0))
+            .and_utc();
         let closed_positions = crate::db::order::positions::Entity::find()
             .filter(crate::db::order::positions::Column::UserId.eq(user_id))
             .filter(crate::db::order::positions::Column::Quantity.eq(0.0))
@@ -153,7 +156,10 @@ impl RiskManager {
     /// 计算当日累计亏损（正向为盈利，负向为亏损）
     pub(crate) async fn get_daily_loss(&self, user_id: Uuid) -> Result<Decimal, AppError> {
         let today = chrono::Utc::now().date_naive();
-        let today_start = today.and_hms_opt(0, 0, 0).unwrap_or_else(|| today.and_hms(0, 0, 0)).and_utc();
+        let today_start = today
+            .and_hms_opt(0, 0, 0)
+            .unwrap_or_else(|| today.and_hms(0, 0, 0))
+            .and_utc();
 
         // 查询 UTC 今日已平仓的 positions（quantity=0），汇总 realized_pnl
         let closed_positions = crate::db::order::positions::Entity::find()

@@ -11,9 +11,7 @@ use crate::db::review::{
 use crate::db::strategy::ActiveModel as StrategyActiveModel;
 use crate::db::strategy::Entity as StrategyEntity;
 use crate::utils::error::AppError;
-use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set,
-};
+use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set};
 use uuid::Uuid;
 
 /// Submit a strategy for review (user action)

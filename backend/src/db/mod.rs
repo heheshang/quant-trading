@@ -238,8 +238,11 @@ pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), sea_orm::DbEr
             RAISE NOTICE 'risk_rules timestamp migration skipped: %', SQLERRM;
         END $$;
     "#;
-    db.execute(sea_orm::Statement::from_string(backend, fix_risk_ts.to_string()))
-        .await?;
+    db.execute(sea_orm::Statement::from_string(
+        backend,
+        fix_risk_ts.to_string(),
+    ))
+    .await?;
 
     // Create portfolio_equity_history table
     let stmt = backend.build(
@@ -511,13 +514,17 @@ pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), sea_orm::DbEr
             created_at      TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
             updated_at      TIMESTAMPTZ     NOT NULL DEFAULT NOW()
         )
-        "#.to_string()
-    )).await?;
+        "#
+        .to_string(),
+    ))
+    .await?;
 
     db.execute(sea_orm::Statement::from_string(
         backend,
-        "CREATE INDEX IF NOT EXISTS idx_atr_stop_loss_position_id ON atr_stop_loss (position_id)".to_string()
-    )).await?;
+        "CREATE INDEX IF NOT EXISTS idx_atr_stop_loss_position_id ON atr_stop_loss (position_id)"
+            .to_string(),
+    ))
+    .await?;
 
     // Seed default roles if none exist
     seed_default_roles(db).await?;

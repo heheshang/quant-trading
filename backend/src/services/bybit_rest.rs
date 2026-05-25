@@ -281,7 +281,9 @@ pub struct BybitDepthLevel {
 impl BybitDepthResult {
     fn into_depth_response(self) -> Result<DepthResponse, AppError> {
         if self.bid.is_empty() && self.ask.is_empty() {
-            return Err(AppError::Internal("Bybit returned empty depth data".to_string()));
+            return Err(AppError::Internal(
+                "Bybit returned empty depth data".to_string(),
+            ));
         }
 
         // Calculate cumulative totals for bids (descending price order)
