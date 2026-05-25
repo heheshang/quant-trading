@@ -25,7 +25,8 @@ pub struct Model {
     pub low: Decimal,
     pub bid: Decimal,
     pub ask: Decimal,
-    /// Ticker snapshot timestamp (when the data was captured)
+    /// Ticker snapshot timestamp (when the data was captured) - part of composite primary key
+    #[sea_orm(primary_key)]
     pub timestamp: DateTimeUtc,
     /// When this record was inserted
     pub created_at: DateTimeUtc,

@@ -44,6 +44,11 @@ export interface CreateOrderRequest {
   price?: string
   quantity: string
   time_in_force?: TimeInForce
+  stop_loss_price?: string
+  take_profit_price?: string
+  stop_loss_trigger_mode?: 'market' | 'limit'
+  take_profit_trigger_mode?: 'market' | 'limit'
+  trailing_distance?: string
 }
 
 /** Order query params (GET /api/v1/orders) */

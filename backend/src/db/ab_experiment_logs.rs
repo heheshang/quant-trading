@@ -6,17 +6,16 @@ use serde::{Deserialize, Serialize};
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = true)]
     pub id: i64,
-    pub user_id: Uuid,
-    pub experiment_id: Uuid,    // groups logs by experiment
-    pub model_version: String,  // which model version made this decision
-    pub order_id: Option<Uuid>, // associated order (if any)
-    pub symbol: String,
-    pub signal_direction: String, // "long" | "short" | "neutral"
-    pub signal_strength: f64,     // 0.0 ~ 1.0
-    pub traffic_ratio: i32,       // % traffic assigned at time of decision
+    pub experiment_id: String,
+    pub model_version: String,
+    pub order_id: Option<i64>,
+    pub signal_strength: Option<f64>,
+    pub ai_probability: Option<f64>,
+    pub sentiment_score: Option<f64>,
+    pub final_decision: Option<String>,
     pub decision_at: DateTimeUtc,
-    pub order_result: Option<String>, // "filled" | "rejected" | "pending" | null
-    pub pnl: Option<f64>,             // PnL if order completed
+    #[sea_orm(column_type = "JsonBinary")]
+    pub metadata: Json,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

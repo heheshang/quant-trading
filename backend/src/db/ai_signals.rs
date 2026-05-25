@@ -6,18 +6,17 @@ use serde::{Deserialize, Serialize};
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = true)]
     pub id: i64,
-    pub user_id: Uuid,
-    pub symbol: String,        // e.g. "BTCUSDT"
-    pub interval: String,      // e.g. "1h"
-    pub direction: String,     // "long" | "short" | "neutral"
-    pub probability: f64,      // 0.0 ~ 1.0
-    pub confidence: f64,       // 0.0 ~ 1.0
-    pub model_version: String, // e.g. "v1.0"
-    pub price_target: Option<f64>,
+    pub timestamp: DateTimeUtc,
+    pub symbol: String,
+    #[sea_orm(column_name = "timeframe")]
+    pub timeframe: String,
+    pub direction: Option<String>,
+    pub probability: Option<f64>,
+    pub sentiment_score: Option<f64>,
+    pub final_score: Option<f64>,
+    pub model_version: Option<String>,
     #[sea_orm(column_type = "JsonBinary")]
-    pub feature_snapshot: Json, // snapshot of features used for this prediction
-    pub is_fused: bool,        // whether this signal went through fusion
-    pub fused_with_rule: bool, // whether rule-based signal was available
+    pub feature_snapshot: Json,
     pub created_at: DateTimeUtc,
 }
 

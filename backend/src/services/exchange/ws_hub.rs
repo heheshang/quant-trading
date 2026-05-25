@@ -30,6 +30,7 @@ pub enum HubMessage {
         symbol: String,
         bids: Vec<(f64, f64)>,
         asks: Vec<(f64, f64)>,
+        timestamp: u64,
     },
     Kline {
         symbol: String,
@@ -500,8 +501,13 @@ impl WsHub {
                 ask,
             },
             MarketMessage::Depth {
-                symbol, bids, asks, ..
-            } => HubMessage::Depth { symbol, bids, asks },
+                symbol, bids, asks, timestamp,
+            } => HubMessage::Depth {
+                symbol,
+                bids,
+                asks,
+                timestamp,
+            },
             MarketMessage::Kline {
                 symbol,
                 interval,

@@ -1,9 +1,9 @@
 /**
  * MarketWebSocket - WebSocket client for real-time market data (ADR D1/D3)
  *
- * Connects to GET /ws?token=<jwt>&symbol=<symbol>
- * Subscribe: {"action":"subscribe","channels":["market:ticker","market:depth"],"symbol":"BTCUSDT"}
- * Push: {"channel":"market:ticker","symbol":"BTCUSDT","data":{"price":"49500","bid":"49499","ask":"49501",...}}
+ * Connects to GET /api/v1/ws?token=<jwt>
+ * Subscribe: {"action":"subscribe","channels":["market:ticker:BTCUSDT","market:depth:BTCUSDT"],"symbol":"BTCUSDT"}
+ * Push: {"type":"ticker","symbol":"BTCUSDT","data":{"price":"49500","bid":"49499","ask":"49501",...}}
  */
 
 import type { Ticker, Depth, WsMessage, WsStatus } from '@/types'

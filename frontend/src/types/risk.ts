@@ -6,9 +6,9 @@ import type { PaginatedResponse } from './index'
 
 export interface RiskRules {
   /** 主键 ID */
-  id?: number
+  id: string
   /** 用户 ID */
-  user_id?: number
+  user_id: string
   /** 当日亏损限额（绝对值，如 1000 表示亏 1000 U） */
   daily_loss_limit: string
   /** 当日亏损超限自动平仓 */
@@ -60,9 +60,9 @@ export interface RiskLog {
 
 export interface RiskLogsResponse {
   data: RiskLog[]
-  total: number
-  page: number
-  page_size: number
+  total?: number
+  page?: number
+  page_size?: number
 }
 
 // ─── P0-F3: 应急操作 ────────────────────────────────────────────

@@ -85,12 +85,22 @@ export interface PaginatedResponse<T> extends ApiResponse<T> {
 // ===== Market Types =====
 
 export interface Kline {
+  id: string
+  user_id: string
+  symbol: string
+  interval: string
   timestamp: number
+  open_time: number
   open: number
   high: number
   low: number
   close: number
   volume: number
+  close_time: number | null
+  quote_volume: number | null
+  trades: number | null
+  source: string
+  created_at: string
 }
 
 // Re-export from market.ts (ADR D1/D2 aligned types)

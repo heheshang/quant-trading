@@ -112,8 +112,8 @@ pub async fn get_risk_rules(
     let rules = rm.get_rules_internal(user.user_id).await?;
 
     Ok(Json(ApiResponse::success(RiskRulesResponse {
-        id: user.user_id.to_string(),
-        user_id: user.user_id.to_string(),
+        id: rules.id.to_string(),
+        user_id: rules.user_id.to_string(),
         daily_loss_limit: rules.daily_loss_limit.to_string(),
         daily_loss_auto_close: rules.daily_loss_auto_close,
         single_trade_loss_ratio: rules.single_trade_loss_ratio.to_string(),
@@ -123,8 +123,8 @@ pub async fn get_risk_rules(
         atr_period: rules.atr_period,
         atr_multiplier: rules.atr_multiplier.map(|d| d.to_string()),
         is_active: rules.is_active,
-        created_at: rules.created_at.map(|t| t.to_rfc3339()).unwrap_or_default(),
-        updated_at: rules.updated_at.map(|t| t.to_rfc3339()).unwrap_or_default(),
+        created_at: rules.created_at.to_rfc3339(),
+        updated_at: rules.updated_at.to_rfc3339(),
     })))
 }
 
@@ -139,7 +139,8 @@ pub async fn update_risk_rules(
     let _rm = RiskManager::new(db.clone());
 
     // 加载现有规则
-    let existing = RiskRulesEntity::find_by_id(user.user_id)
+    let existing = RiskRulesEntity::find()
+        .filter(Column::UserId.eq(user.user_id))
         .one(db.as_ref())
         .await?;
 
@@ -242,11 +243,13 @@ pub async fn update_risk_rules(
                     .unwrap_or(sea_orm::Set(false)),
                 created_at: sea_orm::Set(chrono::Utc::now()),
                 updated_at: sea_orm::Set(chrono::Utc::now()),
+                ..Default::default()
             };
             RiskRulesEntity::insert(new_active)
                 .exec(db.as_ref())
                 .await?;
-            RiskRulesEntity::find_by_id(user.user_id)
+            RiskRulesEntity::find()
+                .filter(Column::UserId.eq(user.user_id))
                 .one(db.as_ref())
                 .await?
                 .ok_or_else(|| AppError::Internal("Failed to fetch inserted risk rules".into()))?
@@ -254,7 +257,7 @@ pub async fn update_risk_rules(
     };
 
     Ok(Json(ApiResponse::success(RiskRulesResponse {
-        id: saved.user_id.to_string(),
+        id: saved.id.to_string(),
         user_id: saved.user_id.to_string(),
         daily_loss_limit: saved.daily_loss_limit.to_string(),
         daily_loss_auto_close: saved.daily_loss_auto_close,

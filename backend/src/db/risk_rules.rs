@@ -6,7 +6,9 @@ use sea_orm::entity::prelude::*;
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
 #[sea_orm(table_name = "risk_rules")]
 pub struct Model {
-    #[sea_orm(primary_key, auto_increment = false, column_type = "Uuid")]
+    #[sea_orm(primary_key, auto_increment = true)]
+    pub id: i64,
+    #[sea_orm(unique, column_type = "Uuid")]
     pub user_id: Uuid,
     pub daily_loss_limit: Decimal,
     pub daily_loss_auto_close: bool,

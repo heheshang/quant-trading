@@ -17,7 +17,8 @@ use tracing::{info, warn};
 /// WebSocket message serializer
 #[derive(Serialize)]
 struct WsJsonMessage<'a> {
-    channel: &'a str,
+    #[serde(rename = "type")]
+    msg_type: &'a str,
     symbol: &'a str,
     data: serde_json::Value,
 }
@@ -42,18 +43,8 @@ struct WsClientMessage {
 /// Serialize HubMessage → JSON string for WS client
 fn serialize_hub_message(msg: HubMessage) -> String {
     match msg {
-        HubMessage::Ticker {
-            symbol,
-            price,
-            change,
-            change_pct,
-            volume,
-            high,
-            low,
-            bid,
-            ask,
-        } => serde_json::to_string(&WsJsonMessage {
-            channel: &format!("market:ticker:{}", symbol),
+        HubMessage::Ticker { symbol, price, change, change_pct, volume, high, low, bid, ask } => serde_json::to_string(&WsJsonMessage {
+            msg_type: "ticker",
             symbol: &symbol,
             data: serde_json::json!({
                 "price": price,
@@ -67,23 +58,14 @@ fn serialize_hub_message(msg: HubMessage) -> String {
             }),
         })
         .unwrap_or_default(),
-        HubMessage::Depth { symbol, bids, asks } => serde_json::to_string(&WsJsonMessage {
-            channel: &format!("market:depth:{}", symbol),
+        HubMessage::Depth { symbol, bids, asks, timestamp } => serde_json::to_string(&WsJsonMessage {
+            msg_type: "depth",
             symbol: &symbol,
-            data: serde_json::json!({ "bids": bids, "asks": asks }),
+            data: serde_json::json!({ "bids": bids, "asks": asks, "timestamp": timestamp }),
         })
         .unwrap_or_default(),
-        HubMessage::Kline {
-            symbol,
-            interval,
-            open,
-            high,
-            low,
-            close,
-            volume,
-            timestamp,
-        } => serde_json::to_string(&WsJsonMessage {
-            channel: &format!("market:kline:{}", symbol),
+        HubMessage::Kline { symbol, interval, open, high, low, close, volume, timestamp } => serde_json::to_string(&WsJsonMessage {
+            msg_type: "kline",
             symbol: &symbol,
             data: serde_json::json!({
                 "interval": interval,
@@ -118,12 +100,8 @@ fn serialize_hub_message(msg: HubMessage) -> String {
             }
         }))
         .unwrap_or_default(),
-        HubMessage::BacktestProgress {
-            backtest_id,
-            progress,
-            status,
-        } => serde_json::to_string(&WsJsonMessage {
-            channel: &format!("backtest:progress:{}", backtest_id),
+        HubMessage::BacktestProgress { backtest_id, progress, status } => serde_json::to_string(&WsJsonMessage {
+            msg_type: "backtest_progress",
             symbol: &backtest_id.to_string(),
             data: serde_json::json!({
                 "progress": progress,
@@ -175,6 +153,17 @@ fn message_matches_subscription(msg: &HubMessage, subs: &ClientSubscriptions) ->
     channel_match && symbol_match
 }
 
+/// Map HubMessage type to a flat msg_type string for WS push
+fn hub_msg_type(msg: &HubMessage) -> &'static str {
+    match msg {
+        HubMessage::Ticker { .. } => "ticker",
+        HubMessage::Depth { .. } => "depth",
+        HubMessage::Kline { .. } => "kline",
+        HubMessage::TradeExecuted { .. } => "trade_executed",
+        HubMessage::BacktestProgress { .. } => "backtest_progress",
+    }
+}
+
 /// GET /api/v1/ws — upgrade to WebSocket connection (JWT auth required)
 pub async fn ws_handler(
     ws: WebSocketUpgrade,
@@ -205,9 +194,18 @@ async fn handle_socket(
         trade_subscribed: true,
         ..Default::default()
     };
+    let mut heartbeat_interval = tokio::time::interval(tokio::time::Duration::from_secs(30));
 
     loop {
         tokio::select! {
+            // Send heartbeat to keep connection alive
+            _ = heartbeat_interval.tick() => {
+                let ts = chrono::Utc::now().timestamp();
+                let heartbeat = format!(r#"{{"type":"heartbeat","ts":{}}}"#, ts);
+                if sender.send(Message::Text(heartbeat.into())).await.is_err() {
+                    break;
+                }
+            }
             // Forward market data from hub → WS client (filtered by subscription)
             msg = hub_rx.recv() => {
                 match msg {

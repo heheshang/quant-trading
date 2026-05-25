@@ -52,7 +52,7 @@ services:
     networks:
       - quant-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:80/health"]
       interval: 30s
       timeout: 5s
       retries: 3

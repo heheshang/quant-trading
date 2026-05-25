@@ -23,6 +23,8 @@ pub const ERR_LIMIT_DISABLED: &str = "RF-005";
 /// 风控规则（从数据库加载）
 #[derive(Debug, Clone)]
 pub struct RiskRules {
+    pub id: i64,
+    pub user_id: Uuid,
     pub daily_loss_limit: Decimal,
     pub daily_loss_auto_close: bool,
     pub single_trade_loss_ratio: Decimal,
@@ -32,8 +34,8 @@ pub struct RiskRules {
     pub atr_period: Option<i32>,
     pub atr_multiplier: Option<Decimal>,
     pub is_active: bool,
-    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
-    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
 /// 风控日志条目
@@ -428,12 +430,17 @@ impl RiskManager {
 
     /// 内部获取规则（失败时返回默认规则）
     pub(crate) async fn get_rules_internal(&self, user_id: Uuid) -> Result<RiskRules, AppError> {
-        let result = RiskRulesEntity::find_by_id(user_id)
+        use crate::db::risk_rules::Column as RiskRulesCol;
+
+        let result = RiskRulesEntity::find()
+            .filter(RiskRulesCol::UserId.eq(user_id))
             .one(self.db.as_ref())
             .await?;
 
         Ok(result
             .map(|r| RiskRules {
+                id: r.id,
+                user_id: r.user_id,
                 daily_loss_limit: r.daily_loss_limit,
                 daily_loss_auto_close: r.daily_loss_auto_close,
                 single_trade_loss_ratio: r.single_trade_loss_ratio,
@@ -443,10 +450,12 @@ impl RiskManager {
                 atr_period: r.atr_period,
                 atr_multiplier: r.atr_multiplier,
                 is_active: r.is_active,
-                created_at: Some(r.created_at),
-                updated_at: Some(r.updated_at),
+                created_at: r.created_at,
+                updated_at: r.updated_at,
             })
             .unwrap_or_else(|| RiskRules {
+                id: 0,
+                user_id: Uuid::nil(),
                 daily_loss_limit: Decimal::ZERO,
                 daily_loss_auto_close: false,
                 single_trade_loss_ratio: Decimal::ZERO,
@@ -456,8 +465,8 @@ impl RiskManager {
                 atr_period: None,
                 atr_multiplier: None,
                 is_active: false,
-                created_at: None,
-                updated_at: None,
+                created_at: chrono::Utc::now(),
+                updated_at: chrono::Utc::now(),
             }))
     }
 
