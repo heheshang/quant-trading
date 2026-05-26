@@ -1,5 +1,6 @@
-use tokio_tungstenite::{connect_async, tungstenite::Message};
-use url::Url;
+#![allow(dead_code, unused_imports)]
+
+use tokio_tungstenite::connect_async;
 
 #[derive(Debug)]
 pub struct WsStressClient {

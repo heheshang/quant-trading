@@ -174,6 +174,7 @@ pub async fn get_all_tickers(
 /// 1. Redis `ticker:{symbol}` HASH 命中 → 直接返回
 /// 2. Redis 未命中 → Binance REST API 获取真实数据 → 写入Redis → 返回
 /// 3. Redis + Binance 都失败 → Mock 数据兜底 或 404
+#[allow(clippy::too_many_arguments)]
 pub async fn get_ticker_by_symbol(
     _db: &sea_orm::DatabaseConnection,
     redis: &RedisCache,
@@ -243,6 +244,7 @@ pub async fn get_ticker_by_symbol(
 /// 1. Redis `depth:{symbol}` STRING(JSON) 命中 → 直接返回
 /// 2. Redis 未命中 → Binance REST API 获取真实数据 → 写入Redis → 返回
 /// 3. Redis + Binance 都失败 → Mock 数据兜底 或 错误
+#[allow(clippy::too_many_arguments)]
 pub async fn get_depth(
     _db: &sea_orm::DatabaseConnection,
     redis: &RedisCache,

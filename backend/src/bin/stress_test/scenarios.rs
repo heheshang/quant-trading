@@ -43,6 +43,7 @@ pub fn get_scenario(name: &str) -> Option<Box<Scenario>> {
     }
 }
 
+#[allow(dead_code)]
 pub fn list_scenarios() -> Vec<&'static str> {
     vec!["order_write", "order_read", "portfolio", "health"]
 }

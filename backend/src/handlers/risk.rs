@@ -5,7 +5,6 @@
 use axum::body::Bytes;
 use axum::{
     Json, Router,
-    body::Body,
     extract::{Extension, Query, State},
     routing::{get, post},
 };
@@ -191,7 +190,7 @@ pub async fn update_risk_rules(
         active.is_active = sea_orm::Set(v);
     }
     // Set defaults for any unset fields (for new records)
-    if active.daily_loss_limit == sea_orm::Set(Decimal::ZERO.into()) {
+    if active.daily_loss_limit == sea_orm::Set(Decimal::ZERO) {
         active.daily_loss_limit = sea_orm::Set(Decimal::ZERO);
     }
     if active.updated_at.is_not_set() {
@@ -212,7 +211,7 @@ pub async fn update_risk_rules(
         }
         None => {
             // INSERT path: build new model with defaults + req fields
-            let mut new_active: ActiveModel = ActiveModel {
+            let new_active: ActiveModel = ActiveModel {
                 user_id: sea_orm::Set(user.user_id),
                 daily_loss_limit: req_daily_loss_limit
                     .map(|v| sea_orm::Set(v.parse().unwrap_or_default()))

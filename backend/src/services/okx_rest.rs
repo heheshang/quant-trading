@@ -49,8 +49,7 @@ impl OkxRestClient {
     fn to_okx_symbol(symbol: &str) -> String {
         if symbol.contains('-') {
             symbol.to_string()
-        } else if symbol.ends_with("USDT") {
-            let prefix = &symbol[..symbol.len() - 4];
+        } else if let Some(prefix) = symbol.strip_suffix("USDT") {
             format!("{}-USDT", prefix)
         } else {
             symbol.to_string()
@@ -209,6 +208,7 @@ pub struct OkxTickerItem {
     last: String,
     /// 24h price change
     #[serde(alias = "price24h")]
+    #[allow(dead_code)]
     price_24h: String,
     /// 24h trading volume (quote currency)
     #[serde(alias = "vol24h")]
@@ -317,6 +317,7 @@ pub struct OkxDepthResponse {
 pub struct OkxDepthData {
     /// Instrument ID
     #[serde(alias = "instId")]
+    #[allow(dead_code)]
     inst_id: String,
     /// Last update timestamp
     #[serde(alias = "ts")]

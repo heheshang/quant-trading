@@ -57,7 +57,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         scenario.name, args.concurrency, args.duration, args.warmup
     );
 
-    let scenario_name = scenario.name.clone();
+    let _scenario_name = scenario.name.clone();
     let scenario_type = scenario.scenario_type.clone();
 
     match scenario_type.as_str() {

@@ -14,7 +14,6 @@ use uuid::Uuid;
 
 use crate::db::atr_stop_loss;
 use crate::db::atr_stop_loss::Entity as AtrStopLossEntity;
-use crate::services::indicator;
 use crate::utils::error::AppError;
 
 // ─── Types ───────────────────────────────────────────────────────────────────

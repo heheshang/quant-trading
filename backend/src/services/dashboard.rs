@@ -68,7 +68,8 @@ fn fmt_pct(v: f64) -> String {
 pub async fn get_stats(db: &DatabaseConnection, user_id: Uuid) -> Result<DashboardStats, AppError> {
     // 1. Count total users (system-wide for admin, or just self)
     // For simplicity, we count all users in the system
-    let total_users = user::Entity::find()
+    #[allow(unused_variables)]
+    let _total_users = user::Entity::find()
         .filter(user::Column::IsActive.eq(true))
         .count(db)
         .await
@@ -89,7 +90,8 @@ pub async fn get_stats(db: &DatabaseConnection, user_id: Uuid) -> Result<Dashboa
         .unwrap_or_default();
     let today_start_utc = Utc.from_utc_datetime(&today_start);
 
-    let total_orders_today = order::Entity::find()
+    #[allow(unused_variables)]
+    let _total_orders_today = order::Entity::find()
         .filter(order::Column::UserId.eq(user_id))
         .filter(order::Column::UpdatedAt.gte(today_start_utc))
         .count(db)

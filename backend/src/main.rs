@@ -149,6 +149,7 @@ async fn main() {
     axum::serve(listener, app).await.expect("Server failed");
 }
 
+#[allow(clippy::too_many_arguments)]
 fn create_router(
     db: DbPool,
     cors: CorsLayer,
@@ -163,6 +164,7 @@ fn create_router(
     signed_client: Arc<SignedBinanceClient>,
     key_store: Arc<ApiKeyStore>,
 ) -> Router {
+    #[allow(unused_assignments)]
     let mut app = Router::new();
     // Auth routes (no auth required)
     let auth_routes = Router::new()

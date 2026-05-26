@@ -501,7 +501,10 @@ impl WsHub {
                 ask,
             },
             MarketMessage::Depth {
-                symbol, bids, asks, timestamp,
+                symbol,
+                bids,
+                asks,
+                timestamp,
             } => HubMessage::Depth {
                 symbol,
                 bids,

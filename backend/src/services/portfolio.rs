@@ -328,7 +328,8 @@ pub async fn get_performance(
 
     // Aggregate portfolio-level metrics
     let total_trades: u32 = result.iter().map(|s| s.trade_count).sum();
-    let total_pnl_sum: f64 = result
+    #[allow(unused_variables)]
+    let _total_pnl_sum: f64 = result
         .iter()
         .map(|s| s.total_pnl.parse::<f64>().unwrap_or(0.0))
         .sum::<f64>();

@@ -106,7 +106,7 @@ mod tests {
         StressTestResults {
             results: latencies
                 .into_iter()
-                .zip(statuses.into_iter())
+                .zip(statuses)
                 .map(|(l, s)| HttpResult {
                     latency_ms: l,
                     status: s,

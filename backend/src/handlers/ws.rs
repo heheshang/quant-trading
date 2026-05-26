@@ -43,7 +43,17 @@ struct WsClientMessage {
 /// Serialize HubMessage → JSON string for WS client
 fn serialize_hub_message(msg: HubMessage) -> String {
     match msg {
-        HubMessage::Ticker { symbol, price, change, change_pct, volume, high, low, bid, ask } => serde_json::to_string(&WsJsonMessage {
+        HubMessage::Ticker {
+            symbol,
+            price,
+            change,
+            change_pct,
+            volume,
+            high,
+            low,
+            bid,
+            ask,
+        } => serde_json::to_string(&WsJsonMessage {
             msg_type: "ticker",
             symbol: &symbol,
             data: serde_json::json!({
@@ -58,13 +68,27 @@ fn serialize_hub_message(msg: HubMessage) -> String {
             }),
         })
         .unwrap_or_default(),
-        HubMessage::Depth { symbol, bids, asks, timestamp } => serde_json::to_string(&WsJsonMessage {
+        HubMessage::Depth {
+            symbol,
+            bids,
+            asks,
+            timestamp,
+        } => serde_json::to_string(&WsJsonMessage {
             msg_type: "depth",
             symbol: &symbol,
             data: serde_json::json!({ "bids": bids, "asks": asks, "timestamp": timestamp }),
         })
         .unwrap_or_default(),
-        HubMessage::Kline { symbol, interval, open, high, low, close, volume, timestamp } => serde_json::to_string(&WsJsonMessage {
+        HubMessage::Kline {
+            symbol,
+            interval,
+            open,
+            high,
+            low,
+            close,
+            volume,
+            timestamp,
+        } => serde_json::to_string(&WsJsonMessage {
             msg_type: "kline",
             symbol: &symbol,
             data: serde_json::json!({
@@ -100,7 +124,11 @@ fn serialize_hub_message(msg: HubMessage) -> String {
             }
         }))
         .unwrap_or_default(),
-        HubMessage::BacktestProgress { backtest_id, progress, status } => serde_json::to_string(&WsJsonMessage {
+        HubMessage::BacktestProgress {
+            backtest_id,
+            progress,
+            status,
+        } => serde_json::to_string(&WsJsonMessage {
             msg_type: "backtest_progress",
             symbol: &backtest_id.to_string(),
             data: serde_json::json!({
@@ -154,6 +182,7 @@ fn message_matches_subscription(msg: &HubMessage, subs: &ClientSubscriptions) ->
 }
 
 /// Map HubMessage type to a flat msg_type string for WS push
+#[allow(dead_code)]
 fn hub_msg_type(msg: &HubMessage) -> &'static str {
     match msg {
         HubMessage::Ticker { .. } => "ticker",

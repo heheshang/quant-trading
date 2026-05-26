@@ -1,5 +1,5 @@
 use crate::middleware::auth::AuthenticatedUser;
-use crate::models::market_schemas::{Exchange, TickerHistoryResponse};
+use crate::models::market_schemas::TickerHistoryResponse;
 use crate::models::schemas::{
     DepthQueryParams, DepthResponse, KlineQueryParams, KlineQueryResponse,
     TickerHistoryQueryParams, TickerQueryParams, TickerResponse,
@@ -31,6 +31,7 @@ pub const ROLE_NAME_ADMIN: &str = "admin";
 pub const ROLE_NAME_TRADER: &str = "trader";
 
 /// GET /api/v1/market/tickers — 获取所有交易对 Ticker
+#[allow(clippy::too_many_arguments)]
 pub async fn get_tickers(
     _user: AuthenticatedUser,
     State(db): State<Arc<DatabaseConnection>>,
@@ -48,6 +49,7 @@ pub async fn get_tickers(
 }
 
 /// GET /api/v1/market/ticker — 获取单个交易对 Ticker
+#[allow(clippy::too_many_arguments)]
 pub async fn get_ticker(
     _user: AuthenticatedUser,
     State(db): State<Arc<DatabaseConnection>>,
@@ -77,6 +79,7 @@ pub async fn get_ticker(
     Ok(Json(ApiResponse::success(ticker)))
 }
 /// GET /api/v1/market/depth — 获取深度数据
+#[allow(clippy::too_many_arguments)]
 pub async fn get_depth(
     user: AuthenticatedUser,
     State(db): State<Arc<DatabaseConnection>>,
@@ -162,19 +165,34 @@ mod tests {
 
     /// Build mock dependencies for handler tests
     /// Uses unwrap because tests run in isolation with no real Redis/Binance connection
-    async fn make_test_deps() -> (Arc<RedisCache>, Arc<BinanceRestClient>, Arc<OkxRestClient>) {
+    async fn make_test_deps() -> (
+        Arc<RedisCache>,
+        Arc<BinanceRestClient>,
+        Arc<OkxRestClient>,
+        Arc<GateRestClient>,
+        Arc<BybitRestClient>,
+    ) {
         let redis = RedisCache::new("redis://127.0.0.1:6379")
             .await
             .expect("RedisCache::new for tests");
         let binance = BinanceRestClient::new();
         let okx = OkxRestClient::new();
-        (Arc::new(redis), Arc::new(binance), Arc::new(okx))
+        let gate = GateRestClient::new();
+        let bybit = BybitRestClient::new();
+        (
+            Arc::new(redis),
+            Arc::new(binance),
+            Arc::new(okx),
+            Arc::new(gate),
+            Arc::new(bybit),
+        )
     }
 
     #[tokio::test]
+    #[allow(clippy::too_many_arguments)]
     async fn test_get_tickers_handler() {
         let db = Arc::new(sea_orm::DatabaseConnection::Disconnected);
-        let (redis, binance, okx) = make_test_deps().await;
+        let (redis, binance, okx, gate, bybit) = make_test_deps().await;
         let user = make_auth_user("trader");
         let params = TickerQueryParams {
             symbol: "BTCUSDT".to_string(),
@@ -186,6 +204,8 @@ mod tests {
             Extension(redis),
             Extension(binance),
             Extension(okx),
+            Extension(gate),
+            Extension(bybit),
             Query(params),
         )
         .await;
@@ -198,9 +218,10 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::too_many_arguments)]
     async fn test_get_ticker_handler_found() {
         let db = Arc::new(sea_orm::DatabaseConnection::Disconnected);
-        let (redis, binance, okx) = make_test_deps().await;
+        let (redis, binance, okx, gate, bybit) = make_test_deps().await;
         let user = make_auth_user("trader");
         let params = TickerQueryParams {
             symbol: "BTCUSDT".to_string(),
@@ -212,6 +233,8 @@ mod tests {
             Extension(redis),
             Extension(binance),
             Extension(okx),
+            Extension(gate),
+            Extension(bybit),
             Query(params),
         )
         .await;
@@ -223,9 +246,10 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::too_many_arguments)]
     async fn test_get_ticker_handler_not_found() {
         let db = Arc::new(sea_orm::DatabaseConnection::Disconnected);
-        let (redis, binance, okx) = make_test_deps().await;
+        let (redis, binance, okx, gate, bybit) = make_test_deps().await;
         let user = make_auth_user("trader");
         let params = TickerQueryParams {
             symbol: "NOTREALUSDT".to_string(),
@@ -237,6 +261,8 @@ mod tests {
             Extension(redis),
             Extension(binance),
             Extension(okx),
+            Extension(gate),
+            Extension(bybit),
             Query(params),
         )
         .await;
@@ -247,9 +273,10 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::too_many_arguments)]
     async fn test_get_depth_handler_default_levels() {
         let db = Arc::new(sea_orm::DatabaseConnection::Disconnected);
-        let (redis, binance, okx) = make_test_deps().await;
+        let (redis, binance, okx, gate, bybit) = make_test_deps().await;
         let user = make_auth_user("trader");
         let params = DepthQueryParams {
             symbol: "BTCUSDT".to_string(),
@@ -262,6 +289,8 @@ mod tests {
             Extension(redis),
             Extension(binance),
             Extension(okx),
+            Extension(gate),
+            Extension(bybit),
             Query(params),
         )
         .await;
@@ -274,9 +303,10 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::too_many_arguments)]
     async fn test_get_depth_handler_custom_levels() {
         let db = Arc::new(sea_orm::DatabaseConnection::Disconnected);
-        let (redis, binance, okx) = make_test_deps().await;
+        let (redis, binance, okx, gate, bybit) = make_test_deps().await;
         let user = make_auth_user("pro-trader");
         let params = DepthQueryParams {
             symbol: "ETHUSDT".to_string(),
@@ -289,6 +319,8 @@ mod tests {
             Extension(redis),
             Extension(binance),
             Extension(okx),
+            Extension(gate),
+            Extension(bybit),
             Query(params),
         )
         .await;
@@ -300,9 +332,10 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::too_many_arguments)]
     async fn test_get_depth_invalid_levels() {
         let db = Arc::new(sea_orm::DatabaseConnection::Disconnected);
-        let (redis, binance, okx) = make_test_deps().await;
+        let (redis, binance, okx, gate, bybit) = make_test_deps().await;
         let user = make_auth_user("trader");
         let params = DepthQueryParams {
             symbol: "BTCUSDT".to_string(),
@@ -315,6 +348,8 @@ mod tests {
             Extension(redis),
             Extension(binance),
             Extension(okx),
+            Extension(gate),
+            Extension(bybit),
             Query(params),
         )
         .await;
@@ -324,9 +359,10 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::too_many_arguments)]
     async fn test_get_depth_trader_50_forbidden() {
         let db = Arc::new(sea_orm::DatabaseConnection::Disconnected);
-        let (redis, binance, okx) = make_test_deps().await;
+        let (redis, binance, okx, gate, bybit) = make_test_deps().await;
         let user = make_auth_user("trader");
         let params = DepthQueryParams {
             symbol: "BTCUSDT".to_string(),
@@ -339,6 +375,8 @@ mod tests {
             Extension(redis),
             Extension(binance),
             Extension(okx),
+            Extension(gate),
+            Extension(bybit),
             Query(params),
         )
         .await;
@@ -348,9 +386,10 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::too_many_arguments)]
     async fn test_get_depth_pro_trader_50_allowed() {
         let db = Arc::new(sea_orm::DatabaseConnection::Disconnected);
-        let (redis, binance, okx) = make_test_deps().await;
+        let (redis, binance, okx, gate, bybit) = make_test_deps().await;
         let user = make_auth_user("pro-trader");
         let params = DepthQueryParams {
             symbol: "BTCUSDT".to_string(),
@@ -363,6 +402,8 @@ mod tests {
             Extension(redis),
             Extension(binance),
             Extension(okx),
+            Extension(gate),
+            Extension(bybit),
             Query(params),
         )
         .await;
@@ -373,9 +414,10 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::too_many_arguments)]
     async fn test_get_depth_admin_50_allowed() {
         let db = Arc::new(sea_orm::DatabaseConnection::Disconnected);
-        let (redis, binance, okx) = make_test_deps().await;
+        let (redis, binance, okx, gate, bybit) = make_test_deps().await;
         let user = make_auth_user("admin");
         let params = DepthQueryParams {
             symbol: "BTCUSDT".to_string(),
@@ -388,6 +430,8 @@ mod tests {
             Extension(redis),
             Extension(binance),
             Extension(okx),
+            Extension(gate),
+            Extension(bybit),
             Query(params),
         )
         .await;
@@ -395,9 +439,10 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::too_many_arguments)]
     async fn test_get_depth_invalid_levels_15() {
         let db = Arc::new(sea_orm::DatabaseConnection::Disconnected);
-        let (redis, binance, okx) = make_test_deps().await;
+        let (redis, binance, okx, gate, bybit) = make_test_deps().await;
         let user = make_auth_user("trader");
         let params = DepthQueryParams {
             symbol: "BTCUSDT".to_string(),
@@ -410,6 +455,8 @@ mod tests {
             Extension(redis),
             Extension(binance),
             Extension(okx),
+            Extension(gate),
+            Extension(bybit),
             Query(params),
         )
         .await;
