@@ -1,14 +1,11 @@
 # .cargo/config.toml
-[source.crates-io]
-replace-with = 'bytedance'  # 中科大镜像
 
-# 中科大镜像（sparse）
+# Use Chinese mirror (USTC) for faster crate downloads in China
+[source.crates-io]
+replace-with = 'ustc'
+
 [source.ustc]
 registry = "sparse+https://mirrors.ustc.edu.cn/crates.io-index/"
-
-[source.bytedance]
-registry = "sparse+https://rsproxy.cn/index/"
-# Build configuration for faster compilation
 
 [build]
 # Use 4 jobs to avoid OOM on memory-constrained system (15GB RAM, 6 cores)
@@ -18,7 +15,6 @@ incremental = true
 [profile.dev]
 opt-level = 0
 debug = false
-# Split debuginfo is slower to build, disable it
 split-debuginfo = "unpacked"
 
 [profile.test]
@@ -26,4 +22,3 @@ opt-level = 0
 
 [profile.release]
 # Keep existing settings from Cargo.toml
-# opt-level = 3, lto = true, codegen-units = 1

@@ -11,17 +11,23 @@ RUN apt-get update && \
 WORKDIR /app
 
 # Copy source + lockfiles first so cargo can detect unchanged deps
-# Build context is project root (.), source paths are relative to context
 COPY backend/Cargo.toml ./Cargo.toml
 COPY backend/Cargo.lock ./Cargo.lock
-COPY .cargo/config.toml ./.cargo/config.toml
 COPY backend/src ./src
 
-# Build dependencies only (will be cached)
-RUN cargo build --release 2>/dev/null || true
+# Fetch dependencies (cached layer - only re-runs if Cargo.toml/Cargo.lock change)
+RUN --mount=type=cache,target=/root/.cargo/registry/cache \
+    --mount=type=cache,target=/root/.cargo/registry/index \
+    --mount=type=cache,sharing=locked,target=/root/.cargo/git \
+    --mount=type=cache,target=/target \
+    cargo fetch
 
 # Build the actual binary
-RUN cargo build --release && \
+RUN --mount=type=cache,target=/root/.cargo/registry/cache \
+    --mount=type=cache,target=/root/.cargo/registry/index \
+    --mount=type=cache,sharing=locked,target=/root/.cargo/git \
+    --mount=type=cache,target=/target \
+    cargo build --release && \
     cp target/release/quant-trading-backend /app/server
 
 # ---- Runtime Stage ----
