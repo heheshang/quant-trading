@@ -329,7 +329,7 @@ import type { StrategyFull, CreateStrategyPayload, StrategyType } from '@/types'
 // StrategyStatusBadge inline component
 import { defineComponent, h } from 'vue'
 const StrategyStatusBadge = defineComponent({
-  props: { status: String },
+  props: { status: { type: String, default: '' } },
   setup(props) {
     const statusMap: Record<string, { label: string; color: string }> = {
       draft: { label: '草稿', color: 'var(--color-text-tertiary)' },
