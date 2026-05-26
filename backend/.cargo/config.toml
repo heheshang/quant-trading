@@ -1,0 +1,21 @@
+# Build configuration for faster compilation
+
+[build]
+jobs = 4
+incremental = true
+
+[profile.dev]
+opt-level = 0
+debug = false
+split-debuginfo = "unpacked"
+# More codegen units = faster compilation, worse runtime (worthwhile for dev)
+codegen-units = 16
+# Don't validate dependencies as strictly (faster)
+lto = false
+
+[profile.test]
+opt-level = 0
+codegen-units = 16
+
+[profile.release]
+# Keep existing settings from Cargo.toml
