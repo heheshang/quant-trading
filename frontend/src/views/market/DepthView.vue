@@ -21,7 +21,7 @@
       </div>
       <DepthLevelSelector
         v-model="selectedLevels"
-        :userRole="userRole"
+        :user-role="userRole"
       />
     </div>
 
@@ -40,10 +40,10 @@
         <!-- OrderBook -->
         <OrderBookTable
           :depth="depth"
-          :lastPrice="lastPrice"
+          :last-price="lastPrice"
           :change="tickerChange"
-          :changePercent="tickerChangePercent"
-          :highlightedPrice="highlightedPrice"
+          :change-percent="tickerChangePercent"
+          :highlighted-price="highlightedPrice"
           @price-hover="onPriceHover"
         />
 
@@ -51,7 +51,7 @@
         <div class="chart-section">
           <DepthChart
             :depth="depth"
-            :lastPrice="lastPrice"
+            :last-price="lastPrice"
           />
         </div>
       </template>

@@ -14,6 +14,8 @@ describe('risk types', () => {
   describe('RiskRules', () => {
     it('accepts valid fixed stop-loss rules', () => {
       const rules: RiskRules = {
+        id: '1',
+        user_id: '1',
         daily_loss_limit: '1000.00',
         daily_loss_auto_close: true,
         single_trade_loss_ratio: '0.0500',
@@ -31,6 +33,8 @@ describe('risk types', () => {
 
     it('accepts valid ATR stop-loss rules', () => {
       const rules: RiskRules = {
+        id: '2',
+        user_id: '1',
         daily_loss_limit: '0',
         daily_loss_auto_close: false,
         single_trade_loss_ratio: '0.1000',
@@ -48,6 +52,8 @@ describe('risk types', () => {
 
     it('accepts zero-limit rules (disabled)', () => {
       const rules: RiskRules = {
+        id: '3',
+        user_id: '1',
         daily_loss_limit: '0',
         daily_loss_auto_close: false,
         single_trade_loss_ratio: '0',
@@ -64,6 +70,8 @@ describe('risk types', () => {
 
     it('all ratio fields are strings', () => {
       const rules: RiskRules = {
+        id: '4',
+        user_id: '1',
         daily_loss_limit: '500.00',
         daily_loss_auto_close: true,
         single_trade_loss_ratio: '0.0300',

@@ -24,8 +24,8 @@
         <el-table-column prop="exchange" label="交易所" width="120">
           <template #default="{ row }">
             <div class="exchange-cell">
-              <span class="exchange-badge">{{ EXCHANGE_INFO[row.exchange]?.icon || row.exchange.toUpperCase() }}</span>
-              <span>{{ EXCHANGE_INFO[row.exchange]?.label || row.exchange }}</span>
+              <span class="exchange-badge">{{ EXCHANGE_INFO[row.exchange as Exchange]?.icon || row.exchange.toUpperCase() }}</span>
+              <span>{{ EXCHANGE_INFO[row.exchange as Exchange]?.label || row.exchange }}</span>
             </div>
           </template>
         </el-table-column>
@@ -46,7 +46,7 @@
                 :type="getPermissionTagType(perm)"
                 class="permission-tag"
               >
-                {{ PERMISSION_INFO[perm]?.label || perm }}
+                {{ PERMISSION_INFO[perm as ApiKeyPermission]?.label || perm }}
               </el-tag>
             </div>
           </template>

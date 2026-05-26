@@ -151,7 +151,7 @@ export const useTradingStore = defineStore('trading', () => {
     const symbolDisplay = msg.symbol ?? ''
 
     if (channel === 'market:ticker' && msg.data) {
-      const data = msg.data as Record<string, unknown>
+      const data = msg.data as unknown as Record<string, unknown>
       const internal = toInternalSymbol(symbolDisplay)
       tickers.value[internal] = {
         symbol: symbolDisplay,
@@ -163,18 +163,18 @@ export const useTradingStore = defineStore('trading', () => {
         volume: String(data.volume ?? 0),
         high: String(data.high ?? 0),
         low: String(data.low ?? 0),
-        timestamp: data.timestamp ?? Date.now(),
+        timestamp: (data.timestamp as number) ?? Date.now(),
       }
       // Also store by display symbol
       tickers.value[symbolDisplay] = tickers.value[internal]
     }
 
     if (channel === 'market:depth' && msg.data) {
-      const data = msg.data as Record<string, unknown>
+      const data = msg.data as unknown as Record<string, unknown>
       const internal = toInternalSymbol(symbolDisplay)
       depths.value[internal] = {
         symbol: symbolDisplay,
-        bids: (data.bids ?? []).map((b: unknown) => {
+        bids: ((data.bids as unknown[]) ?? []).map((b: unknown) => {
           const bid = b as { price?: unknown; quantity?: unknown; total?: unknown }
           return {
             price: String(bid.price ?? 0),
@@ -182,7 +182,7 @@ export const useTradingStore = defineStore('trading', () => {
             total: bid.total !== undefined ? String(bid.total) : undefined,
           }
         }),
-        asks: (data.asks ?? []).map((a: unknown) => {
+        asks: ((data.asks as unknown[]) ?? []).map((a: unknown) => {
           const ask = a as { price?: unknown; quantity?: unknown; total?: unknown }
           return {
             price: String(ask.price ?? 0),
@@ -190,7 +190,7 @@ export const useTradingStore = defineStore('trading', () => {
             total: ask.total !== undefined ? String(ask.total) : undefined,
           }
         }),
-        timestamp: data.timestamp ?? Date.now(),
+        timestamp: (data.timestamp as number) ?? Date.now(),
       }
       depths.value[symbolDisplay] = depths.value[internal]
     }

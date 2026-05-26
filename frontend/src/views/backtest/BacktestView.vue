@@ -15,124 +15,124 @@
 
       <!-- Right panel: Results area (flex:1) -->
       <div class="results-panel">
-    <!-- Progress Panel - shown when running -->
-    <div v-if="backtestState === 'running'" class="progress-panel">
-      <el-card shadow="never" class="progress-card">
-        <div class="progress-content">
-          <!-- Strategy summary -->
-          <div v-if="lastParams" class="strategy-summary">
-            {{ lastParams.strategy_id }} · {{ lastParams.symbol }} · {{ lastParams.start_date }} ~ {{ lastParams.end_date }}
-          </div>
-          <!-- Progress bar -->
-          <div class="progress-bar-wrapper">
-            <el-progress
-              :percentage="combinedProgress"
-              :stroke-width="8"
-              :show-text="true"
-              :format="(v: number) => v + '%'"
-              class="progress-bar"
-            />
-          </div>
-          <div class="running-status-text">运行中...</div>
-          <!-- Cancel button -->
-          <el-button
-            class="cancel-btn"
-            size="small"
-            @click="handleCancel"
-          >
-            取消
-          </el-button>
+        <!-- Progress Panel - shown when running -->
+        <div v-if="backtestState === 'running'" class="progress-panel">
+          <el-card shadow="never" class="progress-card">
+            <div class="progress-content">
+              <!-- Strategy summary -->
+              <div v-if="lastParams" class="strategy-summary">
+                {{ lastParams.strategy_id }} · {{ lastParams.symbol }} · {{ lastParams.start_date }} ~ {{ lastParams.end_date }}
+              </div>
+              <!-- Progress bar -->
+              <div class="progress-bar-wrapper">
+                <el-progress
+                  :percentage="combinedProgress"
+                  :stroke-width="8"
+                  :show-text="true"
+                  :format="(v: number) => v + '%'"
+                  class="progress-bar"
+                />
+              </div>
+              <div class="running-status-text">运行中...</div>
+              <!-- Cancel button -->
+              <el-button
+                class="cancel-btn"
+                size="small"
+                @click="handleCancel"
+              >
+                取消
+              </el-button>
+            </div>
+          </el-card>
         </div>
-      </el-card>
-    </div>
 
-    <!-- Error Section - shown when failed -->
-    <div v-if="backtestState === 'failed'" class="error-section">
-      <el-alert
-        :title="error || '回测执行失败'"
-        type="error"
-        show-icon
-        closable
-        @close="handleReturnToIdle"
-      />
-      <el-button
-        class="return-params-btn"
-        @click="handleReturnToIdle"
-        style="margin-top: 12px"
-      >
-        返回修改参数
-      </el-button>
-    </div>
-
-    <!-- Empty State - shown when idle -->
-    <div v-if="backtestState === 'idle'" class="empty-state">
-      <el-card shadow="never" class="empty-card">
-        <el-empty description="配置参数后点击运行回测" :image-size="80">
-          <template #image>
-            <el-icon :size="48" color="var(--color-text-tertiary)">
-              <Odometer />
-            </el-icon>
-          </template>
-        </el-empty>
-      </el-card>
-    </div>
-
-    <!-- History List - shown when idle -->
-    <div v-if="backtestState === 'idle' && historyItems.length > 0" class="history-section">
-      <BacktestHistoryList
-        :items="historyItems"
-        :loading="historyLoading"
-        :current-id="result?.id ?? ''"
-        @select="handleHistorySelect"
-        @delete="handleHistoryDelete"
-        @refresh="loadHistory"
-      />
-    </div>
-
-    <!-- Results Section - shown when completed -->
-    <div v-if="backtestState === 'completed' && result" class="results-section">
-      <!-- Top action bar -->
-      <div class="result-action-bar">
-        <div class="action-bar-left">
-          <span class="result-title">回测结果</span>
-          <span v-if="result" class="result-subtitle">
-            {{ result.strategy_id }} · {{ result.config.symbol }}
-          </span>
-        </div>
-        <div class="action-bar-right">
-          <el-button size="small" @click="handleReturnToIdle">
-            ✕ 返回
-          </el-button>
-          <el-button size="small" class="rerun-btn" @click="handleRerun">
-            ↻ 重新回测
-          </el-button>
-          <el-button size="small" @click="handleDelete">
-            🗑 删除
-          </el-button>
-        </div>
-      </div>
-
-      <!-- Metrics cards -->
-      <div class="result-metrics">
-        <BacktestMetricsCards :result="result" />
-      </div>
-
-      <!-- Tab navigation -->
-      <el-tabs v-model="activeTab" class="result-tabs">
-        <el-tab-pane label="权益曲线" :name="0">
-          <BacktestEquityChart
-            :data="result.equity_curve"
-            :initial-capital="result.config.initial_capital"
+        <!-- Error Section - shown when failed -->
+        <div v-if="backtestState === 'failed'" class="error-section">
+          <el-alert
+            :title="error || '回测执行失败'"
+            type="error"
+            show-icon
+            closable
+            @close="handleReturnToIdle"
           />
-        </el-tab-pane>
-        <el-tab-pane label="交易明细" :name="1">
-          <BacktestTradesTable :trades="result.trades" />
-        </el-tab-pane>
-        <el-tab-pane label="绩效报告" :name="2">
-          <BacktestPerformanceReport :result="result" />
-        </el-tab-pane>
-      </el-tabs>
-    </div>
+          <el-button
+            class="return-params-btn"
+            @click="handleReturnToIdle"
+            style="margin-top: 12px"
+          >
+            返回修改参数
+          </el-button>
+        </div>
+
+        <!-- Empty State - shown when idle -->
+        <div v-if="backtestState === 'idle'" class="empty-state">
+          <el-card shadow="never" class="empty-card">
+            <el-empty description="配置参数后点击运行回测" :image-size="80">
+              <template #image>
+                <el-icon :size="48" color="var(--color-text-tertiary)">
+                  <Odometer />
+                </el-icon>
+              </template>
+            </el-empty>
+          </el-card>
+        </div>
+
+        <!-- History List - shown when idle -->
+        <div v-if="backtestState === 'idle' && historyItems.length > 0" class="history-section">
+          <BacktestHistoryList
+            :items="historyItems"
+            :loading="historyLoading"
+            :current-id="result?.id ?? ''"
+            @select="handleHistorySelect"
+            @delete="handleHistoryDelete"
+            @refresh="loadHistory"
+          />
+        </div>
+
+        <!-- Results Section - shown when completed -->
+        <div v-if="backtestState === 'completed' && result" class="results-section">
+          <!-- Top action bar -->
+          <div class="result-action-bar">
+            <div class="action-bar-left">
+              <span class="result-title">回测结果</span>
+              <span v-if="result" class="result-subtitle">
+                {{ result.strategy_id }} · {{ result.config.symbol }}
+              </span>
+            </div>
+            <div class="action-bar-right">
+              <el-button size="small" @click="handleReturnToIdle">
+                ✕ 返回
+              </el-button>
+              <el-button size="small" class="rerun-btn" @click="handleRerun">
+                ↻ 重新回测
+              </el-button>
+              <el-button size="small" @click="handleDelete">
+                🗑 删除
+              </el-button>
+            </div>
+          </div>
+
+          <!-- Metrics cards -->
+          <div class="result-metrics">
+            <BacktestMetricsCards :result="result" />
+          </div>
+
+          <!-- Tab navigation -->
+          <el-tabs v-model="activeTab" class="result-tabs">
+            <el-tab-pane label="权益曲线" :name="0">
+              <BacktestEquityChart
+                :data="result.equity_curve"
+                :initial-capital="result.config.initial_capital"
+              />
+            </el-tab-pane>
+            <el-tab-pane label="交易明细" :name="1">
+              <BacktestTradesTable :trades="result.trades" />
+            </el-tab-pane>
+            <el-tab-pane label="绩效报告" :name="2">
+              <BacktestPerformanceReport :result="result" />
+            </el-tab-pane>
+          </el-tabs>
+        </div>
       </div><!-- /results-panel -->
     </div><!-- /backtest-layout -->
   </div>

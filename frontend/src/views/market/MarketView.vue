@@ -36,15 +36,15 @@
       <TickerListView
         v-if="activeTab === 'ticker'"
         ref="tickerListRef"
-        :wsStatus="wsStatus"
-        :onWsMessage="registerWsHandler"
+        :ws-status="wsStatus"
+        :on-ws-message="registerWsHandler"
       />
       <DepthView
         v-if="activeTab === 'depth'"
         ref="depthViewRef"
-        :wsStatus="wsStatus"
-        :userRole="userRole"
-        :onWsMessage="registerWsHandler"
+        :ws-status="wsStatus"
+        :user-role="userRole"
+        :on-ws-message="registerWsHandler"
       />
     </div>
   </div>

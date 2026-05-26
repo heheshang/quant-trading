@@ -104,14 +104,14 @@
           <!-- Card Header -->
           <div class="card-header">
             <div class="pair-title">
-              <span class="pair-symbols">{{ pair.symbolA }} / {{ pair.symbolB }}</span>
+              <span class="pair-symbols">{{ pair.symbol_a }} / {{ pair.symbol_b }}</span>
               <el-tag
                 class="pair-type-tag"
-                :type="getPairTypeTagType(pair.pairType)"
+                :type="getPairTypeTagType(pair.pair_type)"
                 size="small"
                 effect="plain"
               >
-                {{ getPairTypeLabel(pair.pairType) }}
+                {{ getPairTypeLabel(pair.pair_type) }}
               </el-tag>
             </div>
             <div class="pair-status">
@@ -129,33 +129,33 @@
             </div>
             <div class="info-row">
               <span class="info-label">入场价差阈值</span>
-              <span class="info-value">{{ formatThreshold(pair.spreadEntryThreshold) }}</span>
+              <span class="info-value">{{ formatThreshold(pair.spread_entry_threshold) }}</span>
             </div>
             <div class="info-row">
               <span class="info-label">出场价差阈值</span>
-              <span class="info-value">{{ formatThreshold(pair.spreadExitThreshold) }}</span>
+              <span class="info-value">{{ formatThreshold(pair.spread_exit_threshold) }}</span>
             </div>
             <div class="info-row">
               <span class="info-label">计算模式</span>
-              <span class="info-value">{{ getCalcModeLabel(pair.calculationMode) }}</span>
+              <span class="info-value">{{ getCalcModeLabel(pair.calculation_mode) }}</span>
             </div>
-            <div v-if="pair.zScoreEntry" class="info-row">
+            <div v-if="pair.z_score_entry" class="info-row">
               <span class="info-label">Z-Score 入场</span>
-              <span class="info-value">{{ pair.zScoreEntry }}</span>
+              <span class="info-value">{{ pair.z_score_entry }}</span>
             </div>
-            <div v-if="pair.correlationThreshold" class="info-row">
+            <div v-if="pair.correlation_threshold" class="info-row">
               <span class="info-label">相关性阈值</span>
-              <span class="info-value">{{ pair.correlationThreshold }}</span>
+              <span class="info-value">{{ pair.correlation_threshold }}</span>
             </div>
             <div class="info-row">
               <span class="info-label">最大仓位</span>
-              <span class="info-value">{{ formatMoney(pair.maxPositionSize) }}</span>
+              <span class="info-value">{{ formatMoney(pair.max_position_size) }}</span>
             </div>
           </div>
 
           <!-- Card Footer -->
           <div class="card-footer">
-            <span class="update-time">更新: {{ formatDate(pair.updatedAt) }}</span>
+            <span class="update-time">更新: {{ formatDate(pair.updated_at) }}</span>
             <el-dropdown trigger="click" @command="(cmd: string) => handleActionCommand(cmd, pair)">
               <el-button class="action-btn" text>
                 <el-icon><MoreFilled /></el-icon>
@@ -341,7 +341,7 @@
     <!-- Delete Confirm Dialog -->
     <el-dialog v-model="deleteDialogVisible" title="确认删除" width="400px" destroy-on-close>
       <p>
-        确定要删除套利对「<strong>{{ deleteTargetPair?.symbolA }} / {{ deleteTargetPair?.symbolB }}</strong>」吗？<br />
+        确定要删除套利对「<strong>{{ deleteTargetPair?.symbol_a }} / {{ deleteTargetPair?.symbol_b }}</strong>」吗？<br />
         此操作不可撤销。
       </p>
       <template #footer>
@@ -428,20 +428,20 @@ const filteredPairs = computed(() => {
     const matchStatus = !filterStatus.value || p.status === filterStatus.value
     const q = searchQuery.value.toLowerCase()
     const matchSearch = !q ||
-      p.symbolA.toLowerCase().includes(q) ||
-      p.symbolB.toLowerCase().includes(q) ||
-      p.pairType.toLowerCase().includes(q)
+      p.symbol_a.toLowerCase().includes(q) ||
+      p.symbol_b.toLowerCase().includes(q) ||
+      p.pair_type.toLowerCase().includes(q)
     return matchStatus && matchSearch
   })
 })
 
 const todaySignals = computed(() => {
   const today = new Date().toDateString()
-  return signals.value.filter((s) => new Date(s.createdAt).toDateString() === today).length
+  return signals.value.filter((s) => new Date(s.created_at).toDateString() === today).length
 })
 
 const totalPnl = computed(() => {
-  return positions.value.reduce((sum, p) => sum + (p.unrealizedPnl ?? 0), 0)
+  return positions.value.reduce((sum, p) => sum + (p.unrealized_pnl ?? 0), 0)
 })
 
 // ============================================================
@@ -460,15 +460,18 @@ async function fetchAll() {
 }
 
 async function fetchPairs() {
-  pairs.value = await listArbitragePairs()
+  const res = await listArbitragePairs()
+  pairs.value = res.items
 }
 
 async function fetchPositions() {
-  positions.value = await listArbitragePositions()
+  const res = await listArbitragePositions()
+  positions.value = res.items
 }
 
 async function fetchSignals() {
-  signals.value = await listArbitrageSignals(undefined, 50)
+  const res = await listArbitrageSignals({})
+  signals.value = res.items
 }
 
 function onFilterChange() {
@@ -504,17 +507,17 @@ function openCreateDialog() {
 function openEditDialog(pair: ArbitragePair) {
   editingPair.value = pair
   form.value = {
-    pairType: pair.pairType,
-    symbolA: pair.symbolA,
-    symbolB: pair.symbolB,
+    pairType: pair.pair_type,
+    symbolA: pair.symbol_a,
+    symbolB: pair.symbol_b,
     exchange: pair.exchange,
-    calculationMode: pair.calculationMode,
-    spreadEntryThreshold: pair.spreadEntryThreshold,
-    spreadExitThreshold: pair.spreadExitThreshold,
-    maxPositionSize: pair.maxPositionSize,
-    zScoreEntry: pair.zScoreEntry ?? 2,
-    zScoreExit: pair.zScoreExit ?? 0.5,
-    correlationThreshold: pair.correlationThreshold ?? 0.9,
+    calculationMode: pair.calculation_mode,
+    spreadEntryThreshold: pair.spread_entry_threshold,
+    spreadExitThreshold: pair.spread_exit_threshold,
+    maxPositionSize: pair.max_position_size,
+    zScoreEntry: pair.z_score_entry ?? 2,
+    zScoreExit: pair.z_score_exit ?? 0.5,
+    correlationThreshold: pair.correlation_threshold ?? 0.9,
   }
   dialogVisible.value = true
 }
@@ -526,14 +529,14 @@ async function submitForm() {
     dialogLoading.value = true
     try {
       const payload = {
-        pair_type: form.value.pairType,
+        pair_type: form.value.pairType as import('@/api/arbitrage').ArbitragePairType,
         symbol_a: form.value.symbolA,
         symbol_b: form.value.symbolB,
         exchange: form.value.exchange,
         spread_entry_threshold: form.value.spreadEntryThreshold,
         spread_exit_threshold: form.value.spreadExitThreshold,
         max_position_size: form.value.maxPositionSize,
-        calculation_mode: form.value.calculationMode,
+        calculation_mode: form.value.calculationMode as import('@/api/arbitrage').CalculationMode,
         z_score_entry: form.value.calculationMode === 'zscore' ? form.value.zScoreEntry : undefined,
         z_score_exit: form.value.calculationMode === 'zscore' ? form.value.zScoreExit : undefined,
         correlation_threshold: form.value.pairType === 'cross_pair' ? form.value.correlationThreshold : undefined,
@@ -564,7 +567,7 @@ function handleActionCommand(cmd: string, pair: ArbitragePair) {
 
 async function toggleStatus(pair: ArbitragePair, status: string) {
   try {
-    await updateArbitragePair(pair.id, { status })
+    await updateArbitragePair(pair.id, { status: status as import('@/api/arbitrage').ArbitragePairStatus })
     ElMessage.success(status === 'active' ? '已启用' : '已停用')
     await fetchPairs()
   } catch (err: any) {

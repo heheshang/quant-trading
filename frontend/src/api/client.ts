@@ -48,12 +48,13 @@ client.interceptors.request.use(
 
 // Response interceptor: unwrap data, handle 401 with token refresh
 client.interceptors.response.use(
-  (response) => {
-    const body = response.data as ApiResponse<unknown>
+  (response: import('axios').AxiosResponse<ApiResponse<unknown>>) => {
+    const body = response.data
     if (body.code !== 0) {
       return Promise.reject(new Error(body.message || 'Request failed'))
     }
-    return body.data as unknown
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return body.data as any
   },
   async (error: AxiosError<ApiResponse<unknown>>) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean }

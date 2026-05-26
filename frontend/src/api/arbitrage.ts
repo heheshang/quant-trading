@@ -54,6 +54,7 @@ export interface CreateArbitragePairPayload {
   correlation_threshold?: number
   z_score_entry?: number
   z_score_exit?: number
+  status?: ArbitragePairStatus
 }
 
 /** 更新套利对请求体 */
@@ -112,8 +113,22 @@ export function createArbitragePair(
 /** 套利对列表 */
 export function listArbitragePairs(
   params?: { page?: number; size?: number; status?: ArbitragePairStatus },
-): Promise<PaginatedResponse<ArbitragePair>> {
+): Promise<{ items: ArbitragePair[]; meta?: { page: number; size: number; total: number } }> {
   return client.get('/arbitrage/pairs', { params })
+}
+
+/** 套利持仓列表 */
+export function listArbitragePositions(
+  params?: { pair_id?: number; status?: PositionStatus },
+): Promise<{ items: ArbitragePosition[]; meta?: { page: number; size: number; total: number } }> {
+  return client.get('/arbitrage/positions', { params })
+}
+
+/** 套利信号列表 */
+export function listArbitrageSignals(
+  params?: { pair_id?: number; signal_type?: SignalType },
+): Promise<{ items: ArbitrageSignal[]; meta?: { page: number; size: number; total: number } }> {
+  return client.get('/arbitrage/signals', { params })
 }
 
 /** 套利对详情 */
@@ -137,18 +152,4 @@ export function deleteArbitragePair(id: number): Promise<void> {
 /** 当前价差 */
 export function getSpread(pairId: number): Promise<SpreadData> {
   return client.get(`/arbitrage/spread/${pairId}`)
-}
-
-/** 套利持仓列表 */
-export function listArbitragePositions(
-  params?: { pair_id?: number; status?: PositionStatus },
-): Promise<PaginatedResponse<ArbitragePosition>> {
-  return client.get('/arbitrage/positions', { params })
-}
-
-/** 套利信号列表 */
-export function listArbitrageSignals(
-  params?: { pair_id?: number; signal_type?: SignalType },
-): Promise<PaginatedResponse<ArbitrageSignal>> {
-  return client.get('/arbitrage/signals', { params })
 }

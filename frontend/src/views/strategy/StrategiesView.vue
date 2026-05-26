@@ -85,27 +85,35 @@
             type="success"
             @click="handleBulkStart"
             :loading="bulkLoading"
-          >启用</el-button>
+          >
+            启用
+          </el-button>
           <el-button
             v-if="canBulkPause"
             size="small"
             type="warning"
             @click="handleBulkPause"
             :loading="bulkLoading"
-          >暂停</el-button>
+          >
+            暂停
+          </el-button>
           <el-button
             v-if="canBulkStop"
             size="small"
             type="danger"
             @click="handleBulkStop"
             :loading="bulkLoading"
-          >停止</el-button>
+          >
+            停止
+          </el-button>
           <el-button
             size="small"
             type="danger"
             @click="handleBulkDelete"
             :loading="bulkLoading"
-          >删除</el-button>
+          >
+            删除
+          </el-button>
           <el-button size="small" text @click="clearSelection">取消全选</el-button>
         </div>
       </transition>

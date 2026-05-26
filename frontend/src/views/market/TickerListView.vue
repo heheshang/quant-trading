@@ -10,7 +10,7 @@
     <div class="table-wrapper" v-loading="loading">
       <TickerTable
         :data="filteredTickers"
-        :flashMap="flashMap"
+        :flash-map="flashMap"
         @sort-change="onSortChange"
       />
     </div>

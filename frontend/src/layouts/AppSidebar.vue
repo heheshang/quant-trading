@@ -52,9 +52,9 @@ function handleSelect(index: string) {
       <div class="sidebar-logo">
         <div class="logo-icon">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M3 21V3H21V21H3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-            <path d="M7 17L10 13L13 15L17 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M17 9H14M17 9V12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M3 21V3H21V21H3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+            <path d="M7 17L10 13L13 15L17 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M17 9H14M17 9V12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
         </div>
         <span v-if="!appStore.sidebarCollapsed" class="logo-text">Quant Trading</span>

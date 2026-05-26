@@ -36,7 +36,7 @@ export function rejectStrategy(payload: ReviewDecisionPayload): Promise<ReviewRe
 }
 
 /** List all pending reviews (admin) */
-export function listPendingReviews(): Promise<PaginatedResponse<ReviewResponse>> {
+export function listPendingReviews(): Promise<{ items: ReviewResponse[]; meta?: { page: number; size: number; total: number } }> {
   return client.get('/reviews/pending')
 }
 

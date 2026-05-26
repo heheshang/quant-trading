@@ -101,7 +101,7 @@ async function loadPendingReviews() {
   loading.value = true
   try {
     const res = await listPendingReviews()
-    pendingReviews.value = res.data?.items ?? res.data ?? []
+    pendingReviews.value = res.items
   } catch (e: unknown) {
     ElMessage.error('加载待审核列表失败: ' + String(e))
   } finally {
