@@ -92,6 +92,7 @@ export interface KlineQueryParams {
   end_time?: number
   page?: number
   page_size?: number
+  size?: number  // backend parameter name
 }
 
 /** Kline export params */

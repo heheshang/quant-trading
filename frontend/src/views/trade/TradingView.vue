@@ -227,11 +227,13 @@ async function loadKlineData() {
     const res = await queryKlines({
       symbol,
       interval: chartInterval.value,
-      page_size: 200,
+      size: 200,
     })
     console.log('[TradingView] queryKlines response:', res)
     const r = res as any
-    const rawData = r?.data ?? r ?? []
+    // API returns: { code: 0, data: { data: [...], meta: {...} }, message: "success" }
+    // Need to extract r.data.data for the actual kline array
+    const rawData = r?.data?.data ?? r?.data ?? r ?? []
     console.log('[TradingView] rawData length:', rawData.length)
     klineData.value = rawData.map((b: any) => ({
       time: Math.floor((b.timestamp ?? b.time ?? b.open_time) / 1000),
