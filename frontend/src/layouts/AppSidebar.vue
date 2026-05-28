@@ -86,14 +86,17 @@ function handleSelect(index: string) {
   left: 0;
   width: var(--sidebar-width);
   height: 100vh;
-  background: var(--color-bg);
+  background: rgba(8, 9, 10, 0.98);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border-right: 1px solid var(--color-border);
   z-index: 100;
   display: flex;
   flex-direction: column;
   transition:
-    width 0.3s ease,
-    transform 0.3s ease;
+    width var(--transition-slow),
+    transform var(--transition-slow);
+  box-shadow: var(--shadow-md);
 
   &.is-collapsed {
     width: 64px;
@@ -112,6 +115,7 @@ function handleSelect(index: string) {
     flex-direction: column;
     height: 100%;
     overflow-y: auto;
+    overflow-x: hidden;
   }
 
   .sidebar-logo {
@@ -119,73 +123,111 @@ function handleSelect(index: string) {
     display: flex;
     align-items: center;
     padding: 0 16px;
-    gap: 10px;
+    gap: 12px;
     border-bottom: 1px solid var(--color-border);
     flex-shrink: 0;
     overflow: hidden;
+    background: var(--gradient-surface);
 
     .logo-icon {
       flex-shrink: 0;
-      width: 22px;
-      height: 22px;
+      width: 24px;
+      height: 24px;
       color: var(--color-accent);
       display: flex;
       align-items: center;
       justify-content: center;
+      filter: drop-shadow(0 0 8px rgba(113, 112, 255, 0.4));
+      transition: all var(--transition-base);
     }
 
     .logo-text {
       font-size: 15px;
-      font-weight: 600;
+      font-weight: 700;
       color: var(--color-text-primary);
       white-space: nowrap;
       letter-spacing: -0.3px;
+      background: var(--gradient-accent);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
   }
 
   .sidebar-nav {
-    padding: 12px 0;
+    padding: 12px 8px;
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 4px;
 
     .nav-item {
-      height: 40px;
-      margin: 0 8px;
+      height: 42px;
       padding: 0 16px;
-      border-radius: 6px;
+      border-radius: 8px;
       display: flex;
       align-items: center;
       gap: 12px;
       cursor: pointer;
-      transition: all 0.15s ease;
+      transition: all var(--transition-fast);
       color: var(--color-text-tertiary);
       white-space: nowrap;
       overflow: hidden;
+      position: relative;
 
       .nav-icon {
         flex-shrink: 0;
         width: 20px;
         height: 20px;
         font-size: 20px;
+        transition: all var(--transition-fast);
       }
 
       .nav-label {
         font-size: 14px;
-        font-weight: 510;
+        font-weight: 500;
+        transition: all var(--transition-fast);
+      }
+
+      &::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 3px;
+        height: 0;
+        background: var(--gradient-accent);
+        border-radius: 0 2px 2px 0;
+        transition: height var(--transition-fast);
       }
 
       &:hover {
-        background: rgba(255, 255, 255, 0.04);
-        color: var(--color-text-secondary);
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--color-text-primary);
+        transform: translateX(2px);
+
+        .nav-icon {
+          transform: scale(1.1);
+        }
       }
 
       &.is-active {
-        background: var(--color-sidebar-active);
+        background: var(--color-accent-light);
         color: var(--color-accent);
+        font-weight: 600;
+        box-shadow: inset 0 0 0 1px rgba(113, 112, 255, 0.2);
+
+        &::before {
+          height: 60%;
+        }
 
         .nav-icon {
+          color: var(--color-accent);
+          filter: drop-shadow(0 0 6px rgba(113, 112, 255, 0.5));
+        }
+
+        .nav-label {
           color: var(--color-accent);
         }
       }
@@ -209,8 +251,11 @@ function handleSelect(index: string) {
       left: 0;
       width: 100vw;
       height: 100vh;
-      background: rgba(0, 0, 0, 0.5);
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
       z-index: -1;
+      animation: fadeIn var(--transition-base);
     }
   }
 }

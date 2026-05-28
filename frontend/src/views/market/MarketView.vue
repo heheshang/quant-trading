@@ -115,21 +115,27 @@ onBeforeUnmount(() => {
 .market-view {
   max-width: 1344px;
   padding: 0 24px;
+  animation: fadeIn var(--transition-base);
 
   .page-header {
-    margin-bottom: 20px;
+    margin-bottom: 24px;
   }
 
   .page-title {
-    font-size: 24px;
-    font-weight: 600;
+    font-size: 26px;
+    font-weight: 700;
     color: var(--color-text-primary);
     margin: 0;
+    letter-spacing: -0.5px;
+    background: var(--gradient-accent);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
 }
 
 .market-tabs {
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 
   :deep(.el-tabs__nav-wrap::after) {
     background-color: var(--color-border);
@@ -138,20 +144,25 @@ onBeforeUnmount(() => {
   :deep(.el-tabs__item) {
     color: var(--color-text-tertiary);
     font-size: 14px;
-    transition: color 0.2s;
+    font-weight: 500;
+    transition: all var(--transition-fast);
+    padding: 0 20px;
 
     &:hover {
-      color: var(--color-text-secondary);
+      color: var(--color-text-primary);
+      background: rgba(255, 255, 255, 0.03);
     }
 
     &.is-active {
-      color: var(--color-text-primary);
+      color: var(--color-accent);
+      font-weight: 600;
     }
   }
 
   :deep(.el-tabs__active-bar) {
-    background-color: var(--color-accent);
-    height: 2px;
+    background: var(--gradient-accent);
+    height: 3px;
+    border-radius: 3px 3px 0 0;
   }
 
   .tab-label {
@@ -164,23 +175,23 @@ onBeforeUnmount(() => {
 .ws-banner {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  background: rgba(229, 72, 77, 0.12);
-  border: 1px solid rgba(229, 72, 77, 0.3);
-  border-radius: 6px;
-  margin-bottom: 16px;
+  gap: 10px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  background: rgba(245, 166, 35, 0.1);
+  border: 1px solid rgba(245, 166, 35, 0.3);
+  border-radius: 8px;
+  color: var(--color-warning);
   font-size: 13px;
-  color: var(--color-error);
+  font-weight: 500;
+  animation: slideUp var(--transition-base);
+
+  .el-icon {
+    font-size: 18px;
+  }
 }
 
 .tab-content {
-  min-height: 400px;
-}
-
-@media (max-width: 767px) {
-  .market-view {
-    padding: 0 16px;
-  }
+  animation: fadeIn var(--transition-base);
 }
 </style>

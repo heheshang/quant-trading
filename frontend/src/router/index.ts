@@ -192,7 +192,7 @@ router.beforeEach((to, _from, next) => {
       // Check roles if specified
       const roles = to.meta.roles as string[] | undefined
       if (roles && roles.length > 0) {
-        const userRole = authStore.user?.role as string | undefined
+        const userRole = authStore.userRole
         if (!userRole || !roles.includes(userRole)) {
           next({ name: 'Dashboard' })
           return

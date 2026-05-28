@@ -219,25 +219,31 @@ async function loadSymbolConfigs() {
 }
 
 async function loadKlineData() {
+  console.log('[TradingView] loadKlineData called, selectedSymbol:', selectedSymbol.value)
   try {
     // Map selectedSymbol like "BTC/USDT" to "btcusdt" for the backend
     const symbol = selectedSymbol.value.replace('/', '').toLowerCase()
+    console.log('[TradingView] queryKlines request:', { symbol, interval: chartInterval.value, page_size: 200 })
     const res = await queryKlines({
       symbol,
       interval: chartInterval.value,
       page_size: 200,
     })
+    console.log('[TradingView] queryKlines response:', res)
     const r = res as any
-    const bars: KlineBar[] = r?.items ?? r ?? []
-    klineData.value = bars.map((b: any) => ({
-      time: b.timestamp ?? b.time ?? Math.floor(new Date(b.open_time).getTime() / 1000),
+    const rawData = r?.data ?? r ?? []
+    console.log('[TradingView] rawData length:', rawData.length)
+    klineData.value = rawData.map((b: any) => ({
+      time: Math.floor((b.timestamp ?? b.time ?? b.open_time) / 1000),
       open: parseFloat(b.open),
       high: parseFloat(b.high),
       low: parseFloat(b.low),
       close: parseFloat(b.close),
       volume: parseFloat(b.volume ?? 0),
     }))
-  } catch {
+    console.log('[TradingView] klineData updated, count:', klineData.value.length)
+  } catch (e) {
+    console.error('[TradingView] loadKlineData error:', e)
     klineData.value = []
   }
 }
@@ -383,116 +389,162 @@ $color-sell: #F56C6C;
 $color-frozen: #f5a623;
 $color-paper-mode: #60a5fa;
 $color-live-mode: #e5484d;
+$color-warning: #f5a623;
+
+// Additional variables for new styles
+$color-deep-bg: #08090a;
+$color-border-hover: rgba(255, 255, 255, 0.15);
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pulseSubtle {
+  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+  70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+:root {
+  --header-height: 60px;
+  --transition-base: 0.3s ease;
+  --transition-fast: 0.2s ease;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --gradient-accent: linear-gradient(135deg, #7170ff 0%, #a5a4ff 100%);
+  --color-bg: #{$color-bg};
+  --color-surface: #{$color-surface};
+  --color-surface-elevated: #{$color-surface-elevated};
+  --color-deep-bg: #{$color-deep-bg};
+  --color-border: #{$color-border};
+  --color-border-hover: #{$color-border-hover};
+  --color-text-primary: #{$color-text-primary};
+  --color-text-secondary: #{$color-text-secondary};
+  --color-text-tertiary: #{$color-text-tertiary};
+  --color-accent: #{$color-accent};
+  --color-buy: #{$color-buy};
+  --color-sell: #{$color-sell};
+  --color-warning: #{$color-warning};
+}
 
 .trading-view {
-  height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 0;
+  height: calc(100vh - var(--header-height));
+  background: var(--color-bg);
+  animation: fadeIn var(--transition-base);
 }
 
 .trading-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 16px;
   height: 56px;
-  background: $color-bg;
-  border: 1px solid $color-border;
-  border-radius: 8px 8px 0 0;
-  border-bottom: none;
-}
-
-.header-left {
+  background: rgba(25, 26, 27, 0.95);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid $color-border;
+  padding: 0 20px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+  flex-shrink: 0;
+  box-shadow: var(--shadow-sm);
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .header-center {
+    display: flex;
+    align-items: center;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
 }
 
 .mode-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 0 8px;
-  height: 24px;
-  border-radius: 16px;
+  padding: 4px 12px;
+  border-radius: 6px;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
 
   &--paper {
-    background: rgba(96, 165, 250, 0.12);
-    color: $color-paper-mode;
+    background: var(--gradient-accent);
+    color: #fff;
+    box-shadow: 0 0 12px rgba(113, 112, 255, 0.3);
   }
 
   &--live {
-    background: rgba(229, 72, 77, 0.12);
-    color: $color-live-mode;
+     background: rgba(229, 72, 77, 0.12);
+     color: $color-live-mode;
   }
 }
 
 .page-title {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   color: $color-text-primary;
-}
-
-.header-center {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  letter-spacing: -0.3px;
 }
 
 .balance-info {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
-  font-size: 14px;
+  font-size: 13px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  border: 1px solid $color-border;
 }
 
 .balance-label {
   color: $color-text-tertiary;
+  font-weight: 500;
 }
 
 .balance-value {
   color: $color-text-primary;
+  font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+  font-weight: 700;
+  letter-spacing: -0.3px;
 
   &--frozen {
-    color: $color-frozen;
+    color: $color-warning;
   }
 }
 
 .balance-divider {
-  color: $color-text-tertiary;
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 16px;
+  color: $color-border;
+  margin: 0 4px;
 }
 
 .ws-status {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
-
-  .ws-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-  }
-
-  .ws-text {
-    font-size: 12px;
-  }
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid $color-border;
+  transition: all var(--transition-fast);
 
   &--connected {
     .ws-dot {
       background: $color-buy;
+      box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+      animation: pulseSubtle 2s ease-in-out infinite;
     }
     .ws-text {
       color: $color-buy;
+      font-weight: 600;
     }
   }
 
@@ -506,8 +558,31 @@ $color-live-mode: #e5484d;
   }
 }
 
+.ws-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  transition: all var(--transition-fast);
+}
+
+.ws-text {
+  font-size: 12px;
+  font-weight: 500;
+  transition: color var(--transition-fast);
+}
+
 .symbol-select {
   width: 160px;
+
+  :deep(.el-input__wrapper) {
+    background: var(--color-surface-elevated) !important;
+    border-radius: 8px;
+    transition: all var(--transition-fast);
+
+    &:hover {
+      box-shadow: 0 0 0 1px var(--color-border-hover) inset !important;
+    }
+  }
 }
 
 .trading-body {
@@ -517,15 +592,31 @@ $color-live-mode: #e5484d;
   min-height: 0;
   border: 1px solid $color-border;
   border-top: none;
-  border-radius: 0 0 8px 8px;
+  border-radius: 0 0 12px 12px;
   overflow: hidden;
+  box-shadow: var(--shadow-md);
 }
 
 .chart-area {
   flex: 2;
   min-width: 400px;
-  background: $color-bg;
+  background: var(--color-deep-bg);
   border-right: 1px solid $color-border;
+  position: relative;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background:
+      linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: 50px 50px;
+    pointer-events: none;
+  }
 }
 
 .chart-placeholder {
@@ -536,30 +627,38 @@ $color-live-mode: #e5484d;
   justify-content: center;
   color: $color-text-tertiary;
   font-size: 14px;
-  gap: 8px;
+  gap: 12px;
+  animation: fadeIn var(--transition-base);
 }
 
 .ticker-price {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 16px;
+  gap: 10px;
+  margin-top: 20px;
   font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
-  font-size: 16px;
+  font-size: 18px;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  border: 1px solid $color-border;
 }
 
 .ticker-bid {
   color: $color-buy;
-  font-weight: 600;
+  font-weight: 700;
+  text-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
 }
 
 .ticker-ask {
   color: $color-sell;
-  font-weight: 600;
+  font-weight: 700;
+  text-shadow: 0 0 8px rgba(229, 72, 77, 0.4);
 }
 
 .ticker-sep {
   color: $color-text-tertiary;
+  font-weight: 600;
 }
 
 .order-panel {
@@ -570,6 +669,7 @@ $color-live-mode: #e5484d;
   flex-direction: column;
   border-left: 1px solid $color-border;
   overflow: hidden;
+  background: var(--color-surface);
 }
 
 .order-form-wrapper {
@@ -582,18 +682,19 @@ $color-live-mode: #e5484d;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: $color-surface;
+  background: var(--color-surface);
 }
 
 .main-tabs {
-  height: 40px;
+  height: 42px;
   flex-shrink: 0;
 
   :deep(.el-tabs__header) {
     margin: 0;
     padding: 0 12px;
-    height: 40px;
+    height: 42px;
     border-bottom: 1px solid $color-border;
+    background: var(--color-surface-elevated);
   }
 
   :deep(.el-tabs__nav-wrap) {
@@ -604,27 +705,32 @@ $color-live-mode: #e5484d;
 
   :deep(.el-tabs__item) {
     padding: 0 16px;
-    height: 40px;
-    line-height: 40px;
+    height: 42px;
+    line-height: 42px;
     font-size: 13px;
+    font-weight: 500;
     color: $color-text-secondary;
+    transition: all var(--transition-fast);
 
     &.is-active {
-      color: $color-text-primary;
+      color: $color-accent;
+      font-weight: 600;
     }
 
     &:hover {
       color: $color-text-primary;
+      background: rgba(255, 255, 255, 0.03);
     }
   }
 
   :deep(.el-tabs__nav) {
-    height: 40px;
+    height: 42px;
   }
 
   :deep(.el-tabs__active-bar) {
-    background-color: $color-accent;
-    height: 2px;
+    background: var(--gradient-accent);
+    height: 3px;
+    border-radius: 3px 3px 0 0;
   }
 }
 
@@ -633,6 +739,7 @@ $color-live-mode: #e5484d;
 
   :deep(.el-badge__content) {
     font-size: 10px;
+    font-weight: 700;
   }
 }
 
@@ -640,6 +747,7 @@ $color-live-mode: #e5484d;
   flex: 1;
   overflow-y: auto;
   padding: 12px;
+  animation: fadeIn var(--transition-base);
 }
 
 // Responsive

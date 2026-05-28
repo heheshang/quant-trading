@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::UNIX_EPOCH;
 use tokio::sync::{Mutex, broadcast, mpsc};
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
 use crate::services::exchange::{BinanceConnector, MarketMessage};
 use crate::services::kline_writer::KlineRecord;
@@ -432,6 +432,11 @@ impl WsHub {
                                         msg_count,
                                         std::matches!(market_msg, MarketMessage::Kline {..}));
                                 }
+                                // Debug: log first few Kline messages to confirm receipt
+                                if matches!(market_msg, MarketMessage::Kline {..}) && msg_count <= 3
+                                    && let MarketMessage::Kline { symbol, timestamp, .. } = &market_msg {
+                                        debug!("Received Kline from Binance: {} at {}", symbol, timestamp);
+                                    }
                                 let hub_msg = Self::convert_message(market_msg.clone());
                                 if hub_tx.send(hub_msg).is_err() {
                                     // No subscribers, but that's ok
@@ -454,7 +459,11 @@ impl WsHub {
                                             trades: 0,
                                             source: "binance_ws".to_string(),
                                         };
-                                        let _ = tx.try_send(record);
+                                        if tx.try_send(record).is_err() {
+                                            debug!("KlineWriter channel full, dropping kline for {}", symbol);
+                                        }
+                                    } else {
+                                        debug!("KlineWriter tx not set");
                                     }
                                 }
                                 // Update Redis cache for Ticker/Depth (best effort, non-blocking)

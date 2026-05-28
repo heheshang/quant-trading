@@ -47,12 +47,21 @@
         </el-form-item>
 
         <el-form-item label="交易对" prop="symbol" class="symbol-input">
-          <el-input
+          <el-select
             v-model="form.symbol"
-            placeholder="如: BTC/USDT"
+            placeholder="请选择交易对"
+            style="width: 100%"
             :disabled="loading"
+            filterable
             clearable
-          />
+          >
+            <el-option
+              v-for="t in tickers"
+              :key="t.symbol"
+              :label="t.symbol"
+              :value="t.symbol"
+            />
+          </el-select>
         </el-form-item>
 
         <el-form-item label="初始资金" prop="initial_capital" class="capital-input">
@@ -93,13 +102,22 @@
           <div class="field-hint">0.001 = 0.1%</div>
         </el-form-item>
 
-        <el-form-item label="时间范围" prop="dateRange" class="date-range">
+        <el-form-item label="开始时间" prop="start_date" class="date-item">
           <el-date-picker
-            v-model="form.dateRange"
-            type="daterange"
-            range-separator="至"
-            start-placeholder="开始日期"
-            end-placeholder="结束日期"
+            v-model="form.start_date"
+            type="date"
+            placeholder="选择开始日期"
+            style="width: 100%"
+            value-format="YYYY-MM-DD"
+            :disabled="loading"
+          />
+        </el-form-item>
+
+        <el-form-item label="结束时间" prop="end_date" class="date-item">
+          <el-date-picker
+            v-model="form.end_date"
+            type="date"
+            placeholder="选择结束日期"
             style="width: 100%"
             value-format="YYYY-MM-DD"
             :disabled="loading"
@@ -216,7 +234,9 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { listStrategies, listTemplates } from '@/api/strategies'
+import { getTickers } from '@/api/market'
 import type { StrategyFull, StrategyTemplate, StrategyParamDef } from '@/types'
+import type { Ticker } from '@/types'
 import type { BacktestParams } from '@/types/backtest'
 
 const props = withDefaults(defineProps<{
@@ -233,6 +253,7 @@ const formRef = ref<FormInstance>()
 const paramsFormRef = ref<FormInstance>()
 const strategies = ref<StrategyFull[]>([])
 const templates = ref<StrategyTemplate[]>([])
+const tickers = ref<Ticker[]>([])
 const selectedTemplate = ref<StrategyTemplate | null>(null)
 const loadingStrategies = ref(false)
 const loadingTemplates = ref(false)
@@ -255,18 +276,20 @@ const form = reactive({
   initial_capital: 100000,
   fee_rate: 0.001,
   slippage_rate: 0.001,
-  dateRange: [] as string[],
+  start_date: '',
+  end_date: '',
   strategy_params: {} as Record<string, any>,
 })
 
 const rules: FormRules = {
   strategy_id: [{ required: true, message: '请选择策略', trigger: 'change' }],
-  symbol: [{ required: true, message: '请输入交易对', trigger: 'blur' }],
+  symbol: [{ required: true, message: '请选择交易对', trigger: 'change' }],
   timeframe: [{ required: true, message: '请选择时间周期', trigger: 'change' }],
   initial_capital: [{ required: true, message: '请输入初始资金', trigger: 'blur' }],
   fee_rate: [{ required: true, message: '请输入手续费率', trigger: 'blur' }],
   slippage_rate: [{ required: true, message: '请输入滑点率', trigger: 'blur' }],
-  dateRange: [{ required: true, message: '请选择时间范围', trigger: 'change' }],
+  start_date: [{ required: true, message: '请选择开始日期', trigger: 'change' }],
+  end_date: [{ required: true, message: '请选择结束日期', trigger: 'change' }],
 }
 
 const isFormValid = computed(() => {
@@ -277,7 +300,8 @@ const isFormValid = computed(() => {
     form.initial_capital > 0 &&
     form.fee_rate >= 0 &&
     form.slippage_rate >= 0 &&
-    form.dateRange.length === 2
+    form.start_date &&
+    form.end_date
   )
 })
 
@@ -355,7 +379,8 @@ function handleReset() {
   form.initial_capital = 100000
   form.fee_rate = 0.001
   form.slippage_rate = 0.001
-  form.dateRange = []
+  form.start_date = ''
+  form.end_date = ''
   form.strategy_params = {}
   selectedTemplate.value = null
   formRef.value?.clearValidate()
@@ -374,8 +399,8 @@ function handleRun() {
               strategy_id: form.strategy_id,
               symbol: form.symbol,
               interval: form.timeframe,
-              start_date: form.dateRange[0],
-              end_date: form.dateRange[1],
+              start_date: form.start_date,
+              end_date: form.end_date,
               initial_capital: form.initial_capital,
               fee_rate: form.fee_rate,
               slippage_rate: form.slippage_rate,
@@ -388,8 +413,8 @@ function handleRun() {
           strategy_id: form.strategy_id,
           symbol: form.symbol,
           interval: form.timeframe,
-          start_date: form.dateRange[0],
-          end_date: form.dateRange[1],
+          start_date: form.start_date,
+          end_date: form.end_date,
           initial_capital: form.initial_capital,
           fee_rate: form.fee_rate,
           slippage_rate: form.slippage_rate,
@@ -409,9 +434,19 @@ watch(() => form.strategy_id, () => {
   }
 })
 
+async function loadTickers() {
+  try {
+    const res = await getTickers()
+    tickers.value = res ?? []
+  } catch {
+    tickers.value = []
+  }
+}
+
 onMounted(() => {
   loadStrategies()
   loadTemplates()
+  loadTickers()
 })
 
 // Expose for testing
@@ -462,6 +497,16 @@ defineExpose({
 @media (max-width: 768px) {
   .form-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+.date-item {
+  grid-column: span 2;
+}
+
+@media (max-width: 768px) {
+  .date-item {
+    grid-column: span 1;
   }
 }
 

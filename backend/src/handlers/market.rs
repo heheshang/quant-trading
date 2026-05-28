@@ -65,15 +65,11 @@ pub async fn get_ticker(
         return Err(AppError::BadRequest(msg));
     }
     let exchange = params.exchange.unwrap_or_default();
+    let symbol = params.symbol.as_ref().ok_or_else(|| {
+        AppError::BadRequest("Symbol is required for single ticker query".to_string())
+    })?;
     let ticker = market_data::get_ticker_by_symbol(
-        &db,
-        &redis,
-        &binance,
-        &okx,
-        &gate,
-        &bybit,
-        &params.symbol,
-        exchange,
+        &db, &redis, &binance, &okx, &gate, &bybit, symbol, exchange,
     )
     .await?;
     Ok(Json(ApiResponse::success(ticker)))
@@ -195,7 +191,7 @@ mod tests {
         let (redis, binance, okx, gate, bybit) = make_test_deps().await;
         let user = make_auth_user("trader");
         let params = TickerQueryParams {
-            symbol: "BTCUSDT".to_string(),
+            symbol: Some("BTCUSDT".to_string()),
             exchange: None,
         };
         let result = get_tickers(
@@ -224,7 +220,7 @@ mod tests {
         let (redis, binance, okx, gate, bybit) = make_test_deps().await;
         let user = make_auth_user("trader");
         let params = TickerQueryParams {
-            symbol: "BTCUSDT".to_string(),
+            symbol: Some("BTCUSDT".to_string()),
             exchange: None,
         };
         let result = get_ticker(
@@ -252,7 +248,7 @@ mod tests {
         let (redis, binance, okx, gate, bybit) = make_test_deps().await;
         let user = make_auth_user("trader");
         let params = TickerQueryParams {
-            symbol: "NOTREALUSDT".to_string(),
+            symbol: Some("NOTREALUSDT".to_string()),
             exchange: None,
         };
         let result = get_ticker(

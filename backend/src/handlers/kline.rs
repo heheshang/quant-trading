@@ -138,6 +138,16 @@ pub async fn query_klines(
     State(db): State<Arc<DatabaseConnection>>,
     Query(params): Query<KlineQueryParams>,
 ) -> Result<Json<ApiResponse<KlineQueryResponse>>, AppError> {
+    tracing::info!(
+        message = "query_klines handler called",
+        user_id = %user.user_id,
+        symbol = ?params.symbol,
+        interval = ?params.interval,
+        start_time = ?params.start_time,
+        end_time = ?params.end_time,
+        page = ?params.page,
+        size = ?params.size
+    );
     let result = kline::query_klines(&db, user.user_id, params).await?;
     Ok(Json(ApiResponse::success(KlineQueryResponse(result))))
 }

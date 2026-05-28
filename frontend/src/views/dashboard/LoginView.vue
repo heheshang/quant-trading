@@ -215,16 +215,17 @@ $text-placeholder: #666677;
   overflow: hidden;
 }
 
-/* Subtle background grid */
+/* Enhanced background grid with gradient overlay */
 .bg-grid {
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
-  background-size: 40px 40px;
-  mask-image: radial-gradient(ellipse 70% 55% at 50% 50%, black, transparent 70%);
-  -webkit-mask-image: radial-gradient(ellipse 70% 55% at 50% 50%, black, transparent 70%);
+    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-size: 50px 50px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 50%, black, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 50%, black, transparent 75%);
+  animation: pulseSubtle 8s ease-in-out infinite;
 }
 
 // ============================================================
@@ -234,12 +235,17 @@ $text-placeholder: #666677;
   position: relative;
   z-index: 1;
   width: 100%;
-  max-width: 384px;
-  padding: 28px 28px 20px;
-  background: $bg-card;
+  max-width: 400px;
+  padding: 32px 32px 24px;
+  background: rgba(25, 26, 27, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border: 1px solid $border;
-  border-radius: 16px;
-  box-shadow: 0 4px 32px rgba(0,0,0,0.4);
+  border-radius: 20px;
+  box-shadow:
+    0 8px 32px rgba(0,0,0,0.5),
+    0 0 0 1px rgba(255,255,255,0.05) inset;
+  animation: slideUp 0.4s ease-out;
 }
 
 // ============================================================
@@ -248,55 +254,62 @@ $text-placeholder: #666677;
 .brand-section {
   display: flex;
   align-items: center;
-  gap: 14px;
-  margin-bottom: 28px;
-  padding-bottom: 24px;
+  gap: 16px;
+  margin-bottom: 32px;
+  padding-bottom: 28px;
   border-bottom: 1px solid $border;
 }
 
 .brand-icon {
   flex-shrink: 0;
+  filter: drop-shadow(0 0 12px rgba(113, 112, 255, 0.5));
+  animation: glow 3s ease-in-out infinite;
 }
 
 .brand-text {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
 }
 
 .brand-name {
-  font-size: 19px;
-  font-weight: 700;
+  font-size: 20px;
+  font-weight: 800;
   color: $text-body;
   margin: 0;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.5px;
   line-height: 1.3;
+  background: var(--gradient-accent);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .brand-subtitle {
-  font-size: 11px;
+  font-size: 10px;
   color: $text-muted;
-  letter-spacing: 0.6px;
+  letter-spacing: 1px;
   text-transform: uppercase;
+  font-weight: 600;
 }
 
 // ============================================================
 // Form header
 // ============================================================
 .form-header {
-  margin-bottom: 24px;
+  margin-bottom: 28px;
 }
 
 .form-title {
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 20px;
+  font-weight: 700;
   color: $text-body;
-  margin: 0 0 4px;
-  letter-spacing: -0.2px;
+  margin: 0 0 6px;
+  letter-spacing: -0.3px;
 }
 
 .form-subtitle {
-  font-size: 13px;
+  font-size: 14px;
   color: $text-muted;
   margin: 0;
 }
@@ -306,15 +319,16 @@ $text-placeholder: #666677;
 // ============================================================
 .login-form {
   :deep(.el-form-item) {
-    margin-bottom: 18px;
+    margin-bottom: 20px;
   }
 
   :deep(.el-form-item__label) {
-    padding-bottom: 6px;
+    padding-bottom: 8px;
     font-size: 14px;
-    font-weight: 500;
+    font-weight: 600;
     color: $text-label !important;
     line-height: 1.4;
+    letter-spacing: 0.2px;
   }
 
   :deep(.el-form-item.is-required .el-form-item__label::before) {
@@ -324,7 +338,8 @@ $text-placeholder: #666677;
   :deep(.el-form-item__error) {
     color: $error-red;
     font-size: 12px;
-    padding-top: 3px;
+    padding-top: 4px;
+    font-weight: 500;
   }
 
   :deep(.el-form-item.is-error .el-input__wrapper) {
@@ -333,22 +348,27 @@ $text-placeholder: #666677;
 
   :deep(.el-input__wrapper) {
     background: $bg-input !important;
-    border-radius: 8px;
-    padding: 1px 12px !important;
+    border-radius: 10px;
+    padding: 2px 14px !important;
     box-shadow: 0 0 0 1px $border inset !important;
-    transition: box-shadow 0.2s ease;
+    transition: all var(--transition-fast);
+  }
+
+  :deep(.el-input__wrapper:hover) {
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12) inset !important;
   }
 
   :deep(.el-input__wrapper.is-focus) {
     box-shadow:
       0 0 0 1px var(--color-accent) inset,
-      0 0 12px rgba(113, 112, 255, 0.15) !important;
+      0 0 16px rgba(113, 112, 255, 0.2) !important;
   }
 
   :deep(.el-input__inner) {
-    height: 38px;
+    height: 40px;
     font-size: 14px;
     color: $text-body;
+    font-weight: 500;
   }
 
   :deep(.el-input__inner::placeholder) {
@@ -356,7 +376,8 @@ $text-placeholder: #666677;
   }
 
   :deep(.el-input__prefix) {
-    margin-right: 8px;
+    margin-right: 10px;
+    color: $text-muted;
   }
 
   :deep(.el-input--disabled .el-input__wrapper) {
@@ -366,7 +387,7 @@ $text-placeholder: #666677;
 
 .field-label {
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   color: $text-label;
   letter-spacing: 0.2px;
 }
@@ -383,18 +404,19 @@ $text-placeholder: #666677;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin: -4px 0 22px;
+  margin: -4px 0 24px;
 
   :deep(.el-checkbox__inner) {
     background: $bg-input !important;
     border-color: $border !important;
-    border-radius: 4px;
-    transition: all 0.2s;
+    border-radius: 5px;
+    transition: all var(--transition-fast);
   }
 
   :deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
     background: $accent !important;
     border-color: $accent !important;
+    box-shadow: 0 0 8px rgba(113, 112, 255, 0.4);
   }
 
   :deep(.el-checkbox__input.is-checked .el-checkbox__inner::after) {
@@ -408,18 +430,21 @@ $text-placeholder: #666677;
   .checkbox-label {
     font-size: 13px;
     color: $text-label;
+    font-weight: 500;
   }
 
   .forgot-link {
     font-size: 13px;
     color: $accent;
     text-decoration: none;
-    font-weight: 500;
-    transition: color 0.15s;
+    font-weight: 600;
+    transition: all var(--transition-fast);
+    padding: 4px 8px;
+    border-radius: 4px;
 
     &:hover {
       color: $accent-hover;
-      text-decoration: underline;
+      background: rgba(113, 112, 255, 0.1);
     }
   }
 }
@@ -435,13 +460,33 @@ $text-placeholder: #666677;
 
 .submit-btn {
   width: 100%;
-  height: 44px;
+  height: 46px;
   font-size: 15px;
-  font-weight: 600;
-  border-radius: 10px;
-  letter-spacing: 0.3px;
+  font-weight: 700;
+  border-radius: 12px;
+  letter-spacing: 0.5px;
   border: none !important;
-  transition: all 0.2s ease;
+  transition: all var(--transition-fast);
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+  }
+
+  &:active::before {
+    width: 300px;
+    height: 300px;
+  }
 
   // Active state — use design system accent color
   --el-button-bg-color: var(--color-accent) !important;
@@ -466,18 +511,19 @@ $text-placeholder: #666677;
     background: var(--color-accent) !important;
     border-color: var(--color-accent) !important;
     color: #ffffff !important;
+    box-shadow: 0 4px 12px rgba(113, 112, 255, 0.3);
   }
 
   &:not(.is-disabled):hover {
     background: var(--color-accent-hover) !important;
     border-color: var(--color-accent-hover) !important;
-    box-shadow: 0 0 20px rgba(113, 112, 255, 0.3);
-    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(113, 112, 255, 0.4);
+    transform: translateY(-2px);
   }
 
   &:not(.is-disabled):active {
     transform: translateY(0);
-    box-shadow: none;
+    box-shadow: 0 2px 8px rgba(113, 112, 255, 0.3);
   }
 }
 
@@ -487,15 +533,15 @@ $text-placeholder: #666677;
 .divider {
   display: flex;
   align-items: center;
-  margin: 20px 0 16px;
-  gap: 12px;
+  margin: 24px 0 18px;
+  gap: 14px;
 
   &::before,
   &::after {
     content: '';
     flex: 1;
     height: 1px;
-    background: #2A2A3A;
+    background: linear-gradient(90deg, transparent, #2A2A3A, transparent);
   }
 
   .divider-text {
@@ -503,7 +549,8 @@ $text-placeholder: #666677;
     color: #555566;
     white-space: nowrap;
     text-transform: uppercase;
-    letter-spacing: 0.8px;
+    letter-spacing: 1px;
+    font-weight: 600;
   }
 }
 
@@ -512,7 +559,7 @@ $text-placeholder: #666677;
 // ============================================================
 .social-area {
   display: flex;
-  gap: 10px;
+  gap: 12px;
 }
 
 .social-btn {
@@ -521,7 +568,7 @@ $text-placeholder: #666677;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  height: 40px;
+  height: 42px;
   background: transparent;
   border: 1px solid #2A2A3A;
   border-radius: 10px;
@@ -529,7 +576,7 @@ $text-placeholder: #666677;
   font-size: 13px;
   font-family: inherit;
   cursor: not-allowed;
-  transition: all 0.2s;
+  transition: all var(--transition-fast);
 
   svg {
     display: block;
@@ -541,23 +588,25 @@ $text-placeholder: #666677;
 // Register prompt
 // ============================================================
 .register-prompt {
-  margin-top: 20px;
+  margin-top: 24px;
   text-align: center;
-  font-size: 13px;
+  font-size: 14px;
   color: $text-muted;
-  padding: 16px 0 0;
+  padding: 18px 0 0;
   border-top: 1px solid #2A2A3A;
 
   .register-link {
     color: $accent;
     text-decoration: none;
-    font-weight: 500;
-    margin-left: 4px;
-    transition: color 0.15s;
+    font-weight: 600;
+    margin-left: 6px;
+    transition: all var(--transition-fast);
+    padding: 4px 8px;
+    border-radius: 4px;
 
     &:hover {
       color: $accent-hover;
-      text-decoration: underline;
+      background: rgba(113, 112, 255, 0.1);
     }
   }
 }

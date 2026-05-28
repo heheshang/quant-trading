@@ -125,10 +125,13 @@
                 :initial-capital="result.config.initial_capital"
               />
             </el-tab-pane>
-            <el-tab-pane label="交易明细" :name="1">
+            <el-tab-pane label="K线图" :name="1">
+              <BacktestKlineChart :backtest-result="result" />
+            </el-tab-pane>
+            <el-tab-pane label="交易明细" :name="2">
               <BacktestTradesTable :trades="result.trades" />
             </el-tab-pane>
-            <el-tab-pane label="绩效报告" :name="2">
+            <el-tab-pane label="绩效报告" :name="3">
               <BacktestPerformanceReport :result="result" />
             </el-tab-pane>
           </el-tabs>
@@ -145,6 +148,7 @@ import { Odometer } from '@element-plus/icons-vue'
 import BacktestConfigForm from '@/components/backtest/BacktestConfigForm.vue'
 import BacktestMetricsCards from '@/components/backtest/BacktestMetricsCards.vue'
 import BacktestEquityChart from '@/components/backtest/BacktestEquityChart.vue'
+import BacktestKlineChart from '@/components/backtest/BacktestKlineChart.vue'
 import BacktestTradesTable from '@/components/backtest/BacktestTradesTable.vue'
 import BacktestHistoryList from '@/components/backtest/BacktestHistoryList.vue'
 import BacktestPerformanceReport from '@/components/backtest/BacktestPerformanceReport.vue'

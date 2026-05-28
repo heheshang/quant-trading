@@ -315,6 +315,7 @@ fn create_router(
         .route("/exports/account", get(handlers::export::export_account))
         .layer(axum::Extension(matching_engine))
         .layer(axum::Extension(order_rate_limiter))
+        .layer(axum::Extension(ws_hub.clone()))
         .layer(middleware::from_fn(
             quant_trading_backend::middleware::auth::auth_middleware,
         ));

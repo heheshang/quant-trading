@@ -2,8 +2,42 @@
   <div class="ticker-list-view">
     <!-- Toolbar -->
     <div class="toolbar">
-      <TickerSearchBar @search="onSearch" />
+      <div class="toolbar-left">
+        <TickerSearchBar @search="onSearch" />
+        <el-select
+          v-model="selectedSymbol"
+          placeholder="选择交易对"
+          filterable
+          clearable
+          class="symbol-select"
+          @change="onSymbolChange"
+        >
+          <el-option
+            v-for="t in tickers"
+            :key="t.symbol"
+            :label="t.symbol"
+            :value="t.symbol"
+          />
+        </el-select>
+      </div>
       <ConnectionStatus :status="wsStatus" />
+    </div>
+
+    <!-- Selected Ticker Detail -->
+    <div v-if="selectedSymbol && selectedTicker" class="ticker-detail">
+      <div class="ticker-symbol">{{ selectedTicker.symbol }}</div>
+      <div class="ticker-price" :class="priceDirection">
+        {{ selectedTicker.price }}
+        <span class="price-change" :class="priceDirection">
+          {{ selectedTicker.change >= 0 ? '+' : '' }}{{ selectedTicker.change }}
+          ({{ selectedTicker.change_percent }}%)
+        </span>
+      </div>
+      <div class="ticker-info">
+        <span>24h 高: {{ selectedTicker.high }}</span>
+        <span>24h 低: {{ selectedTicker.low }}</span>
+        <span>24h 量: {{ selectedTicker.volume }}</span>
+      </div>
     </div>
 
     <!-- Table -->
@@ -40,6 +74,10 @@ import TickerTable from '@/components/market/TickerTable.vue'
 import TickerSearchBar from '@/components/market/TickerSearchBar.vue'
 import ConnectionStatus from '@/components/market/ConnectionStatus.vue'
 
+const emit = defineEmits<{
+  'symbol-change': [symbol: string]
+}>()
+
 const props = defineProps<{
   wsStatus: WsStatus
   onWsMessage?: (handler: (msg: WsMessage) => void) => void
@@ -52,6 +90,17 @@ const sortProp = ref('change_percent')
 const sortOrder = ref<string>('descending')
 const flashMap = ref<Record<string, 'flash-buy' | 'flash-sell' | ''>>({})
 const previousPrices = ref<Record<string, number>>({})
+const selectedSymbol = ref('')
+
+const selectedTicker = computed(() => {
+  if (!selectedSymbol.value) return null
+  return tickers.value.find(t => t.symbol === selectedSymbol.value) ?? null
+})
+
+const priceDirection = computed(() => {
+  if (!selectedTicker.value) return ''
+  return selectedTicker.value.change >= 0 ? 'up' : 'down'
+})
 
 // Per-symbol price flash (创建多个 usePriceFlash 不可行，使用 map)
 function triggerPriceFlash(symbol: string, newPrice: number) {
@@ -100,6 +149,10 @@ async function fetchTickers() {
     data.forEach((t: Ticker) => {
       previousPrices.value[t.symbol] = t.price
     })
+    // 默认选中第一个
+    if (data.length > 0 && !selectedSymbol.value) {
+      selectedSymbol.value = data[0].symbol
+    }
   } catch (e: any) {
     console.error('获取行情数据失败:', e.message)
   } finally {
@@ -109,6 +162,11 @@ async function fetchTickers() {
 
 function onSearch(value: string) {
   searchQuery.value = value
+}
+
+function onSymbolChange(symbol: string) {
+  selectedSymbol.value = symbol
+  emit('symbol-change', symbol)
 }
 
 function onSortChange(prop: string, order: string) {
@@ -147,6 +205,57 @@ defineExpose({ handleWsMessage })
     justify-content: space-between;
     margin-bottom: 16px;
     gap: 12px;
+  }
+
+  .toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .symbol-select {
+    width: 160px;
+  }
+
+  .ticker-detail {
+    background: var(--color-bg-secondary);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+
+  .ticker-symbol {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+  }
+
+  .ticker-price {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--color-text-primary);
+
+    &.up { color: var(--color-success); }
+    &.down { color: var(--color-error); }
+
+    .price-change {
+      font-size: 14px;
+      font-weight: 500;
+      margin-left: 8px;
+
+      &.up { color: var(--color-success); }
+      &.down { color: var(--color-error); }
+    }
+  }
+
+  .ticker-info {
+    display: flex;
+    gap: 16px;
+    font-size: 13px;
+    color: var(--color-text-tertiary);
   }
 
   .table-wrapper {

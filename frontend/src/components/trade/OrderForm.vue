@@ -347,68 +347,132 @@ defineExpose({
 
 <style scoped lang="scss">
 .order-form {
-  padding: 16px;
-  background: var(--color-surface, #0E1223);
-  border: 1px solid var(--color-border, #334155);
-  border-radius: 8px;
+  padding: 20px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
+  transition: all var(--transition-base);
+
+  &:hover {
+    box-shadow: var(--shadow-card-hover);
+  }
 }
 
 .side-toggle {
   display: flex;
   gap: 0;
-  margin-bottom: 16px;
-  border-radius: 6px;
+  margin-bottom: 20px;
+  border-radius: 8px;
   overflow: hidden;
-  border: 1px solid var(--color-border, #334155);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
 }
 
 .side-btn {
   flex: 1;
-  padding: 8px 0;
+  padding: 10px 0;
   border: none;
   cursor: pointer;
   font-size: 14px;
   font-weight: 600;
-  background: var(--color-muted, #1A1E2F);
-  color: var(--color-text-secondary, #94A3B8);
-  transition: all 0.2s;
+  background: var(--color-surface-elevated);
+  color: var(--color-text-secondary);
+  transition: all var(--transition-fast);
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+    transition: left 0.5s;
+  }
+
+  &:hover::before {
+    left: 100%;
+  }
 
   &.buy-btn.active {
-    background: #67C23A;
+    background: var(--gradient-success);
     color: #fff;
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
   }
 
   &.sell-btn.active {
-    background: #F56C6C;
+    background: var(--gradient-danger);
     color: #fff;
+    box-shadow: 0 0 15px rgba(229, 72, 77, 0.4);
   }
 }
 
 .form-item-compact {
   :deep(.el-form-item__label) {
-    font-size: 12px;
-    color: var(--color-text-secondary, #94A3B8);
-    padding-bottom: 4px;
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    padding-bottom: 6px;
+    font-weight: 500;
   }
-  margin-bottom: 12px;
+  margin-bottom: 16px;
+
+  :deep(.el-input__wrapper) {
+    background: var(--color-surface-elevated) !important;
+    border-radius: 8px;
+    transition: all var(--transition-fast);
+    box-shadow: 0 0 0 1px var(--color-border) inset !important;
+
+    &:hover {
+      box-shadow: 0 0 0 1px var(--color-border-hover) inset !important;
+    }
+
+    &.is-focus {
+      box-shadow:
+        0 0 0 1px var(--color-accent) inset,
+        0 0 12px rgba(113, 112, 255, 0.2) !important;
+    }
+  }
+
+  :deep(.el-input-group__append) {
+    background: var(--color-surface-elevated);
+    border-color: var(--color-border);
+    color: var(--color-text-tertiary);
+    font-weight: 500;
+  }
 }
 
 .price-hint {
   display: flex;
   justify-content: space-between;
   font-size: 11px;
-  color: var(--color-text-tertiary, #64748B);
-  margin-top: 4px;
+  color: var(--color-text-tertiary);
+  margin-top: 6px;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 4px;
+  border: 1px solid var(--color-border);
 }
 
 .percent-buttons {
   display: flex;
   gap: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 
   .el-button {
     flex: 1;
-    padding: 4px 0;
+    padding: 6px 0;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 6px;
+    transition: all var(--transition-fast);
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-sm);
+    }
   }
 }
 
@@ -416,30 +480,70 @@ defineExpose({
 .total-info {
   display: flex;
   justify-content: space-between;
-  font-size: 12px;
-  margin-bottom: 8px;
+  align-items: center;
+  font-size: 13px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
 }
 
 .balance-label,
 .total-label {
-  color: var(--color-text-secondary, #94A3B8);
+  color: var(--color-text-secondary);
+  font-weight: 500;
 }
 
 .balance-value,
 .total-value {
-  color: var(--color-text-primary, #F8FAFC);
-  font-weight: 500;
+  color: var(--color-text-primary);
+  font-weight: 700;
+  font-family: var(--font-mono);
+  letter-spacing: -0.3px;
 }
 
 .form-item-submit {
   margin-bottom: 0;
-  margin-top: 16px;
+  margin-top: 20px;
 }
 
 .submit-btn {
   width: 100%;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 15px;
-  padding: 10px 0;
+  padding: 12px 0;
+  border-radius: 10px;
+  letter-spacing: 0.5px;
+  transition: all var(--transition-fast);
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+  }
+
+  &:active::before {
+    width: 300px;
+    height: 300px;
+  }
+
+  &:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
 }
 </style>

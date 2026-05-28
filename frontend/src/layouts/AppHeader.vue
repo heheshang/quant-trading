@@ -113,7 +113,9 @@ function handleLogout() {
 <style scoped lang="scss">
 .app-header {
   height: var(--header-height);
-  background: var(--color-bg);
+  background: rgba(8, 9, 10, 0.95);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--color-border);
   padding: 0 24px;
   display: flex;
@@ -123,7 +125,8 @@ function handleLogout() {
   position: sticky;
   top: 0;
   z-index: 50;
-  transition: background-color 0.3s ease;
+  transition: all var(--transition-base);
+  box-shadow: var(--shadow-sm);
 
   .header-left {
     display: flex;
@@ -134,7 +137,7 @@ function handleLogout() {
   .header-right {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 16px;
   }
 
   .mobile-menu-btn {
@@ -148,11 +151,16 @@ function handleLogout() {
     border-radius: 6px;
     align-items: center;
     justify-content: center;
-    transition: all 0.15s ease;
+    transition: all var(--transition-fast);
 
     &:hover {
-      background: rgba(255, 255, 255, 0.04);
+      background: rgba(255, 255, 255, 0.06);
       color: var(--color-text-secondary);
+      transform: scale(1.05);
+    }
+
+    &:active {
+      transform: scale(0.95);
     }
 
     @media (max-width: 768px) {
@@ -170,22 +178,29 @@ function handleLogout() {
       margin: 0 8px;
       color: var(--color-text-tertiary);
       font-size: 12px;
+      opacity: 0.6;
     }
 
     .breadcrumb-link {
       color: var(--color-text-tertiary);
       font-weight: 400;
       text-decoration: none;
-      transition: color 0.15s ease;
+      transition: all var(--transition-fast);
+      padding: 4px 8px;
+      border-radius: 4px;
 
       &:hover {
-        color: var(--color-text-secondary);
+        color: var(--color-text-primary);
+        background: rgba(255, 255, 255, 0.04);
       }
     }
 
     .breadcrumb-current {
       color: var(--color-text-primary);
-      font-weight: 510;
+      font-weight: 600;
+      padding: 4px 8px;
+      background: var(--color-accent-light);
+      border-radius: 4px;
     }
   }
 
@@ -200,19 +215,24 @@ function handleLogout() {
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.15s ease;
+    transition: all var(--transition-fast);
 
     &:hover {
-      background: rgba(255, 255, 255, 0.04);
-      color: var(--color-text-secondary);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--color-accent);
+      transform: rotate(15deg) scale(1.1);
+    }
+
+    &:active {
+      transform: scale(0.95);
     }
   }
 
   .user-avatar {
-    width: 28px;
-    height: 28px;
-    border-radius: 6px;
-    background: var(--color-accent);
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--gradient-accent);
     color: #ffffff;
     font-size: 13px;
     font-weight: 600;
@@ -221,10 +241,18 @@ function handleLogout() {
     justify-content: center;
     cursor: pointer;
     user-select: none;
-    transition: opacity 0.15s ease;
+    transition: all var(--transition-fast);
+    box-shadow: var(--shadow-sm);
+    border: 2px solid transparent;
 
     &:hover {
-      opacity: 0.85;
+      transform: scale(1.08);
+      box-shadow: var(--shadow-glow);
+      border-color: rgba(113, 112, 255, 0.3);
+    }
+
+    &:active {
+      transform: scale(0.95);
     }
   }
 }

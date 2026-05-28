@@ -82,7 +82,9 @@ async function loadKlineData() {
     })
     if (result.data) {
       klineData.value = result.data.map(bar => ({
-        time: Math.floor(bar.open_time / 1000),
+        time: bar.open_time >= 1e12
+          ? Math.floor(bar.open_time / 1000)
+          : Math.floor(bar.open_time / 1000),
         open: bar.open,
         high: bar.high,
         low: bar.low,

@@ -180,9 +180,9 @@ async function loadChartData() {
       page_size: 200,
     })
     const r = res as any
-    const bars: KlineBar[] = r?.items ?? r ?? []
-    chartData.value = bars.map((b: any) => ({
-      time: b.timestamp ?? b.time ?? Math.floor(new Date(b.open_time).getTime() / 1000),
+    const klineData = r?.data ?? r ?? []
+    chartData.value = klineData.map((b: any) => ({
+      time: Math.floor((b.timestamp ?? b.time ?? b.open_time) / 1000),
       open: parseFloat(b.open),
       high: parseFloat(b.high),
       low: parseFloat(b.low),

@@ -227,16 +227,25 @@ onMounted(() => {
 <style scoped lang="scss">
 .dashboard-view {
   max-width: 1344px;
+  animation: fadeIn var(--transition-base);
 }
 
 .page-header {
-  margin-bottom: 24px;
+  margin-bottom: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 
   h1 {
-    font-size: 24px;
-    font-weight: 600;
+    font-size: 26px;
+    font-weight: 700;
     color: var(--color-text-primary);
     margin: 0;
+    letter-spacing: -0.5px;
+    background: var(--gradient-accent);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
 }
 
@@ -245,7 +254,7 @@ onMounted(() => {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 16px;
-  margin-bottom: 24px;
+  margin-bottom: 28px;
 }
 
 @media (max-width: 768px) {
@@ -263,12 +272,33 @@ onMounted(() => {
 .stat-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: 12px;
   padding: 20px;
-  transition: border-color 0.2s;
+  transition: all var(--transition-base);
+  box-shadow: var(--shadow-card);
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--gradient-accent);
+    opacity: 0;
+    transition: opacity var(--transition-base);
+  }
 
   &:hover {
     border-color: var(--color-border-hover);
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-card-hover);
+
+    &::before {
+      opacity: 1;
+    }
   }
 
   &--skeleton {
@@ -276,16 +306,18 @@ onMounted(() => {
       width: 60px;
       height: 14px;
       border-radius: 4px;
-      background: var(--color-surface-elevated);
+      background: linear-gradient(90deg, var(--color-surface-elevated) 25%, rgba(255,255,255,0.05) 50%, var(--color-surface-elevated) 75%);
+      background-size: 200% 100%;
       margin-bottom: 12px;
-      animation: pulse 1.5s ease-in-out infinite;
+      animation: shimmer 1.5s ease-in-out infinite;
     }
     .skeleton-value {
       width: 100px;
       height: 28px;
       border-radius: 4px;
-      background: var(--color-surface-elevated);
-      animation: pulse 1.5s ease-in-out infinite 0.2s;
+      background: linear-gradient(90deg, var(--color-surface-elevated) 25%, rgba(255,255,255,0.05) 50%, var(--color-surface-elevated) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s ease-in-out infinite 0.2s;
     }
   }
 }
@@ -294,54 +326,84 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 
 .stat-icon {
   font-size: 18px;
-  color: var(--color-text-tertiary);
+  color: var(--color-accent);
+  filter: drop-shadow(0 0 4px rgba(113, 112, 255, 0.3));
 }
 
 .stat-label {
   font-size: 13px;
-  color: var(--color-text-tertiary);
-  font-weight: 400;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .stat-value {
-  font-size: 28px;
-  font-weight: 600;
+  font-size: 30px;
+  font-weight: 700;
   font-family: var(--font-mono);
   color: var(--color-text-primary);
-  margin-bottom: 4px;
+  margin-bottom: 6px;
+  letter-spacing: -0.5px;
 
-  &.winrate { color: var(--color-buy); }
-  &.sharpe { color: var(--color-accent); }
-  &.positions { color: var(--color-info); }
+  &.winrate {
+    color: var(--color-buy);
+    text-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+  }
+  &.sharpe {
+    color: var(--color-accent);
+    text-shadow: 0 0 10px rgba(113, 112, 255, 0.3);
+  }
+  &.positions {
+    color: var(--color-info);
+    text-shadow: 0 0 10px rgba(96, 165, 250, 0.3);
+  }
 }
 
 .stat-change {
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   font-family: var(--font-mono);
+  display: flex;
+  align-items: center;
+  gap: 4px;
 
-  &.positive { color: var(--color-stat-positive); }
-  &.negative { color: var(--color-stat-negative); }
-  &.neutral { color: var(--color-text-tertiary); }
+  &.positive {
+    color: var(--color-stat-positive);
+    animation: pulseSubtle 2s ease-in-out infinite;
+  }
+  &.negative {
+    color: var(--color-stat-negative);
+  }
+  &.neutral {
+    color: var(--color-text-tertiary);
+  }
 }
 
 // Chart Card
 .chart-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
-  padding: 20px;
-  margin-bottom: 24px;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 28px;
+  box-shadow: var(--shadow-card);
+  transition: all var(--transition-base);
+
+  &:hover {
+    box-shadow: var(--shadow-card-hover);
+    border-color: var(--color-border-hover);
+  }
 
   &--skeleton {
     .skeleton-chart {
       height: 320px;
-      border-radius: 4px;
+      border-radius: 8px;
       background: linear-gradient(90deg, var(--color-surface-elevated) 25%, rgba(255,255,255,0.03) 50%, var(--color-surface-elevated) 75%);
       background-size: 200% 100%;
       animation: shimmer 1.5s ease-in-out infinite;
@@ -353,39 +415,45 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 
   h3 {
-    font-size: 16px;
+    font-size: 17px;
     font-weight: 600;
     color: var(--color-text-primary);
     margin: 0;
+    letter-spacing: -0.3px;
   }
 }
 
 .chart-range {
   display: flex;
-  gap: 4px;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 3px;
+  border-radius: 8px;
 }
 
 .range-pill {
-  padding: 4px 12px;
-  border-radius: 12px;
+  padding: 6px 14px;
+  border-radius: 6px;
   border: none;
   background: transparent;
   color: var(--color-text-tertiary);
   font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all var(--transition-fast);
 
   &:hover {
-    color: var(--color-text-secondary);
-    background: rgba(255, 255, 255, 0.04);
+    color: var(--color-text-primary);
+    background: rgba(255, 255, 255, 0.06);
   }
 
   &.active {
-    background: var(--color-accent);
+    background: var(--gradient-accent);
     color: #fff;
+    box-shadow: var(--shadow-sm);
   }
 }
 
@@ -396,11 +464,24 @@ onMounted(() => {
   gap: 16px;
 }
 
+@media (max-width: 1024px) {
+  .bottom-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 .section-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
-  padding: 16px 20px;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: var(--shadow-card);
+  transition: all var(--transition-base);
+
+  &:hover {
+    box-shadow: var(--shadow-card-hover);
+    border-color: var(--color-border-hover);
+  }
 }
 
 .section-header {
@@ -410,20 +491,26 @@ onMounted(() => {
   margin-bottom: 16px;
 
   h3 {
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 600;
     color: var(--color-text-primary);
     margin: 0;
+    letter-spacing: -0.2px;
   }
 }
 
 .section-link {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-accent);
   text-decoration: none;
+  font-weight: 500;
+  transition: all var(--transition-fast);
+  padding: 4px 8px;
+  border-radius: 4px;
 
   &:hover {
     color: var(--color-accent-hover);
+    background: var(--color-accent-light);
   }
 }
 
@@ -432,8 +519,16 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--color-border);
+  padding: 12px;
+  margin: 0 -8px;
+  border-radius: 8px;
+  transition: all var(--transition-fast);
+  border-bottom: 1px solid transparent;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom-color: var(--color-border);
+  }
 
   &:last-child {
     border-bottom: none;
@@ -443,12 +538,14 @@ onMounted(() => {
 .strategy-info {
   display: flex;
   flex-direction: column;
+  gap: 2px;
 }
 
 .strategy-name {
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--color-text-primary);
+  letter-spacing: -0.2px;
 }
 
 .strategy-desc {
@@ -458,25 +555,31 @@ onMounted(() => {
 
 .strategy-metrics {
   text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .strategy-pnl {
   display: block;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 700;
   font-family: var(--font-mono);
+  letter-spacing: -0.3px;
 }
 
 .strategy-label {
   font-size: 11px;
   color: var(--color-text-tertiary);
+  font-weight: 500;
 }
 
 // States
 .error-state {
   display: flex;
   justify-content: center;
-  padding: 60px 0;
+  padding: 80px 0;
+  animation: fadeIn var(--transition-base);
 }
 
 // Animations

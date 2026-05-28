@@ -81,6 +81,16 @@ pub async fn query_klines(
     _user_id: Uuid,
     params: KlineQueryParams,
 ) -> Result<KlineListResponse, AppError> {
+    tracing::info!(
+        message = "kline::query_klines called",
+        user_id = %_user_id,
+        symbol = ?params.symbol,
+        interval = ?params.interval,
+        start_time = ?params.start_time,
+        end_time = ?params.end_time,
+        page = ?params.page,
+        size = ?params.size
+    );
     let page = page_num(&params);
     let size = page_size(&params);
     let off = offset(&params);
@@ -121,6 +131,54 @@ pub async fn query_klines(
     // Gap detection: check if consecutive bars differ by more than expected interval ms
     let gap_detected = detect_gaps(&items);
 
+    // REST fallback: if DB returns no data, fetch from Binance REST API
+    if items.is_empty()
+        && params.symbol.is_some()
+        && params.interval.is_some()
+        && let Some(symbol) = params.symbol.as_ref()
+        && let Some(interval) = params.interval.as_ref()
+    {
+        tracing::info!(
+            message = "REST fallback triggered: DB empty, fetching from Binance REST",
+            symbol = %symbol,
+            interval = %interval
+        );
+        // Try Binance first, then OKX as fallback
+        if let Ok(rest_items) = fetch_klines_from_binance_rest(symbol, interval).await {
+            tracing::info!(
+                message = "Binance REST fallback succeeded",
+                item_count = rest_items.len()
+            );
+            let total_count = rest_items.len() as u64;
+            return Ok(KlineListResponse {
+                data: rest_items,
+                meta: KlineListMeta {
+                    total: total_count,
+                    page,
+                    page_size: size,
+                    gap_detected: false,
+                },
+            });
+        }
+        // Try OKX as second fallback
+        if let Ok(okx_items) = fetch_klines_from_okx_rest(symbol, interval).await {
+            tracing::info!(
+                message = "OKX REST fallback succeeded",
+                item_count = okx_items.len()
+            );
+            let total_count = okx_items.len() as u64;
+            return Ok(KlineListResponse {
+                data: okx_items,
+                meta: KlineListMeta {
+                    total: total_count,
+                    page,
+                    page_size: size,
+                    gap_detected: false,
+                },
+            });
+        }
+    }
+
     Ok(KlineListResponse {
         data: items,
         meta: KlineListMeta {
@@ -130,6 +188,168 @@ pub async fn query_klines(
             gap_detected,
         },
     })
+}
+
+/// Fetch klines directly from Binance REST API as fallback when DB is empty.
+/// Returns raw KlineResponse items (no DB persistence).
+async fn fetch_klines_from_binance_rest(
+    symbol: &str,
+    interval: &str,
+) -> Result<Vec<KlineResponse>, AppError> {
+    use reqwest::Client;
+
+    let client = Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| AppError::Internal(format!("HTTP client error: {}", e)))?;
+
+    let url = format!(
+        "https://api.binance.com/api/v3/klines?symbol={}&interval={}&limit=200",
+        symbol.to_uppercase(),
+        interval
+    );
+
+    let resp = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| AppError::Internal(format!("Binance REST klines error: {}", e)))?;
+
+    #[derive(Debug, serde::Deserialize)]
+    #[allow(dead_code)]
+    struct BinanceKlineRow(
+        i64, // 0: open time (ms)
+        f64, // 1: open
+        f64, // 2: high
+        f64, // 3: low
+        f64, // 4: close
+        f64, // 5: volume
+        i64, // 6: close time (ms)
+        f64, // 7: quote volume
+        i64, // 8: trades
+        f64, // 9: taker buy base
+        f64, // 10: taker buy quote
+    );
+
+    let rows: Vec<BinanceKlineRow> = resp
+        .json()
+        .await
+        .map_err(|e| AppError::Internal(format!("Parse Binance klines error: {}", e)))?;
+
+    let now = chrono::Utc::now();
+    let items: Vec<KlineResponse> = rows
+        .into_iter()
+        .map(|r| KlineResponse {
+            id: r.0,
+            user_id: uuid::Uuid::nil(),
+            symbol: symbol.to_uppercase(),
+            interval: interval.to_string(),
+            timestamp: r.0,
+            open_time: r.0,
+            open: r.1,
+            high: r.2,
+            low: r.3,
+            close: r.4,
+            volume: r.5,
+            close_time: Some(r.6),
+            quote_volume: Some(r.7),
+            trades: Some(r.8),
+            source: "binance_rest".to_string(),
+            created_at: now,
+        })
+        .collect();
+
+    Ok(items)
+}
+
+/// Fetch klines from OKX REST API as fallback when Binance fails.
+/// OKX API: GET /api/v5/market/candles?instId={symbol}-USDT&bar={interval}
+async fn fetch_klines_from_okx_rest(
+    symbol: &str,
+    interval: &str,
+) -> Result<Vec<KlineResponse>, AppError> {
+    use reqwest::Client;
+
+    let client = Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| AppError::Internal(format!("HTTP client error: {}", e)))?;
+
+    // Map interval to OKX format: "1m" -> "1m", "1h" -> "1H", "1d" -> "1D"
+    let okx_interval = match interval {
+        "1m" => "1m",
+        "5m" => "5m",
+        "15m" => "15m",
+        "30m" => "30m",
+        "1h" => "1H",
+        "4h" => "4H",
+        "1d" => "1D",
+        "1w" => "1W",
+        _ => interval,
+    };
+
+    let inst_id = format!("{}-USDT", symbol.trim_end_matches("USDT"));
+    let url = format!(
+        "https://www.okx.com/api/v5/market/candles?instId={}&bar={}&limit=200",
+        inst_id, okx_interval
+    );
+
+    let resp = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| AppError::Internal(format!("OKX REST klines error: {}", e)))?;
+
+    #[derive(Debug, serde::Deserialize)]
+    struct OkxKlineResponse {
+        data: Vec<OkxKlineItem>,
+    }
+
+    #[derive(Debug, serde::Deserialize)]
+    struct OkxKlineItem(
+        String, // 0: ts (ms)
+        String, // 1: open
+        String, // 2: high
+        String, // 3: low
+        String, // 4: close
+        String, // 5: volume (quote)
+        String, // 6: quote volume
+        i64,    // 7: trades count
+    );
+
+    let okx_resp: OkxKlineResponse = resp
+        .json()
+        .await
+        .map_err(|e| AppError::Internal(format!("Parse OKX klines error: {}", e)))?;
+
+    let now = chrono::Utc::now();
+    let items: Vec<KlineResponse> = okx_resp
+        .data
+        .into_iter()
+        .filter_map(|r| {
+            let ts = r.0.parse::<i64>().ok()?;
+            Some(KlineResponse {
+                id: ts,
+                user_id: uuid::Uuid::nil(),
+                symbol: symbol.to_uppercase(),
+                interval: interval.to_string(),
+                timestamp: ts,
+                open_time: ts,
+                open: r.1.parse().ok()?,
+                high: r.2.parse().ok()?,
+                low: r.3.parse().ok()?,
+                close: r.4.parse().ok()?,
+                volume: r.5.parse().ok()?,
+                close_time: Some(ts + 60000), // approximate
+                quote_volume: r.6.parse().ok(),
+                trades: Some(r.7),
+                source: "okx_rest".to_string(),
+                created_at: now,
+            })
+        })
+        .collect();
+
+    Ok(items)
 }
 
 fn detect_gaps(items: &[KlineResponse]) -> bool {

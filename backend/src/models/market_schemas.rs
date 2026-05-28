@@ -41,14 +41,17 @@ const SYMBOL_MAX_LEN: usize = 10;
 
 #[derive(Debug, Deserialize)]
 pub struct TickerQueryParams {
-    pub symbol: String,
+    pub symbol: Option<String>,
     pub exchange: Option<Exchange>,
 }
 
 impl TickerQueryParams {
     /// Validates that the symbol matches the expected format (e.g., BTCUSDT, ETHUSDT)
     pub fn validate_symbol(&self) -> Result<(), String> {
-        let s = &self.symbol;
+        let s = match &self.symbol {
+            Some(symbol) => symbol,
+            None => return Ok(()), // No symbol provided is valid (will return all tickers)
+        };
         // Check minimum length (prefix + suffix)
         if s.len() < SYMBOL_MIN_LEN + SYMBOL_SUFFIX.len() {
             return Err(format!(
@@ -344,7 +347,7 @@ mod tests {
     #[test]
     fn test_symbol_validation_valid_btc() {
         let params = TickerQueryParams {
-            symbol: "BTCUSDT".into(),
+            symbol: Some("BTCUSDT".to_string()),
             exchange: None,
         };
         assert!(params.validate_symbol().is_ok());
@@ -353,7 +356,7 @@ mod tests {
     #[test]
     fn test_symbol_validation_valid_eth() {
         let params = TickerQueryParams {
-            symbol: "ETHUSDT".into(),
+            symbol: Some("ETHUSDT".to_string()),
             exchange: None,
         };
         assert!(params.validate_symbol().is_ok());
@@ -362,7 +365,7 @@ mod tests {
     #[test]
     fn test_symbol_validation_valid_long_prefix() {
         let params = TickerQueryParams {
-            symbol: "SOLANAUSDT".into(),
+            symbol: Some("SOLANAUSDT".to_string()),
             exchange: None,
         };
         assert!(params.validate_symbol().is_ok());
@@ -372,7 +375,7 @@ mod tests {
     fn test_symbol_validation_invalid_lowercase() {
         // "BtcUSDT" has uppercase USDT suffix but lowercase 'Btc' prefix
         let params = TickerQueryParams {
-            symbol: "BtcUSDT".into(),
+            symbol: Some("BtcUSDT".to_string()),
             exchange: None,
         };
         let result = params.validate_symbol();
@@ -383,7 +386,7 @@ mod tests {
     #[test]
     fn test_symbol_validation_invalid_wrong_suffix() {
         let params = TickerQueryParams {
-            symbol: "BTCUSD".into(),
+            symbol: Some("BTCUSD".to_string()),
             exchange: None,
         };
         let result = params.validate_symbol();
@@ -394,7 +397,7 @@ mod tests {
     #[test]
     fn test_symbol_validation_invalid_too_short() {
         let params = TickerQueryParams {
-            symbol: "BUSDT".into(),
+            symbol: Some("BUSDT".to_string()),
             exchange: None,
         }; // 1 letter prefix
         let result = params.validate_symbol();
@@ -404,7 +407,7 @@ mod tests {
     #[test]
     fn test_symbol_validation_invalid_too_long() {
         let params = TickerQueryParams {
-            symbol: "VERYLONGCOINNAMEUSDT".into(),
+            symbol: Some("VERYLONGCOINNAMEUSDT".to_string()),
             exchange: None,
         }; // 15 letter prefix
         let result = params.validate_symbol();
@@ -414,7 +417,7 @@ mod tests {
     #[test]
     fn test_symbol_validation_invalid_with_numbers() {
         let params = TickerQueryParams {
-            symbol: "BTC123USDT".into(),
+            symbol: Some("BTC123USDT".to_string()),
             exchange: None,
         };
         let result = params.validate_symbol();

@@ -141,8 +141,8 @@ function initChart() {
 }
 
 function toLightweightTime(t: number): Time {
-  // Kline stores seconds, lightweight-charts expects seconds as number
-  return t as Time
+  // Backend returns milliseconds; lightweight-charts expects Unix seconds
+  return (t >= 1e12 ? Math.floor(t / 1000) : t) as Time
 }
 
 function setData(bars: KlineBar[]) {

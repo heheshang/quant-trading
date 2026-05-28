@@ -130,14 +130,17 @@ impl BinanceConnector {
             .await
             .map_err(|e| ConnectorError::SubscriptionFailed(e.to_string()))?;
 
-        info!("Binance WebSocket subscription sent");
+        info!("Binance WebSocket subscription sent, starting read loop");
 
+        let mut _read_count: u64 = 0;
         loop {
             tokio::select! {
                 // Incoming WebSocket message
                 msg = read.next() => {
                     match msg {
                         Some(Ok(Message::Text(text))) => {
+                            _read_count += 1;
+                            debug!("BinanceConnector received text #{} ({} bytes): {}", _read_count, text.len(), &text[..text.len().min(200)]);
                             self.handle_message(&text);
                         }
                         Some(Ok(Message::Ping(data))) => {
@@ -192,6 +195,14 @@ impl BinanceConnector {
                 if let Ok(msg) = serde_json::from_str::<BinanceStreamMessage>(text) {
                     if let Some(market_msg) = self.normalize_message(msg) {
                         let _ = self.tx.send(market_msg);
+                    }
+                } else {
+                    // Unknown message format - could be subscription ACK
+                    if text.contains("result") || text.contains("id") {
+                        debug!(
+                            "Received subscription ACK or unknown format: {}",
+                            &text[..text.len().min(200)]
+                        );
                     }
                 }
             }
