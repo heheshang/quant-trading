@@ -254,7 +254,8 @@ defineExpose({ activeIndicators, maToggles, emaToggles, toggleIndicator, clearDr
   align-items: center;
   gap: 4px;
   padding: 6px 12px;
-  background: #1a1a1a;
+  background: rgba(25, 26, 27, 0.95);
+  backdrop-filter: blur(10px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   flex-shrink: 0;
   flex-wrap: nowrap;
@@ -303,10 +304,10 @@ defineExpose({ activeIndicators, maToggles, emaToggles, toggleIndicator, clearDr
 }
 
 .period-btn.active {
-  background: #7170ff;
-  border-color: #7170ff;
+  background: #3B82F6;
+  border-color: #3B82F6;
   color: #fff;
-  box-shadow: 0 0 8px rgba(113, 112, 255, 0.4);
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.4);
 }
 
 .indicator-btn {
@@ -327,9 +328,9 @@ defineExpose({ activeIndicators, maToggles, emaToggles, toggleIndicator, clearDr
 }
 
 .indicator-btn.active {
-  background: rgba(113, 112, 255, 0.2);
-  border-color: #7170ff;
-  color: #7170ff;
+  background: rgba(59, 130, 246, 0.2);
+  border-color: #3B82F6;
+  color: #3B82F6;
 }
 
 .tool-btn {
@@ -351,9 +352,9 @@ defineExpose({ activeIndicators, maToggles, emaToggles, toggleIndicator, clearDr
 }
 
 .tool-btn.active {
-  background: rgba(113, 112, 255, 0.2);
-  border-color: #7170ff;
-  color: #7170ff;
+  background: rgba(59, 130, 246, 0.2);
+  border-color: #3B82F6;
+  color: #3B82F6;
 }
 
 .dropdown-menu {
@@ -385,7 +386,7 @@ defineExpose({ activeIndicators, maToggles, emaToggles, toggleIndicator, clearDr
 .dropdown-menu input[type="checkbox"] {
   width: 14px;
   height: 14px;
-  accent-color: #7170ff;
+  accent-color: #3B82F6;
 }
 
 .symbol-label {

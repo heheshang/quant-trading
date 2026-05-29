@@ -175,16 +175,16 @@ function buildChartOptions() {
     crosshair: {
       mode: 1, // CrosshairMode.Normal
       vertLine: {
-        color: 'rgba(113, 112, 255, 0.5)',
+        color: 'rgba(59, 130, 246, 0.5)',
         width: 1 as const,
         style: 2 as const, // LineStyle.Dashed
-        labelBackgroundColor: '#7170ff',
+        labelBackgroundColor: '#3B82F6',
       },
       horzLine: {
-        color: 'rgba(113, 112, 255, 0.5)',
+        color: 'rgba(59, 130, 246, 0.5)',
         width: 1 as const,
-        style: 2 as const,
-        labelBackgroundColor: '#7170ff',
+        style: 2 as const, // LineStyle.Dashed
+        labelBackgroundColor: '#3B82F6',
       },
     },
     rightPriceScale: {
@@ -316,9 +316,9 @@ function renderBollingerLines() {
     lastValueVisible: false,
   })
 
-  bollingerUpperSeries = chart.addLineSeries(bbOptions('rgba(113, 112, 255, 0.7)'))
-  bollingerMiddleSeries = chart.addLineSeries(bbOptions('rgba(113, 112, 255, 0.5)'))
-  bollingerLowerSeries = chart.addLineSeries(bbOptions('rgba(113, 112, 255, 0.7)'))
+  bollingerUpperSeries = chart.addLineSeries(bbOptions('rgba(59, 130, 246, 0.7)'))
+  bollingerMiddleSeries = chart.addLineSeries(bbOptions('rgba(59, 130, 246, 0.5)'))
+  bollingerLowerSeries = chart.addLineSeries(bbOptions('rgba(59, 130, 246, 0.7)'))
 
   const bars = props.bollingerData
   bollingerUpperSeries.setData(bars.map(b => ({ time: toLightweightTime(b.open_time), value: b.upper })) as any)
@@ -883,63 +883,63 @@ defineExpose({ addBar, setData, setMarkers })
 }
 
 .main-chart {
-  flex: 1 1 auto;
-  min-height: 0;
+  flex: 1 1 0;
+  min-height: 300px;
   width: 100%;
 }
 
 .macd-chart {
-  flex: 0 0 auto;
+  flex: 1 1 0;
+  min-height: 80px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   overflow: hidden;
   opacity: 0;
   transition: opacity 0.3s ease;
-  height: 120px;
 }
 .macd-chart.visible {
   opacity: 1;
 }
 
 .kdj-chart {
-  flex: 0 0 auto;
+  flex: 1 1 0;
+  min-height: 80px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   overflow: hidden;
   opacity: 0;
   transition: opacity 0.3s ease;
-  height: 120px;
 }
 .kdj-chart.visible {
   opacity: 1;
 }
 
 .rsi-chart {
-  flex: 0 0 auto;
+  flex: 1 1 0;
+  min-height: 80px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   overflow: hidden;
   opacity: 0;
   transition: opacity 0.3s ease;
-  height: 120px;
 }
 .rsi-chart.visible {
   opacity: 1;
 }
 
 .atr-chart {
-  flex: 0 0 auto;
+  flex: 1 1 0;
+  min-height: 80px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   overflow: hidden;
   opacity: 0;
   transition: opacity 0.3s ease;
-  height: 120px;
 }
 
 .stoch-chart {
-  flex: 0 0 auto;
+  flex: 1 1 0;
+  min-height: 80px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   overflow: hidden;
   opacity: 0;
   transition: opacity 0.3s ease;
-  height: 120px;
 }
 
 .ohlcv-overlay {
@@ -967,7 +967,7 @@ defineExpose({ addBar, setData, setMarkers })
 }
 
 .ohlcv-label {
-  color: #7170ff;
+  color: #3B82F6;
   font-weight: 700;
 }
 </style>

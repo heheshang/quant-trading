@@ -99,7 +99,8 @@ pub async fn query_klines(
     use crate::models::kline_entity::Column as Phase4Col;
     let mut query = KlinePhase4::find();
 
-    if let Some(ref symbol) = params.symbol {
+    let symbol_upper = params.symbol.as_ref().map(|s| s.to_uppercase());
+    if let Some(ref symbol) = symbol_upper {
         query = query.filter(Phase4Col::Symbol.eq(symbol));
     }
     if let Some(ref interval) = params.interval {
@@ -138,13 +139,14 @@ pub async fn query_klines(
         && let Some(symbol) = params.symbol.as_ref()
         && let Some(interval) = params.interval.as_ref()
     {
+        let symbol_upper = symbol.to_uppercase();
         tracing::info!(
             message = "REST fallback triggered: DB empty, fetching from Binance REST",
-            symbol = %symbol,
+            symbol = %symbol_upper,
             interval = %interval
         );
         // Try Binance first, then OKX as fallback
-        if let Ok(rest_items) = fetch_klines_from_binance_rest(symbol, interval).await {
+        if let Ok(rest_items) = fetch_klines_from_binance_rest(&symbol_upper, interval).await {
             tracing::info!(
                 message = "Binance REST fallback succeeded",
                 item_count = rest_items.len()
@@ -161,7 +163,7 @@ pub async fn query_klines(
             });
         }
         // Try OKX as second fallback
-        if let Ok(okx_items) = fetch_klines_from_okx_rest(symbol, interval).await {
+        if let Ok(okx_items) = fetch_klines_from_okx_rest(&symbol_upper, interval).await {
             tracing::info!(
                 message = "OKX REST fallback succeeded",
                 item_count = okx_items.len()
@@ -209,11 +211,20 @@ async fn fetch_klines_from_binance_rest(
         interval
     );
 
-    let resp = client
-        .get(&url)
-        .send()
+    let resp = client.get(&url).send().await.map_err(|e| {
+        tracing::error!(message = "Binance REST request failed", error = %e, url = %url);
+        AppError::Internal(format!("Binance REST klines error: {}", e))
+    })?;
+
+    let text = resp
+        .text()
         .await
-        .map_err(|e| AppError::Internal(format!("Binance REST klines error: {}", e)))?;
+        .map_err(|e| AppError::Internal(format!("Read Binance response error: {}", e)))?;
+
+    tracing::info!(
+        message = "Binance REST response received",
+        response_len = text.len()
+    );
 
     #[derive(Debug, serde::Deserialize)]
     #[allow(dead_code)]
@@ -231,10 +242,13 @@ async fn fetch_klines_from_binance_rest(
         f64, // 10: taker buy quote
     );
 
-    let rows: Vec<BinanceKlineRow> = resp
-        .json()
-        .await
-        .map_err(|e| AppError::Internal(format!("Parse Binance klines error: {}", e)))?;
+    let rows: Vec<BinanceKlineRow> = serde_json::from_str(&text).map_err(|e| {
+        AppError::Internal(format!(
+            "Parse Binance klines error: {} | response: {}",
+            e,
+            &text[..text.len().min(200)]
+        ))
+    })?;
 
     let now = chrono::Utc::now();
     let items: Vec<KlineResponse> = rows
