@@ -260,6 +260,16 @@ fn create_router(
         )
         .route("/kline/import/csv", post(handlers::kline::import_csv))
         .route("/kline/kdj", get(handlers::indicator::get_kdj))
+        .route("/kline/ma", get(handlers::indicator::get_ma))
+        .route("/kline/macd", get(handlers::indicator::get_macd))
+        .route("/kline/rsi", get(handlers::indicator::get_rsi))
+        .route("/kline/bollinger", get(handlers::indicator::get_bollinger))
+        .route("/kline/ema", get(handlers::indicator::get_ema))
+        .route("/kline/atr", get(handlers::indicator::get_atr))
+        .route(
+            "/kline/stochastic",
+            get(handlers::indicator::get_stochastic),
+        )
         .layer(middleware::from_fn(
             quant_trading_backend::middleware::auth::auth_middleware,
         ));

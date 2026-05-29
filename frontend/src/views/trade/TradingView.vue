@@ -40,12 +40,30 @@
     <div class="trading-body">
       <!-- Left: Chart Area -->
       <div class="chart-area">
+        <KlineToolbar
+          :symbol="selectedSymbol"
+          :interval="chartInterval"
+          :last-price="bestBid || ''"
+          :price-direction="priceDirection"
+          @period-change="onIntervalChange"
+          @indicator-toggle="onIndicatorToggle"
+          @drawing-select="onDrawingSelect"
+        />
         <KlineChart
           v-if="klineData.length > 0"
           :data="klineData"
           :symbol="selectedSymbol"
           :interval="chartInterval"
           :dark-mode="true"
+          :ma-data="maData"
+          :ema-data="emaData"
+          :macd-data="macdData"
+          :kdj-data="kdjData"
+          :rsi-data="rsiData"
+          :bollinger-data="bollingerData"
+          :atr-data="atrData"
+          :stoch-data="stochData"
+          :visible-sub-charts="visibleSubCharts"
         />
         <div v-else class="chart-placeholder">
           <el-icon :size="48" color="var(--color-text-tertiary, #64748B)"><TrendCharts /></el-icon>
@@ -142,10 +160,14 @@ import OrderList from '@/components/trade/OrderList.vue'
 import PositionPanel from '@/components/order/PositionPanel.vue'
 import TradeRecordTab from '@/components/order/TradeRecordTab.vue'
 import KlineChart from '@/components/charts/KlineChart.vue'
+import KlineToolbar from '@/components/charts/KlineToolbar.vue'
 import type { SymbolConfig, PaperAccount, CreateOrderRequest, Trade, Position } from '@/types/order'
-import type { KlineBar } from '@/components/charts/KlineChart.vue'
+import type { KlineBar, MaLine } from '@/components/charts/KlineChart.vue'
+import type { MacdBar, KdjBar, RsiBar, BollingerBar, EmaBar, AtrBar, StochasticBar } from '@/types/indicator'
 import { getSymbols, getAccount, getPositions, getTrades } from '@/api/order'
 import { queryKlines } from '@/api/kline'
+import { getMa, getMacd, getKdj, getRsi, getBollinger, getEma, getAtr, getStochastic } from '@/api/indicator'
+import { KLINE_INTERVALS } from '@/types/kline'
 import { useTradingStore } from '@/stores/trading'
 
 const selectedSymbol = ref('BTC/USDT')
@@ -159,6 +181,16 @@ const activeOrderCount = ref(0)
 // Kline chart state
 const klineData = ref<KlineBar[]>([])
 const chartInterval = ref('1h')
+const maData = ref<MaLine[]>([])
+const macdData = ref<MacdBar[]>([])
+const kdjData = ref<KdjBar[]>([])
+const rsiData = ref<RsiBar[]>([])
+const bollingerData = ref<BollingerBar[]>([])
+const emaData = ref<{ period: number; data: { open_time: number; ema: number }[] }[]>([])
+const atrData = ref<{ open_time: number; atr: number }[]>([])
+const stochData = ref<{ open_time: number; k: number; d: number }[]>([])
+const priceDirection = ref<'up' | 'down' | ''>('')
+const visibleSubCharts = ref<string[]>(['macd', 'kdj'])
 
 // Tab state
 const activeTab = ref<'current' | 'history' | 'positions' | 'trades'>('current')
@@ -221,8 +253,8 @@ async function loadSymbolConfigs() {
 async function loadKlineData() {
   console.log('[TradingView] loadKlineData called, selectedSymbol:', selectedSymbol.value)
   try {
-    // Map selectedSymbol like "BTC/USDT" to "btcusdt" for the backend
-    const symbol = selectedSymbol.value.replace('/', '').toLowerCase()
+    // Map selectedSymbol like "BTC/USDT" to "BTCUSDT" for the backend
+    const symbol = selectedSymbol.value.replace('/', '')
     console.log('[TradingView] queryKlines request:', { symbol, interval: chartInterval.value, page_size: 200 })
     const res = await queryKlines({
       symbol,
@@ -244,9 +276,146 @@ async function loadKlineData() {
       volume: parseFloat(b.volume ?? 0),
     }))
     console.log('[TradingView] klineData updated, count:', klineData.value.length)
+    const results = await Promise.allSettled([loadMaData(), loadMacdData(), loadKdjData(), loadRsiData(), loadBollingerData(), loadEmaData(), loadAtrData(), loadStochasticData()])
+    const failures = results.filter(r => r.status === 'rejected')
+    if (failures.length > 0) {
+      console.warn('[TradingView] Some indicator loads failed:', failures.map(f => f.status))
+    }
   } catch (e) {
     console.error('[TradingView] loadKlineData error:', e)
     klineData.value = []
+  }
+}
+
+const MA_PERIODS = [7, 25, 99, 200]
+
+async function loadMaData() {
+  if (klineData.value.length === 0) {
+    maData.value = []
+    return
+  }
+  try {
+    const symbol = selectedSymbol.value.replace('/', '')
+    const results = await Promise.all(
+      MA_PERIODS.map(period =>
+        getMa({ symbol, interval: chartInterval.value, period }).then((r: any) => ({
+          period,
+          data: r?.data ?? [],
+        }))
+      )
+    )
+    maData.value = results
+  } catch (e) {
+    console.error('[TradingView] loadMaData error:', e)
+    maData.value = []
+  }
+}
+
+async function loadMacdData() {
+  if (klineData.value.length === 0) {
+    macdData.value = []
+    return
+  }
+  try {
+    const symbol = selectedSymbol.value.replace('/', '')
+    const r: any = await getMacd({ symbol, interval: chartInterval.value })
+    macdData.value = r?.data ?? []
+  } catch (e) {
+    console.error('[TradingView] loadMacdData error:', e)
+    macdData.value = []
+  }
+}
+
+async function loadKdjData() {
+  if (klineData.value.length === 0) {
+    kdjData.value = []
+    return
+  }
+  try {
+    const symbol = selectedSymbol.value.replace('/', '')
+    const r: any = await getKdj({ symbol, interval: chartInterval.value })
+    kdjData.value = r?.data ?? []
+  } catch (e) {
+    console.error('[TradingView] loadKdjData error:', e)
+    kdjData.value = []
+  }
+}
+
+async function loadRsiData() {
+  if (klineData.value.length === 0) {
+    rsiData.value = []
+    return
+  }
+  try {
+    const symbol = selectedSymbol.value.replace('/', '')
+    const r: any = await getRsi({ symbol, interval: chartInterval.value })
+    rsiData.value = r?.data ?? []
+  } catch (e) {
+    console.error('[TradingView] loadRsiData error:', e)
+    rsiData.value = []
+  }
+}
+
+async function loadBollingerData() {
+  if (klineData.value.length === 0) {
+    bollingerData.value = []
+    return
+  }
+  try {
+    const symbol = selectedSymbol.value.replace('/', '')
+    const r: any = await getBollinger({ symbol, interval: chartInterval.value })
+    bollingerData.value = r?.data ?? []
+  } catch (e) {
+    console.error('[TradingView] loadBollingerData error:', e)
+    bollingerData.value = []
+  }
+}
+
+async function loadEmaData() {
+  if (klineData.value.length === 0) {
+    emaData.value = []
+    return
+  }
+  try {
+    const symbol = selectedSymbol.value.replace('/', '')
+    const results = await Promise.all([
+      getEma({ symbol, interval: chartInterval.value, period: 9 }).then((r: any) => ({ period: 9, data: r?.data ?? [] })),
+      getEma({ symbol, interval: chartInterval.value, period: 21 }).then((r: any) => ({ period: 21, data: r?.data ?? [] })),
+    ])
+    emaData.value = results
+  } catch (e) {
+    console.error('[TradingView] loadEmaData error:', e)
+    emaData.value = []
+  }
+}
+
+async function loadAtrData() {
+  if (klineData.value.length === 0) {
+    atrData.value = []
+    return
+  }
+  try {
+    const symbol = selectedSymbol.value.replace('/', '')
+    const r: any = await getAtr({ symbol, interval: chartInterval.value, period: 14 })
+    atrData.value = r?.data ?? []
+  } catch (e) {
+    console.error('[TradingView] loadAtrData error:', e)
+    atrData.value = []
+  }
+}
+
+async function loadStochasticData() {
+  if (klineData.value.length === 0) {
+    stochData.value = []
+    return
+  }
+  try {
+    const symbol = selectedSymbol.value.replace('/', '')
+    const r: any = await getStochastic({ symbol, interval: chartInterval.value, k_period: 14, d_period: 3 })
+    stochData.value = r?.data ?? []
+  } catch (e) {
+    console.error('[TradingView] loadStochasticData error:', e)
+    stochData.value = []
   }
 }
 
@@ -298,6 +467,25 @@ function onSymbolChange() {
   if (activeTab.value === 'trades') {
     loadTrades()
   }
+}
+
+function onIntervalChange(interval: string) {
+  chartInterval.value = interval
+  loadKlineData()
+}
+
+function onIndicatorToggle(name: string, visible: boolean) {
+  if (visible) {
+    if (!visibleSubCharts.value.includes(name)) {
+      visibleSubCharts.value = [...visibleSubCharts.value, name]
+    }
+  } else {
+    visibleSubCharts.value = visibleSubCharts.value.filter(n => n !== name)
+  }
+}
+
+function onDrawingSelect(_tool: string | null) {
+  // Drawing tools - can be extended later
 }
 
 function onOrderSubmit(_order: CreateOrderRequest) {
@@ -587,6 +775,26 @@ $color-border-hover: rgba(255, 255, 255, 0.15);
   }
 }
 
+.chart-toolbar {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 10;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.interval-select {
+  width: 80px;
+
+  :deep(.el-input__wrapper) {
+    background: rgba(25, 26, 27, 0.9) !important;
+    border-radius: 6px;
+    transition: all var(--transition-fast);
+  }
+}
+
 .trading-body {
   flex: 1;
   display: flex;
@@ -600,11 +808,14 @@ $color-border-hover: rgba(255, 255, 255, 0.15);
 }
 
 .chart-area {
-  flex: 2;
-  min-width: 400px;
+  flex: 1 1 0;
+  min-width: 0;
   background: var(--color-deep-bg);
   border-right: 1px solid $color-border;
   position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 
   &::before {
     content: '';
@@ -664,9 +875,8 @@ $color-border-hover: rgba(255, 255, 255, 0.15);
 }
 
 .order-panel {
+  flex: 0 0 380px;
   width: 380px;
-  min-width: 360px;
-  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   border-left: 1px solid $color-border;
@@ -755,8 +965,8 @@ $color-border-hover: rgba(255, 255, 255, 0.15);
 // Responsive
 @media (max-width: 1200px) {
   .order-panel {
+    flex: 0 0 320px;
     width: 320px;
-    min-width: 300px;
   }
 }
 
@@ -766,17 +976,15 @@ $color-border-hover: rgba(255, 255, 255, 0.15);
   }
 
   .chart-area {
-    flex: none;
-    height: 300px;
+    flex: 0 0 400px;
     min-width: unset;
     border-right: none;
     border-bottom: 1px solid $color-border;
   }
 
   .order-panel {
+    flex: 1 1 auto;
     width: 100%;
-    min-width: unset;
-    height: 400px;
     border-left: none;
   }
 }
