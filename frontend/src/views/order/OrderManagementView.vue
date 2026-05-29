@@ -466,6 +466,7 @@ onUnmounted(() => {
   gap: 0;
   height: 100%;
   padding: 0 16px 16px;
+  overflow: hidden;
   overflow-y: auto;
 }
 

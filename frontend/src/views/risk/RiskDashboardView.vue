@@ -366,6 +366,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  overflow: hidden;
 
   @media (max-width: 767px) {
     padding: var(--layout-padding-mobile);

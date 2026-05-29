@@ -799,6 +799,7 @@ onMounted(() => {
 
 .admin-view {
   max-width: var(--content-max-width, 1344px);
+  overflow: hidden;
 }
 
 .page-header {

@@ -227,6 +227,7 @@ onMounted(() => {
 <style scoped lang="scss">
 .dashboard-view {
   max-width: 1344px;
+  overflow: hidden;
   animation: fadeIn var(--transition-base);
 }
 

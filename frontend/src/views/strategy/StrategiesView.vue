@@ -746,6 +746,7 @@ onMounted(() => {
 <style scoped lang="scss">
 .strategies-view {
   max-width: var(--content-max-width);
+  overflow: hidden;
 
   .page-header {
     display: flex;

@@ -515,6 +515,7 @@ $color-primary: #3B82F6;
 
 .portfolio-dashboard {
   max-width: 1344px;
+  overflow: hidden;
 }
 
 // === Header ===
