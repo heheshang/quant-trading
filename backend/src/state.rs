@@ -9,6 +9,7 @@ use crate::db::DbPool;
 use crate::services::binance_rest::BinanceRestClient;
 use crate::services::exchange::ws_hub::WsHub;
 use crate::services::redis_cache::RedisCache;
+use crate::services::risk_manager::RiskManager;
 
 /// Application shared state
 ///
@@ -16,22 +17,25 @@ use crate::services::redis_cache::RedisCache;
 /// - `db`: PostgreSQL database connection pool
 /// - `redis`: Redis cache for market data
 /// - `binance`: Binance REST API client
+/// - `risk_manager`: Risk management engine (shared across requests)
 #[derive(Clone)]
 pub struct AppState {
     pub db: DbPool,
     pub redis: Arc<RedisCache>,
     pub binance: Arc<BinanceRestClient>,
     pub ws_hub: Arc<WsHub>,
+    pub risk_manager: Arc<RiskManager>,
 }
 
 impl AppState {
     /// Create a new AppState instance
-    pub fn new(db: DbPool, redis: RedisCache, binance: BinanceRestClient, ws_hub: WsHub) -> Self {
+    pub fn new(db: DbPool, redis: RedisCache, binance: BinanceRestClient, ws_hub: WsHub, risk_manager: RiskManager) -> Self {
         Self {
             db,
             redis: Arc::new(redis),
             binance: Arc::new(binance),
             ws_hub: Arc::new(ws_hub),
+            risk_manager: Arc::new(risk_manager),
         }
     }
 }

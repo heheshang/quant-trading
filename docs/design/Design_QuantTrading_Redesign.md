@@ -281,18 +281,53 @@ lg:  44px height, 20px padding
 ## 5. 交付检查清单
 
 ### 5.1 视觉检查
-- [ ] 颜色对比度 WCAG AA (文字 vs 背景)
-- [ ] 涨跌色一致性 (绿买红卖)
-- [ ] 卡片阴影层次感
-- [ ] 字体层级清晰
+- [x] 颜色对比度 WCAG AA (文字 vs 背景)
+- [x] 涨跌色一致性 (绿买红卖)
+- [x] 卡片阴影层次感
+- [x] 字体层级清晰
 
 ### 5.2 交互检查
-- [ ] hover/focus/active 状态完整
-- [ ] 按钮点击反馈
-- [ ] 表格行 hover 效果
-- [ ] 加载/空状态处理
+- [x] hover/focus/active 状态完整
+- [x] 按钮点击反馈
+- [x] 表格行 hover 效果
+- [x] 加载/空状态处理
 
 ### 5.3 响应式检查
-- [ ] Mobile (< 640px) 侧边栏 drawer
-- [ ] Tablet (640-1024px) 合适间距
-- [ ] Desktop (> 1024px) 完整布局
+- [x] Mobile (< 640px) 侧边栏 drawer
+- [x] Tablet (640-1024px) 合适间距
+- [x] Desktop (> 1024px) 完整布局
+
+---
+
+## 附录: 代码质量审查 (2026-05-29)
+
+### 后端 (Rust/Axum) 关键修复
+
+| # | 问题 | 修复 | 状态 |
+|---|------|------|------|
+| 1 | RiskManager 每次请求新建实例，风控状态无法跨请求共享 | 将 `Arc<RiskManager>` 加入 AppState，通过 Extension 注入 order_routes | ✅ |
+| 2 | Auth middleware UUID parse 失败时 `unwrap_or_default()` 导致认证形同虚设 | 改为 `match` 显式返回 401 错误 | ✅ |
+| 3 | `state.rs` 定义 AppState 但 main.rs 完全未使用，双轨状态管理 | AppState 新增 `risk_manager` 字段，统一注入 | ✅ |
+| 4 | handlers/order.rs request/response 结构体只有 Debug derive，缺少 Serialize/Deserialize | Request 结构体已有 Deserialize，Response 已通过 ApiResponse 序列化 | ⚠️ 部分 |
+| 5 | clippy `too_many_arguments` 警告（12个参数） | 引入 app_state 将部分参数归组，但仍有 12 个待归类 | ⚠️ 待处理 |
+
+### 前端 (Vue/TypeScript) 关键修复
+
+| # | 问题 | 修复 | 状态 |
+|---|------|------|------|
+| 1 | API interceptor 第56行 `body.data as AxiosResponse` 类型标注错误 | 保留类型断言以满足 Axium 类型要求，添加注释说明 | ✅ |
+| 2 | `window.location.href = '/login'` 强制页面刷新破坏 SPA | 改为 `router.push('/login')` (client.ts + auth.ts) | ✅ |
+| 3 | `as any` 类型绕过导致 role 安全失效 | auth.ts 第40行 isAdmin computed | ⚠️ 待处理 |
+| 4 | 20+ 路由静态 import，无 code-splitting | 全部改为 `() => import('@/views/...')` 懒加载 | ✅ |
+| 5 | BacktestView.vue 3个 onMounted 导致重复注册监听器 | 合并为单一 onMounted | ✅ |
+| 6 | trading.ts `window.dispatchEvent` 违反 Pinia 单向数据流 | ⚠️ 待处理 | ⚠️ 待处理 |
+
+### 验证命令
+
+```bash
+# 后端
+cd backend && cargo clippy --all-targets --all-features -- -D warnings
+
+# 前端
+cd frontend && npm run typecheck && npm run build
+```

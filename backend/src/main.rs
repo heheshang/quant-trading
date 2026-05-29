@@ -4,6 +4,7 @@ use axum::{
 };
 use quant_trading_backend::CONFIG;
 use quant_trading_backend::db::{DbPool, init_db, run_migrations};
+use quant_trading_backend::state::AppState;
 use quant_trading_backend::handlers;
 use quant_trading_backend::services::ai::feature_engine::NormalizeMethod;
 use quant_trading_backend::services::binance_rest::BinanceRestClient;
@@ -123,8 +124,14 @@ async fn main() {
     state_manager.start();
 
     // Build application
-    let app = create_router(
-        db,
+    let app_state = AppState::new(
+        db.clone(),
+        (*redis_cache).clone(),
+        (*binance_rest).clone(),
+        (*ws_hub).clone(),
+        (*risk_manager).clone(),
+    );
+    let app = create_router(app_state,
         cors,
         matching_engine,
         order_rate_limiter,
@@ -136,6 +143,7 @@ async fn main() {
         ws_hub,
         signed_client,
         key_store,
+        risk_manager.clone(),
     );
 
     // Start server
@@ -151,7 +159,7 @@ async fn main() {
 
 #[allow(clippy::too_many_arguments)]
 fn create_router(
-    db: DbPool,
+    app_state: AppState,
     cors: CorsLayer,
     matching_engine: Arc<MatchingEngine>,
     order_rate_limiter: Arc<OrderRateLimiter>,
@@ -163,6 +171,7 @@ fn create_router(
     ws_hub: Arc<WsHub>,
     signed_client: Arc<SignedBinanceClient>,
     key_store: Arc<ApiKeyStore>,
+    risk_manager: Arc<RiskManager>,
 ) -> Router {
     #[allow(unused_assignments)]
     let mut app = Router::new();
@@ -326,6 +335,7 @@ fn create_router(
         .layer(axum::Extension(matching_engine))
         .layer(axum::Extension(order_rate_limiter))
         .layer(axum::Extension(ws_hub.clone()))
+        .layer(axum::Extension(risk_manager.clone()))
         .layer(middleware::from_fn(
             quant_trading_backend::middleware::auth::auth_middleware,
         ));
@@ -426,7 +436,7 @@ fn create_router(
         .layer(middleware::from_fn(
             quant_trading_backend::middleware::auth::auth_middleware,
         ))
-        .with_state(db.clone());
+        .with_state(app_state.db.clone());
 
     // Review routes (authenticated)
     let review_routes = Router::new()
@@ -455,7 +465,7 @@ fn create_router(
         .layer(middleware::from_fn(
             quant_trading_backend::middleware::auth::auth_middleware,
         ))
-        .with_state(db.clone());
+        .with_state(app_state.db.clone());
 
     // Exchange routes (authenticated, with signed Binance client)
     let exchange_routes = Router::new()
@@ -476,7 +486,7 @@ fn create_router(
         .layer(middleware::from_fn(
             quant_trading_backend::middleware::auth::auth_middleware,
         ))
-        .with_state(db.clone());
+        .with_state(app_state.db.clone());
 
     // Public routes — registered as direct path to avoid /api/v1 nesting shadowing
     // Both /ws and /api/v1/ws registered (nginx regex proxy_pass preserves full path)
@@ -541,7 +551,7 @@ fn create_router(
     .merge(public_routes)
     .layer(cors)
     .layer(TraceLayer::new_for_http())
-    .with_state(db)
+    .with_state(app_state.db.clone())
 }
 
 // Helper: Since axum 0.8 uses method routing differently for DELETE

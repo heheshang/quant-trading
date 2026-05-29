@@ -339,6 +339,7 @@ pub async fn create_order(
     Extension(engine): Extension<Arc<MatchingEngine>>,
     Extension(rate_limiter): Extension<Arc<OrderRateLimiter>>,
     Extension(ws_hub): Extension<Arc<WsHub>>,
+    Extension(risk_manager): Extension<Arc<RiskManager>>,
     Json(req): Json<CreateOrderRequest>,
 ) -> Result<(StatusCode, HeaderMap, Json<ApiResponse<OrderResponse>>), AppError> {
     // F6: 断线暂停 — 拒绝新订单
@@ -488,7 +489,7 @@ pub async fn create_order(
     }
 
     // ── D8: 风控前置检查 ──
-    let rm = RiskManager::new(db.clone());
+    // Use shared RiskManager from AppState (injected via Extension)
     // 解析止损价格
     let stop_loss_price: Option<f64> = req
         .stop_loss_price
@@ -500,7 +501,7 @@ pub async fn create_order(
     } else {
         price
     };
-    rm.check_order(
+    risk_manager.check_order(
         user.user_id,
         &req.side,
         &req.quantity,

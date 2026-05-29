@@ -34,8 +34,20 @@ pub async fn auth_middleware(
                         })),
                     ));
                 }
+                let user_id = match claims.sub.parse::<uuid::Uuid>() {
+                    Ok(id) => id,
+                    Err(_) => {
+                        return Err((
+                            StatusCode::UNAUTHORIZED,
+                            axum::Json(serde_json::json!({
+                                "code": 40103,
+                                "message": "Invalid token: malformed user id"
+                            })),
+                        ));
+                    }
+                };
                 let user = AuthenticatedUser {
-                    user_id: claims.sub.parse().unwrap_or_default(),
+                    user_id,
                     username: claims.username,
                     role: claims.role,
                     jti: claims.jti,

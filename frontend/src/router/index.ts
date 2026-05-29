@@ -4,25 +4,6 @@ import { useAuthStore } from '@/stores/auth'
 import MainLayout from '@/layouts/MainLayout.vue'
 import AuthLayout from '@/layouts/AuthLayout.vue'
 
-import DashboardView from '@/views/dashboard/DashboardView.vue'
-import MarketView from '@/views/market/MarketView.vue'
-import StrategiesView from '@/views/strategy/StrategiesView.vue'
-import StrategyCreateView from '@/views/strategy/StrategyCreateView.vue'
-import StrategyEditView from '@/views/strategy/StrategyEditView.vue'
-import StrategyTemplateView from '@/views/strategy/StrategyTemplateView.vue'
-import StrategyReviewView from '@/views/strategy/StrategyReviewView.vue'
-import KlineDetailView from '@/views/kline/KlineDetailView.vue'
-import BacktestView from '@/views/backtest/BacktestView.vue'
-import TradingView from '@/views/trade/TradingView.vue'
-import ArbitrageView from '@/views/arbitrage/ArbitrageView.vue'
-import OrderManagementView from '@/views/order/OrderManagementView.vue'
-import PortfolioView from '@/views/portfolio/PortfolioView.vue'
-import RiskDashboardView from '@/views/risk/RiskDashboardView.vue'
-import SystemAdminView from '@/views/system/SystemAdminView.vue'
-import ApiKeyManagementView from '@/views/ApiKeyManagementView.vue'
-import LoginView from '@/views/dashboard/LoginView.vue'
-import RegisterView from '@/views/dashboard/RegisterView.vue'
-
 declare module 'vue-router' {
   interface RouteMeta {
     requiresAuth?: boolean
@@ -39,7 +20,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: '',
         name: 'Login',
-        component: LoginView,
+        component: () => import('@/views/dashboard/LoginView.vue'),
         meta: { requiresAuth: false, title: '登录' },
       },
     ],
@@ -51,7 +32,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: '',
         name: 'Register',
-        component: RegisterView,
+        component: () => import('@/views/dashboard/RegisterView.vue'),
         meta: { requiresAuth: false, title: '注册' },
       },
     ],
@@ -67,97 +48,97 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'dashboard',
         name: 'Dashboard',
-        component: DashboardView,
+        component: () => import('@/views/dashboard/DashboardView.vue'),
         meta: { requiresAuth: true, title: '仪表盘' },
       },
       {
         path: 'kline/:symbol/:interval',
         name: 'KlineDetail',
-        component: KlineDetailView,
+        component: () => import('@/views/kline/KlineDetailView.vue'),
         meta: { requiresAuth: true, title: 'K线详情' },
       },
       {
         path: 'market',
         name: 'Market',
-        component: MarketView,
+        component: () => import('@/views/market/MarketView.vue'),
         meta: { requiresAuth: true, title: '行情' },
       },
       {
         path: 'strategies',
         name: 'Strategies',
-        component: StrategiesView,
+        component: () => import('@/views/strategy/StrategiesView.vue'),
         meta: { requiresAuth: true, title: '策略' },
       },
       {
         path: 'strategies/create',
         name: 'StrategyCreate',
-        component: StrategyCreateView,
+        component: () => import('@/views/strategy/StrategyCreateView.vue'),
         meta: { requiresAuth: true, title: '新建策略' },
       },
       {
         path: 'strategies/:id/edit',
         name: 'StrategyEdit',
-        component: StrategyEditView,
+        component: () => import('@/views/strategy/StrategyEditView.vue'),
         meta: { requiresAuth: true, title: '编辑策略' },
       },
       {
         path: 'strategies/templates',
         name: 'StrategyTemplates',
-        component: StrategyTemplateView,
+        component: () => import('@/views/strategy/StrategyTemplateView.vue'),
         meta: { requiresAuth: true, title: '策略模板市场' },
       },
       {
         path: 'backtest',
         name: 'Backtest',
-        component: BacktestView,
+        component: () => import('@/views/backtest/BacktestView.vue'),
         meta: { requiresAuth: true, title: '回测' },
       },
       {
         path: 'trading',
         name: 'Trading',
-        component: TradingView,
+        component: () => import('@/views/trade/TradingView.vue'),
         meta: { requiresAuth: true, title: '交易' },
       },
       {
         path: 'arbitrage',
         name: 'Arbitrage',
-        component: ArbitrageView,
+        component: () => import('@/views/arbitrage/ArbitrageView.vue'),
         meta: { requiresAuth: true, title: '套利' },
       },
       {
         path: 'orders',
         name: 'Orders',
-        component: OrderManagementView,
+        component: () => import('@/views/order/OrderManagementView.vue'),
         meta: { requiresAuth: true, title: '订单管理' },
       },
       {
         path: 'portfolio',
         name: 'Portfolio',
-        component: PortfolioView,
+        component: () => import('@/views/portfolio/PortfolioView.vue'),
         meta: { requiresAuth: true, title: '持仓' },
       },
       {
         path: 'risk',
         name: 'RiskDashboard',
-        component: RiskDashboardView,
+        component: () => import('@/views/risk/RiskDashboardView.vue'),
         meta: { requiresAuth: true, title: '风控面板' },
       },
       {
         path: 'admin',
         name: 'Admin',
-        component: SystemAdminView,
+        component: () => import('@/views/system/SystemAdminView.vue'),
         meta: { requiresAuth: true, title: '系统管理', roles: ['admin'] },
       },
       {
         path: 'api-keys',
         name: 'ApiKeyManagement',
-        component: ApiKeyManagementView,
+        component: () => import('@/views/ApiKeyManagementView.vue'),
         meta: { requiresAuth: true, title: 'API密钥管理' },
       },
       {
         path: 'strategy-review',
         name: 'StrategyReview',
-        component: StrategyReviewView,
+        component: () => import('@/views/strategy/StrategyReviewView.vue'),
         meta: { requiresAuth: true, title: '策略审核', roles: ['admin'] },
       },
     ],

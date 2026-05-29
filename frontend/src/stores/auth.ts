@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import type { User, LoginPayload, RegisterPayload } from '@/types'
 import { authApi } from '@/api'
 import client from '@/api/client'
+import router from '@/router'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
@@ -37,8 +38,8 @@ export const useAuthStore = defineStore('auth', () => {
   initFromStorage()
 
   const isAuthenticated = computed(() => !!token.value && !!user.value)
-  const isAdmin = computed(() => (user.value?.role as any)?.name === 'admin')
-  const userRole = computed(() => (user.value?.role as any)?.name || '')
+  const isAdmin = computed(() => user.value?.role === 'admin')
+  const userRole = computed(() => user.value?.role || '')
   const userInitial = computed(() => user.value?.username?.charAt(0)?.toUpperCase() || 'U')
 
   function saveTokens(accessToken: string, refreshTokenStr: string) {
@@ -95,7 +96,7 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null
     sessionStorage.removeItem('auth_tokens')
     sessionStorage.removeItem('auth_user')
-    window.location.href = '/login'
+    router.push('/login')
   }
 
   async function fetchProfile() {

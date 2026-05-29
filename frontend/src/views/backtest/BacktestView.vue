@@ -142,7 +142,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { ElMessageBox } from 'element-plus'
 import { Odometer } from '@element-plus/icons-vue'
 import BacktestConfigForm from '@/components/backtest/BacktestConfigForm.vue'
@@ -154,6 +154,9 @@ import BacktestHistoryList from '@/components/backtest/BacktestHistoryList.vue'
 import BacktestPerformanceReport from '@/components/backtest/BacktestPerformanceReport.vue'
 import * as backtestApi from '@/api/backtest'
 import type { BacktestResultResponse, BacktestParams, BacktestSummary } from '@/types/backtest'
+import { useTradingStore } from '@/stores/trading'
+
+const tradingStore = useTradingStore()
 
 const result = ref<BacktestResultResponse | null>(null)
 const error = ref('')
@@ -234,11 +237,6 @@ async function loadHistory() {
     historyLoading.value = false
   }
 }
-
-onMounted(() => {
-  loadHistory()
-  window.addEventListener('backtest-progress', onBacktestProgress)
-})
 
 async function handleHistorySelect(item: BacktestSummary) {
   try {
@@ -434,10 +432,6 @@ function pollJob(id: string): Promise<BacktestResultResponse | null> {
     }, POLL_INTERVAL)
   })
 }
-
-onMounted(() => {
-  loadHistory()
-})
 
 // Expose internal state and methods for testing
 defineExpose({

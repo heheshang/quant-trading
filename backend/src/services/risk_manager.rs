@@ -101,6 +101,7 @@ pub struct AccountSnapshot {
 }
 
 /// Risk Manager — 资金风控引擎
+#[derive(Clone)]
 pub struct RiskManager {
     db: Arc<DatabaseConnection>,
 }

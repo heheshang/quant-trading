@@ -270,6 +270,7 @@ import { queryKlines, getQualityReport, exportKlines } from '@/api/kline'
 import { KLINE_INTERVALS } from '@/types/kline'
 import { getMarketWs, toInternalSymbol } from '@/api/ws'
 import { useMarketWs } from '@/composables/useMarketWs'
+import { useTradingStore } from '@/stores/trading'
 import KlineChart from '@/components/charts/KlineChart.vue'
 import type { KlineBar } from '@/components/charts/KlineChart.vue'
 import type { KlineQualityReport } from '@/types/kline'
@@ -277,6 +278,7 @@ import type { KlineQualityReport } from '@/types/kline'
 const route = useRoute()
 const router = useRouter()
 const chartRef = ref<InstanceType<typeof KlineChart> | null>(null)
+const tradingStore = useTradingStore()
 
 const symbol = computed(() => route.params.symbol as string)
 const interval = computed(() => route.params.interval as string)
@@ -286,28 +288,11 @@ const loading = ref(false)
 const klineData = ref<KlineBar[]>([])
 const qualityInfo = ref<KlineQualityReport | null>(null)
 
-// WebSocket real-time kline updates — via window CustomEvent from trading.ts
-function onKlineUpdate(event: Event): void {
-  const data = (event as CustomEvent).detail as {
-    symbol: string
-    interval: string
-    time: number
-    open: number
-    high: number
-    low: number
-    close: number
-    volume: number
-  }
-  // Only update if interval matches current view
-  if (data.interval !== currentInterval.value) return
-  const bar: KlineBar = {
-    time: data.time,
-    open: data.open,
-    high: data.high,
-    low: data.low,
-    close: data.close,
-    volume: data.volume,
-  }
+// Real-time kline updates from trading store
+function onKlineUpdate() {
+  const bar = tradingStore.lastKline
+  // Only update if interval matches current view and bar exists
+  if (!bar || tradingStore.lastKlineInterval !== currentInterval.value) return
   chartRef.value?.addBar(bar)
   // Also append to klineData for indicator updates
   klineData.value.push(bar)
@@ -687,15 +672,14 @@ onMounted(async () => {
   await loadKlineData()
   await loadQualityReport()
 
-  // Set up WebSocket real-time kline updates via window CustomEvent
-  window.addEventListener('kline-update', onKlineUpdate)
+  // Watch for real-time kline updates from trading store
+  watch(() => tradingStore.lastKline, onKlineUpdate)
 
   // Subscribe depth panel via useMarketWs
   subscribeDepth()
 })
 
 onUnmounted(() => {
-  window.removeEventListener('kline-update', onKlineUpdate)
   unsubscribeDepth()
 })
 </script>

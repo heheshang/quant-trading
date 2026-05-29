@@ -1,5 +1,6 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios'
 import type { ApiResponse } from '@/types'
+import router from '@/router'
 
 const client = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
@@ -110,7 +111,7 @@ client.interceptors.response.use(
         // Clear tokens and redirect to login
         sessionStorage.removeItem('auth_tokens')
         sessionStorage.removeItem('auth_user')
-        window.location.href = '/login'
+        router.push('/login')
         return Promise.reject(refreshError)
       } finally {
         isRefreshing = false

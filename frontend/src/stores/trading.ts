@@ -40,6 +40,28 @@ export interface DepthData {
   timestamp: number
 }
 
+export interface KlineBar {
+  time: number
+  open: number
+  high: number
+  low: number
+  close: number
+  volume: number
+}
+
+export interface BacktestProgressEvent {
+  backtestId: string
+  progress: number
+  status: string
+}
+
+export interface TradeExecutedEvent {
+  symbol: string
+  order_id: string
+  side: string
+  realized_pnl: number | null
+}
+
 export const useTradingStore = defineStore('trading', () => {
   // === State ===
 
@@ -57,6 +79,18 @@ export const useTradingStore = defineStore('trading', () => {
 
   /** Whether auto-reconnect is enabled */
   const autoReconnect = ref(true)
+
+  /** Latest kline update for real-time chart (cleared after consumption) */
+  const lastKline = ref<KlineBar | null>(null)
+
+  /** Current interval of the last kline update */
+  const lastKlineInterval = ref<string>('')
+
+  /** Latest backtest progress update */
+  const lastBacktestProgress = ref<BacktestProgressEvent | null>(null)
+
+  /** Latest trade executed event */
+  const lastTradeExecuted = ref<TradeExecutedEvent | null>(null)
 
   // === Getters ===
 
@@ -195,7 +229,7 @@ export const useTradingStore = defineStore('trading', () => {
       depths.value[symbolDisplay] = depths.value[internal]
     }
 
-    // Real-time Kline update — dispatch to KlineDetailView
+    // Real-time Kline update — store for components to read
     if (channel === 'market:kline' && msg.data) {
       const data = msg.data as unknown as {
         interval: string
@@ -206,36 +240,28 @@ export const useTradingStore = defineStore('trading', () => {
         close: number
         volume: number
       }
-      window.dispatchEvent(new CustomEvent('kline-update', {
-        detail: {
-          symbol: symbolDisplay,
-          interval: data.interval,
-          time: data.timestamp ?? Math.floor(Date.now() / 1000),
-          open: data.open,
-          high: data.high,
-          low: data.low,
-          close: data.close,
-          volume: data.volume ?? 0,
-        }
-      }))
+      lastKline.value = {
+        time: data.timestamp ?? Math.floor(Date.now() / 1000),
+        open: data.open,
+        high: data.high,
+        low: data.low,
+        close: data.close,
+        volume: data.volume ?? 0,
+      }
+      lastKlineInterval.value = data.interval
     }
 
-    // Backtest progress update — dispatch to BacktestView via window event
+    // Backtest progress update — store for BacktestView to read
     if (channel.startsWith('backtest:progress:') && msg.data) {
       const data = msg.data as unknown as { progress: number; status: string }
       const backtestId = channel.replace('backtest:progress:', '')
-      window.dispatchEvent(new CustomEvent('backtest-progress', {
-        detail: { backtestId, progress: data.progress, status: data.status }
-      }))
+      lastBacktestProgress.value = { backtestId, progress: data.progress, status: data.status }
     }
 
-    // Trade execution notification — refresh orders/positions
+    // Trade execution notification — store for TradingView to refresh orders/positions
     if (msg.type === 'trade_executed' && msg.data) {
       const data = msg.data as { order_id: string; side: string; realized_pnl: number | null }
-      // Emit event for components listening to order changes
-      window.dispatchEvent(new CustomEvent('trade-executed', {
-        detail: { symbol: symbolDisplay, ...data }
-      }))
+      lastTradeExecuted.value = { symbol: symbolDisplay, ...data }
     }
   }
 
@@ -277,6 +303,10 @@ export const useTradingStore = defineStore('trading', () => {
     depths,
     wsStatus,
     autoReconnect,
+    lastKline,
+    lastKlineInterval,
+    lastBacktestProgress,
+    lastTradeExecuted,
 
     // Getters
     bestBid,
