@@ -36,10 +36,9 @@ const appStore = useAppStore()
 
   .layout-content {
     flex: 1;
-    padding: $layout-padding-desktop;
-    max-width: $content-max-width;
+    padding: 0;
     width: 100%;
-    overflow-y: auto;
+    overflow: hidden;
   }
 
   &.sidebar-collapsed {

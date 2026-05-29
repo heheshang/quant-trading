@@ -649,6 +649,7 @@ body {
   background: var(--color-bg);
   animation: fadeIn var(--transition-base);
   font-family: 'Work Sans', sans-serif;
+  overflow: hidden;
 }
 
 .trading-header {
