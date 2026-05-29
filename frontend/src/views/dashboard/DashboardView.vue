@@ -231,21 +231,18 @@ onMounted(() => {
 }
 
 .page-header {
-  margin-bottom: 28px;
+  margin-bottom: 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
 
   h1 {
-    font-size: 26px;
-    font-weight: 700;
+    font-size: 22px;
+    font-weight: 600;
+    font-family: var(--font-heading);
     color: var(--color-text-primary);
     margin: 0;
-    letter-spacing: -0.5px;
-    background: var(--gradient-accent);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    letter-spacing: -0.3px;
   }
 }
 
@@ -254,16 +251,16 @@ onMounted(() => {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 16px;
-  margin-bottom: 28px;
+  margin-bottom: 24px;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .stats-row {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 640px) {
   .stats-row {
     grid-template-columns: 1fr;
   }
@@ -272,8 +269,8 @@ onMounted(() => {
 .stat-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 12px;
-  padding: 20px;
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
   transition: all var(--transition-base);
   box-shadow: var(--shadow-card);
   position: relative;
@@ -286,14 +283,14 @@ onMounted(() => {
     left: 0;
     right: 0;
     height: 2px;
-    background: var(--gradient-accent);
+    background: var(--gradient-primary);
     opacity: 0;
     transition: opacity var(--transition-base);
   }
 
   &:hover {
     border-color: var(--color-border-hover);
-    transform: translateY(-4px);
+    transform: translateY(-2px);
     box-shadow: var(--shadow-card-hover);
 
     &::before {
@@ -331,44 +328,43 @@ onMounted(() => {
 
 .stat-icon {
   font-size: 18px;
-  color: var(--color-accent);
-  filter: drop-shadow(0 0 4px rgba(113, 112, 255, 0.3));
+  color: var(--color-primary);
+  filter: drop-shadow(0 0 4px var(--color-primary-glow));
 }
 
 .stat-label {
-  font-size: 13px;
-  color: var(--color-text-secondary);
+  font-size: 12px;
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  color: var(--color-text-tertiary);
 }
 
 .stat-value {
-  font-size: 30px;
-  font-weight: 700;
-  font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 600;
+  font-family: var(--font-heading);
   color: var(--color-text-primary);
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   letter-spacing: -0.5px;
 
   &.winrate {
-    color: var(--color-buy);
-    text-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+    color: var(--color-primary);
+    text-shadow: 0 0 10px var(--color-primary-glow);
   }
   &.sharpe {
-    color: var(--color-accent);
-    text-shadow: 0 0 10px rgba(113, 112, 255, 0.3);
+    color: var(--color-primary);
+    text-shadow: 0 0 10px var(--color-primary-glow);
   }
   &.positions {
-    color: var(--color-info);
-    text-shadow: 0 0 10px rgba(96, 165, 250, 0.3);
+    color: var(--color-primary);
+    text-shadow: 0 0 10px var(--color-primary-glow);
   }
 }
 
 .stat-change {
   font-size: 12px;
-  font-weight: 600;
-  font-family: var(--font-mono);
+  font-weight: 500;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -389,9 +385,9 @@ onMounted(() => {
 .chart-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 12px;
-  padding: 24px;
-  margin-bottom: 28px;
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  margin-bottom: 24px;
   box-shadow: var(--shadow-card);
   transition: all var(--transition-base);
 
@@ -415,28 +411,29 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 
   h3 {
-    font-size: 17px;
+    font-size: 15px;
     font-weight: 600;
+    font-family: var(--font-heading);
     color: var(--color-text-primary);
     margin: 0;
-    letter-spacing: -0.3px;
+    letter-spacing: -0.2px;
   }
 }
 
 .chart-range {
   display: flex;
-  gap: 6px;
-  background: rgba(255, 255, 255, 0.03);
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.04);
   padding: 3px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
 }
 
 .range-pill {
-  padding: 6px 14px;
-  border-radius: 6px;
+  padding: 5px 12px;
+  border-radius: var(--radius-sm);
   border: none;
   background: transparent;
   color: var(--color-text-tertiary);
@@ -446,14 +443,14 @@ onMounted(() => {
   transition: all var(--transition-fast);
 
   &:hover {
-    color: var(--color-text-primary);
-    background: rgba(255, 255, 255, 0.06);
+    color: var(--color-text-secondary);
+    background: rgba(255, 255, 255, 0.04);
   }
 
   &.active {
-    background: var(--gradient-accent);
+    background: var(--gradient-primary);
     color: #fff;
-    box-shadow: var(--shadow-sm);
+    box-shadow: var(--shadow-glow-primary);
   }
 }
 
@@ -473,8 +470,8 @@ onMounted(() => {
 .section-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 12px;
-  padding: 20px;
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
   box-shadow: var(--shadow-card);
   transition: all var(--transition-base);
 
@@ -488,11 +485,12 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 
   h3 {
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 600;
+    font-family: var(--font-heading);
     color: var(--color-text-primary);
     margin: 0;
     letter-spacing: -0.2px;

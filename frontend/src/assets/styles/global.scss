@@ -92,30 +92,50 @@ a {
   color: var(--color-text-tertiary);
 }
 
-.text-buy {
+.text-buy,
+.text-positive {
   color: var(--color-buy);
 }
 
-.text-sell {
+.text-sell,
+.text-negative {
   color: var(--color-sell);
 }
 
-.text-accent {
-  color: var(--color-accent);
+.text-accent,
+.text-primary-color {
+  color: var(--color-primary);
 }
 
 .text-gradient {
-  background: var(--gradient-accent);
+  background: var(--gradient-primary);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
-// Card utilities
-.card-elevated {
+// Semantic colors
+.text-success {
+  color: var(--color-success);
+}
+
+.text-warning {
+  color: var(--color-warning);
+}
+
+.text-error {
+  color: var(--color-error);
+}
+
+.text-info {
+  color: var(--color-info);
+}
+
+// --- Card utilities ---
+.card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
   transition: all var(--transition-base);
 
@@ -126,7 +146,20 @@ a {
   }
 }
 
-// Button enhancements
+.card-elevated {
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  transition: all var(--transition-base);
+
+  &:hover {
+    box-shadow: var(--shadow-card-hover);
+    border-color: var(--color-border-hover);
+  }
+}
+
+// --- Button enhancements ---
 .btn-glow {
   position: relative;
   overflow: hidden;
@@ -150,7 +183,31 @@ a {
   }
 }
 
-// Animation utilities
+.btn-primary-glow {
+  box-shadow: var(--shadow-glow-primary);
+  
+  &:hover {
+    box-shadow: 0 0 30px rgba(59, 130, 246, 0.4);
+  }
+}
+
+.btn-buy-glow {
+  box-shadow: var(--shadow-glow-buy);
+  
+  &:hover {
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
+  }
+}
+
+.btn-sell-glow {
+  box-shadow: var(--shadow-glow-sell);
+  
+  &:hover {
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+  }
+}
+
+// --- Animation utilities ---
 .animate-fade-in {
   animation: fadeIn var(--transition-base) ease-out;
 }
@@ -165,16 +222,16 @@ a {
 
 // Glassmorphism effect
 .glass-effect {
-  background: rgba(25, 26, 27, 0.8);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(17, 24, 39, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 // Focus ring for accessibility
 .focus-ring {
   &:focus-visible {
-    outline: 2px solid var(--color-accent);
+    outline: 2px solid var(--color-primary);
     outline-offset: 2px;
   }
 }
@@ -210,12 +267,8 @@ a {
 
 // --- Keyframe Animations ---
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @keyframes slideUp {
@@ -230,28 +283,21 @@ a {
 }
 
 @keyframes pulseSubtle {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
-  }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
 }
 
 @keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
 
 @keyframes glow {
-  0%, 100% {
-    box-shadow: 0 0 5px rgba(113, 112, 255, 0.5);
-  }
-  50% {
-    box-shadow: 0 0 20px rgba(113, 112, 255, 0.8);
-  }
+  0%, 100% { box-shadow: 0 0 5px rgba(59, 130, 246, 0.5); }
+  50% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.8); }
+}
+
+@keyframes borderGlow {
+  0%, 100% { border-color: var(--color-border); }
+  50% { border-color: var(--color-primary); }
 }

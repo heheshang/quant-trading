@@ -374,18 +374,30 @@ defineExpose({
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 .page-title {
-  font-size: 20px;
-  font-weight: 600;
+  font-family: var(--font-outfit);
+  font-size: 22px;
+  font-weight: 700;
   margin: 0;
+  letter-spacing: -0.3px;
 }
 
 .header-actions {
   display: flex;
   gap: 8px;
+}
+
+.header-actions .el-button {
+  font-family: var(--font-work-sans);
+  border-radius: var(--radius-lg);
+  font-weight: 500;
+}
+
+.header-actions .el-button--primary {
+  box-shadow: var(--shadow-glow-primary);
 }
 
 /* Filter bar */
@@ -401,51 +413,55 @@ defineExpose({
   width: 200px;
 }
 
-/* Pills 样式: accent #7170ff, 圆角 16px */
+/* Pills 样式: primary #3B82F6, border-radius var(--radius-lg) */
 .interval-pills :deep(.el-radio-button__inner) {
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   border-left: 1px solid var(--el-border-color);
   margin-right: 8px;
   background: transparent;
   color: var(--el-text-color-regular);
   transition: all 0.2s;
+  font-family: var(--font-work-sans);
 }
 
 .interval-pills :deep(.el-radio-button__original-radio:checked + .el-radio-button__inner) {
-  background-color: #7170ff;
-  border-color: #7170ff;
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
   color: #fff;
   box-shadow: none;
 }
 
 .interval-pills :deep(.el-radio-button:first-child .el-radio-button__inner) {
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
 }
 
 .interval-pills :deep(.el-radio-button:last-child .el-radio-button__inner) {
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
 }
 
+/* Table container: var(--radius-lg) cards with var(--shadow-glow-primary) */
 .table-container {
-  background: var(--el-bg-color);
-  border-radius: 8px;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
   padding: 16px;
+  box-shadow: var(--shadow-glow-primary);
 }
 
 .interval-tag {
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-weight: 600;
 }
 
 /* P0-01: symbol-label */
 .symbol-label {
   font-weight: 600;
+  font-family: var(--font-work-sans);
   color: var(--el-text-color-primary);
 }
 
 /* P0-01: mono-number */
 .mono-number {
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
 }
 
@@ -484,18 +500,19 @@ defineExpose({
   justify-content: center;
   width: 28px;
   height: 28px;
-  border-radius: 4px;
+  border-radius: var(--radius-lg);
   transition: background 0.2s;
 }
 
 .action-trigger:hover {
-  background: var(--el-fill-color-light);
+  background: var(--color-primary-light);
 }
 
 :deep(.el-dropdown-menu__item) {
   display: flex;
   align-items: center;
   gap: 8px;
+  font-family: var(--font-work-sans);
 }
 
 /* Pagination */

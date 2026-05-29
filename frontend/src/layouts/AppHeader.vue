@@ -231,8 +231,8 @@ function handleLogout() {
   .user-avatar {
     width: 32px;
     height: 32px;
-    border-radius: 8px;
-    background: var(--gradient-accent);
+    border-radius: var(--radius-md);
+    background: var(--gradient-primary);
     color: #ffffff;
     font-size: 13px;
     font-weight: 600;
@@ -242,13 +242,13 @@ function handleLogout() {
     cursor: pointer;
     user-select: none;
     transition: all var(--transition-fast);
-    box-shadow: var(--shadow-sm);
+    box-shadow: var(--shadow-glow-primary);
     border: 2px solid transparent;
 
     &:hover {
       transform: scale(1.08);
-      box-shadow: var(--shadow-glow);
-      border-color: rgba(113, 112, 255, 0.3);
+      box-shadow: 0 0 24px rgba(59, 130, 246, 0.4);
+      border-color: rgba(59, 130, 246, 0.3);
     }
 
     &:active {

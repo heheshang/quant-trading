@@ -113,8 +113,8 @@ onBeforeUnmount(() => {
 
 <style scoped lang="scss">
 .market-view {
-  max-width: 1344px;
-  padding: 0 24px;
+  max-width: var(--content-max-width);
+  padding: 0 var(--layout-padding);
   animation: fadeIn var(--transition-base);
 
   .page-header {
@@ -124,10 +124,11 @@ onBeforeUnmount(() => {
   .page-title {
     font-size: 26px;
     font-weight: 700;
+    font-family: 'Outfit', 'Work Sans', var(--font-ui);
     color: var(--color-text-primary);
     margin: 0;
     letter-spacing: -0.5px;
-    background: var(--gradient-accent);
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -136,33 +137,47 @@ onBeforeUnmount(() => {
 
 .market-tabs {
   margin-bottom: 24px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 8px;
+  box-shadow: var(--shadow-card);
 
   :deep(.el-tabs__nav-wrap::after) {
-    background-color: var(--color-border);
+    display: none;
+  }
+
+  :deep(.el-tabs__nav) {
+    border: none;
   }
 
   :deep(.el-tabs__item) {
     color: var(--color-text-tertiary);
+    font-family: 'Work Sans', var(--font-ui);
     font-size: 14px;
     font-weight: 500;
     transition: all var(--transition-fast);
     padding: 0 20px;
+    height: 40px;
+    border-radius: var(--radius-md);
+    border: 1px solid transparent;
 
     &:hover {
       color: var(--color-text-primary);
-      background: rgba(255, 255, 255, 0.03);
+      background: rgba(59, 130, 246, 0.05);
     }
 
     &.is-active {
-      color: var(--color-accent);
+      color: #ffffff;
       font-weight: 600;
+      background: var(--color-primary);
+      box-shadow: var(--shadow-glow-primary);
+      border-color: var(--color-primary);
     }
   }
 
   :deep(.el-tabs__active-bar) {
-    background: var(--gradient-accent);
-    height: 3px;
-    border-radius: 3px 3px 0 0;
+    display: none;
   }
 
   .tab-label {
@@ -178,10 +193,11 @@ onBeforeUnmount(() => {
   gap: 10px;
   padding: 12px 16px;
   margin-bottom: 20px;
-  background: rgba(245, 166, 35, 0.1);
-  border: 1px solid rgba(245, 166, 35, 0.3);
-  border-radius: 8px;
-  color: var(--color-warning);
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: var(--radius-lg);
+  color: var(--color-primary);
+  font-family: 'Work Sans', var(--font-ui);
   font-size: 13px;
   font-weight: 500;
   animation: slideUp var(--transition-base);

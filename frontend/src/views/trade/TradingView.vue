@@ -565,15 +565,18 @@ function onTradeExecuted() {
 </script>
 
 <style scoped lang="scss">
-// Design tokens (from Design_TradingExecution.md)
+// Design tokens — Financial Dashboard system
+// Primary: #3B82F6 | Fonts: Outfit (headings) + Work Sans (body) | radius-lg cards | shadow-glow-primary buttons
+
 $color-bg: #08090a;
 $color-surface: #191a1b;
 $color-surface-elevated: #212223;
 $color-text-primary: #f7f8f8;
 $color-text-secondary: #d0d6e0;
 $color-text-tertiary: #8a8f98;
-$color-accent: #7170ff;
+$color-primary: #3B82F6;           // ← was $color-accent
 $color-border: rgba(255, 255, 255, 0.08);
+$color-border-hover: rgba(255, 255, 255, 0.15);
 $color-buy: #67C23A;
 $color-sell: #F56C6C;
 $color-frozen: #f5a623;
@@ -581,9 +584,26 @@ $color-paper-mode: #60a5fa;
 $color-live-mode: #e5484d;
 $color-warning: #f5a623;
 
-// Additional variables for new styles
-$color-deep-bg: #08090a;
-$color-border-hover: rgba(255, 255, 255, 0.15);
+// Design system tokens (injected as CSS vars)
+$radius-sm: 6px;
+$radius-md: 8px;
+$radius-lg: 12px;                 // card radius
+$shadow-glow-primary: 0 0 20px rgba(59, 130, 246, 0.35);
+$shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+$shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+$gradient-primary: linear-gradient(135deg, #3B82F6 0%, #60a5fa 100%);
+
+@mixin card {
+  background: var(--color-surface);
+  border: 1px solid $color-border;
+  border-radius: var(--radius-lg, #{$radius-lg});
+}
+
+@mixin glow-btn {
+  background: $gradient-primary;
+  box-shadow: $shadow-glow-primary;
+  color: #fff;
+}
 
 @keyframes fadeIn {
   from { opacity: 0; }
@@ -591,31 +611,35 @@ $color-border-hover: rgba(255, 255, 255, 0.15);
 }
 
 @keyframes pulseSubtle {
-  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
-  70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+  0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
+  70% { box-shadow: 0 0 0 6px rgba(59, 130, 246, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
 }
 
 :root {
   --header-height: 60px;
   --transition-base: 0.3s ease;
   --transition-fast: 0.2s ease;
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --gradient-accent: linear-gradient(135deg, #7170ff 0%, #a5a4ff 100%);
+  --radius-lg: #{$radius-lg};
+  --shadow-glow-primary: #{$shadow-glow-primary};
+  --color-primary: #{$color-primary};
   --color-bg: #{$color-bg};
   --color-surface: #{$color-surface};
   --color-surface-elevated: #{$color-surface-elevated};
-  --color-deep-bg: #{$color-deep-bg};
   --color-border: #{$color-border};
   --color-border-hover: #{$color-border-hover};
   --color-text-primary: #{$color-text-primary};
   --color-text-secondary: #{$color-text-secondary};
   --color-text-tertiary: #{$color-text-tertiary};
-  --color-accent: #{$color-accent};
   --color-buy: #{$color-buy};
   --color-sell: #{$color-sell};
   --color-warning: #{$color-warning};
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Work+Sans:wght@400;500;600&display=swap');
+
+body {
+  font-family: 'Work Sans', sans-serif;
 }
 
 .trading-view {
@@ -624,6 +648,7 @@ $color-border-hover: rgba(255, 255, 255, 0.15);
   height: calc(100vh - var(--header-height));
   background: var(--color-bg);
   animation: fadeIn var(--transition-base);
+  font-family: 'Work Sans', sans-serif;
 }
 
 .trading-header {
@@ -637,7 +662,7 @@ $color-border-hover: rgba(255, 255, 255, 0.15);
   align-items: center;
   justify-content: space-between;
   flex-shrink: 0;
-  box-shadow: var(--shadow-sm);
+  box-shadow: $shadow-sm;
 
   .header-left {
     display: flex;
@@ -659,21 +684,19 @@ $color-border-hover: rgba(255, 255, 255, 0.15);
 
 .mode-badge {
   padding: 4px 12px;
-  border-radius: 6px;
+  border-radius: var(--radius-lg, #{$radius-lg});
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.5px;
   text-transform: uppercase;
 
   &--paper {
-    background: var(--gradient-accent);
-    color: #fff;
-    box-shadow: 0 0 12px rgba(113, 112, 255, 0.3);
+    @include glow-btn;
   }
 
   &--live {
-     background: rgba(229, 72, 77, 0.12);
-     color: $color-live-mode;
+    background: rgba(229, 72, 77, 0.12);
+    color: $color-live-mode;
   }
 }
 
@@ -682,6 +705,7 @@ $color-border-hover: rgba(255, 255, 255, 0.15);
   font-weight: 600;
   color: $color-text-primary;
   letter-spacing: -0.3px;
+  font-family: 'Outfit', sans-serif;
 }
 
 .balance-info {
@@ -691,18 +715,19 @@ $color-border-hover: rgba(255, 255, 255, 0.15);
   font-size: 13px;
   padding: 6px 12px;
   background: rgba(255, 255, 255, 0.03);
-  border-radius: 8px;
+  border-radius: var(--radius-lg, #{$radius-lg});
   border: 1px solid $color-border;
 }
 
 .balance-label {
   color: $color-text-tertiary;
   font-weight: 500;
+  font-family: 'Work Sans', sans-serif;
 }
 
 .balance-value {
   color: $color-text-primary;
-  font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+  font-family: 'Work Sans', 'JetBrains Mono', monospace;
   font-weight: 700;
   letter-spacing: -0.3px;
 
@@ -721,19 +746,19 @@ $color-border-hover: rgba(255, 255, 255, 0.15);
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  border-radius: 6px;
+  border-radius: var(--radius-lg, #{$radius-lg});
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid $color-border;
   transition: all var(--transition-fast);
 
   &--connected {
     .ws-dot {
-      background: $color-buy;
-      box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+      background: $color-primary;
+      box-shadow: 0 0 8px rgba(59, 130, 246, 0.6);
       animation: pulseSubtle 2s ease-in-out infinite;
     }
     .ws-text {
-      color: $color-buy;
+      color: $color-primary;
       font-weight: 600;
     }
   }
@@ -759,6 +784,7 @@ $color-border-hover: rgba(255, 255, 255, 0.15);
   font-size: 12px;
   font-weight: 500;
   transition: color var(--transition-fast);
+  font-family: 'Work Sans', sans-serif;
 }
 
 .symbol-select {
@@ -766,32 +792,12 @@ $color-border-hover: rgba(255, 255, 255, 0.15);
 
   :deep(.el-input__wrapper) {
     background: var(--color-surface-elevated) !important;
-    border-radius: 8px;
+    border-radius: var(--radius-lg, #{$radius-lg}) !important;
     transition: all var(--transition-fast);
 
     &:hover {
       box-shadow: 0 0 0 1px var(--color-border-hover) inset !important;
     }
-  }
-}
-
-.chart-toolbar {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  z-index: 10;
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.interval-select {
-  width: 80px;
-
-  :deep(.el-input__wrapper) {
-    background: rgba(25, 26, 27, 0.9) !important;
-    border-radius: 6px;
-    transition: all var(--transition-fast);
   }
 }
 
@@ -802,15 +808,15 @@ $color-border-hover: rgba(255, 255, 255, 0.15);
   min-height: 0;
   border: 1px solid $color-border;
   border-top: none;
-  border-radius: 0 0 12px 12px;
+  border-radius: 0 0 var(--radius-lg, #{$radius-lg}) var(--radius-lg, #{$radius-lg});
   overflow: hidden;
-  box-shadow: var(--shadow-md);
+  box-shadow: $shadow-md;
 }
 
 .chart-area {
   flex: 1 1 0;
   min-width: 0;
-  background: var(--color-deep-bg);
+  background: var(--color-bg);
   border-right: 1px solid $color-border;
   position: relative;
   display: flex;
@@ -842,6 +848,7 @@ $color-border-hover: rgba(255, 255, 255, 0.15);
   font-size: 14px;
   gap: 12px;
   animation: fadeIn var(--transition-base);
+  font-family: 'Work Sans', sans-serif;
 }
 
 .ticker-price {
@@ -849,24 +856,24 @@ $color-border-hover: rgba(255, 255, 255, 0.15);
   align-items: center;
   gap: 10px;
   margin-top: 20px;
-  font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+  font-family: 'Work Sans', monospace;
   font-size: 18px;
   padding: 8px 16px;
   background: rgba(255, 255, 255, 0.03);
-  border-radius: 8px;
+  border-radius: var(--radius-lg, #{$radius-lg});
   border: 1px solid $color-border;
 }
 
 .ticker-bid {
   color: $color-buy;
   font-weight: 700;
-  text-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+  text-shadow: 0 0 8px rgba(103, 194, 58, 0.4);
 }
 
 .ticker-ask {
   color: $color-sell;
   font-weight: 700;
-  text-shadow: 0 0 8px rgba(229, 72, 77, 0.4);
+  text-shadow: 0 0 8px rgba(245, 108, 108, 0.4);
 }
 
 .ticker-sep {
@@ -882,11 +889,13 @@ $color-border-hover: rgba(255, 255, 255, 0.15);
   border-left: 1px solid $color-border;
   overflow: hidden;
   background: var(--color-surface);
+  border-radius: 0 var(--radius-lg, #{$radius-lg}) var(--radius-lg, #{$radius-lg}) 0;
 }
 
 .order-form-wrapper {
   border-bottom: 1px solid $color-border;
   overflow-y: auto;
+  padding: 16px;
 }
 
 .tab-panel {
@@ -895,6 +904,7 @@ $color-border-hover: rgba(255, 255, 255, 0.15);
   flex-direction: column;
   overflow: hidden;
   background: var(--color-surface);
+  border-radius: 0 0 var(--radius-lg, #{$radius-lg}) 0;
 }
 
 .main-tabs {
@@ -923,9 +933,10 @@ $color-border-hover: rgba(255, 255, 255, 0.15);
     font-weight: 500;
     color: $color-text-secondary;
     transition: all var(--transition-fast);
+    font-family: 'Work Sans', sans-serif;
 
     &.is-active {
-      color: $color-accent;
+      color: var(--color-primary);
       font-weight: 600;
     }
 
@@ -940,7 +951,7 @@ $color-border-hover: rgba(255, 255, 255, 0.15);
   }
 
   :deep(.el-tabs__active-bar) {
-    background: var(--gradient-accent);
+    background: $gradient-primary;
     height: 3px;
     border-radius: 3px 3px 0 0;
   }

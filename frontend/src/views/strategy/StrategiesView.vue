@@ -770,10 +770,18 @@ onMounted(() => {
       text-decoration: none;
     }
 
-    .template-market-btn {
-      display: flex;
-      align-items: center;
-      gap: 6px;
+    .template-market-btn,
+    .create-btn {
+      border-radius: var(--radius-md);
+    }
+
+    .create-btn {
+      box-shadow: var(--shadow-glow-primary);
+      transition: box-shadow var(--transition-base);
+
+      &:hover {
+        box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
+      }
     }
   }
 
@@ -796,8 +804,8 @@ onMounted(() => {
         }
 
         :deep(.el-radio-button__original-radio:checked + .el-radio-button__inner) {
-          background: var(--color-accent);
-          border-color: var(--color-accent);
+          background: var(--color-primary);
+          border-color: var(--color-primary);
           color: #fff;
           box-shadow: none;
         }
@@ -826,7 +834,7 @@ onMounted(() => {
     padding: 12px 16px;
     background: var(--color-surface-elevated);
     border: 1px solid var(--color-border);
-    border-radius: 8px;
+    border-radius: var(--radius-lg);
     margin-bottom: 16px;
 
     .selected-count {
@@ -853,14 +861,14 @@ onMounted(() => {
   .skeleton-table {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 8px;
+    border-radius: var(--radius-lg);
     padding: 20px;
   }
 
   .state-card {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 8px;
+    border-radius: var(--radius-lg);
 
     .empty-sub {
       color: var(--color-text-tertiary);
@@ -887,19 +895,19 @@ onMounted(() => {
   .strategy-card {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 8px;
+    border-radius: var(--radius-lg);
     cursor: pointer;
     position: relative;
     /* no animation — static hover state */
 
     &:hover {
-      border-color: var(--color-accent);
-      transform: translateY(-2px);
+      border-color: var(--color-primary);
+      box-shadow: var(--shadow-glow-primary);
     }
 
     &.is-selected {
-      border-color: var(--color-accent);
-      background: rgba(233, 130, 66, 0.04);
+      border-color: var(--color-primary);
+      background: var(--color-primary-light);
     }
 
     &.is-stopped {

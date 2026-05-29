@@ -457,6 +457,9 @@ onUnmounted(() => {
 </script>
 
 <style scoped lang="scss">
+// Font imports
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Work+Sans:wght@400;500;600&display=swap');
+
 .order-management-view {
   display: flex;
   flex-direction: column;
@@ -483,13 +486,15 @@ onUnmounted(() => {
 }
 
 .mode-badge {
+  font-family: var(--font-work-sans, 'Work Sans', sans-serif);
   font-size: 12px;
   height: 24px;
   padding: 0 8px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg, 12px);
 }
 
 .page-title {
+  font-family: var(--font-outfit, 'Outfit', sans-serif);
   font-size: 18px;
   font-weight: 600;
   color: var(--color-text-primary, #f7f8f8);
@@ -533,6 +538,7 @@ onUnmounted(() => {
 }
 
 .ws-text {
+  font-family: var(--font-work-sans, 'Work Sans', sans-serif);
   font-size: 12px;
   color: var(--color-text-tertiary, #8a8f98);
 }
@@ -551,6 +557,7 @@ onUnmounted(() => {
   padding: 10px 0;
   border: none;
   background: transparent;
+  font-family: var(--font-work-sans, 'Work Sans', sans-serif);
   color: var(--color-text-secondary, #d0d6e0);
   font-size: 14px;
   cursor: pointer;
@@ -566,8 +573,9 @@ onUnmounted(() => {
       left: 0;
       right: 0;
       height: 2px;
-      background: var(--color-accent, #7170ff);
+      background: var(--color-primary, #3B82F6);
       border-radius: 1px;
+      box-shadow: var(--shadow-glow-primary, 0 4px 16px rgba(59, 130, 246, 0.35));
     }
   }
 
@@ -583,7 +591,7 @@ onUnmounted(() => {
   min-width: 18px;
   height: 18px;
   padding: 0 5px;
-  border-radius: 9px;
+  border-radius: var(--radius-lg, 12px);
   background: rgba(255, 255, 255, 0.08);
   color: var(--color-text-tertiary, #8a8f98);
   font-size: 11px;

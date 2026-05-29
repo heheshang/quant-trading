@@ -408,12 +408,12 @@ function renderChart() {
       data,
       areaStyle: {
         color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-          { offset: 0, color: 'rgba(113,112,255,0.20)' },
-          { offset: 1, color: 'rgba(113,112,255,0.00)' },
+          { offset: 0, color: 'rgba(59, 130, 246, 0.20)' },
+          { offset: 1, color: 'rgba(59, 130, 246, 0.00)' },
         ]),
       },
-      lineStyle: { color: '#7170ff', width: 2 },
-      itemStyle: { color: '#7170ff' },
+      lineStyle: { color: '#3B82F6', width: 2 },
+      itemStyle: { color: '#3B82F6' },
       showSymbol: false,
     }],
     tooltip: {
@@ -486,6 +486,33 @@ onUnmounted(() => {
 </script>
 
 <style scoped lang="scss">
+// === Design tokens (local scope) ===
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Work+Sans:wght@400;500;600&display=swap');
+
+$radius-lg: 12px;
+$shadow-glow-primary: 0 4px 16px rgba(59, 130, 246, 0.35);
+$color-primary: #3B82F6;
+
+// Font mixins
+@mixin font-heading {
+  font-family: 'Outfit', var(--font-ui), sans-serif;
+}
+
+@mixin font-body {
+  font-family: 'Work Sans', var(--font-ui), sans-serif;
+}
+
+@mixin card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+@mixin glow-hover {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-glow-primary);
+}
+
 .portfolio-dashboard {
   max-width: 1344px;
 }
@@ -505,6 +532,7 @@ onUnmounted(() => {
     font-weight: 600;
     color: var(--color-text-primary);
     margin: 0;
+    @include font-heading;
   }
 
   .header-controls {
@@ -530,14 +558,14 @@ onUnmounted(() => {
 .metric-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 20px;
   transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 
   &:hover {
     transform: translateY(-2px);
     border-color: var(--color-border-hover);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    @include glow-hover;
   }
 
   &__header {
@@ -553,7 +581,7 @@ onUnmounted(() => {
   }
 
   &__icon {
-    color: var(--color-accent);
+    color: var(--color-primary);
     opacity: 0.4;
   }
 
@@ -593,7 +621,7 @@ onUnmounted(() => {
 .section-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 16px;
 }
 
@@ -602,6 +630,7 @@ onUnmounted(() => {
   font-weight: 600;
   color: var(--color-text-primary);
   margin-bottom: 12px;
+  @include font-heading;
 }
 
 .section-header {
@@ -692,7 +721,7 @@ onUnmounted(() => {
 }
 
 .strategy-link {
-  color: var(--color-accent);
+  color: var(--color-primary);
   cursor: pointer;
 
   &:hover {
@@ -720,7 +749,7 @@ onUnmounted(() => {
   flex: 1;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 16px;
 
   &__label {

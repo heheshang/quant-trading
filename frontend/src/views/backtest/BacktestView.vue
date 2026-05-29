@@ -466,7 +466,7 @@ defineExpose({
 
 <style scoped lang="scss">
 .backtest-view {
-  max-width: 1344px;
+  max-width: var(--content-max-width);
 }
 
 .page-header {
@@ -475,8 +475,10 @@ defineExpose({
   .page-title {
     font-size: 24px;
     font-weight: 600;
+    font-family: var(--font-ui);
     color: var(--color-text-primary);
     margin: 0;
+    letter-spacing: -0.3px;
   }
 }
 
@@ -494,7 +496,7 @@ defineExpose({
 
 .results-panel {
   flex: 1;
-  min-width: 0; // prevent overflow
+  min-width: 0;
 }
 
 @media (max-width: 900px) {
@@ -516,15 +518,19 @@ defineExpose({
   .progress-card {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 8px;
-  }
-
-  .progress-content {
+    border-radius: var(--radius-lg);
+    padding: 28px 24px;
+    box-shadow: var(--shadow-card);
+    transition: all var(--transition-base);
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 16px;
-    padding: 24px 0;
+
+    &:hover {
+      box-shadow: var(--shadow-card-hover);
+      border-color: var(--color-border-hover);
+    }
   }
 
   .strategy-summary {
@@ -536,10 +542,6 @@ defineExpose({
   .progress-bar-wrapper {
     width: 100%;
     max-width: 320px;
-
-    .progress-bar {
-      width: 100%;
-    }
   }
 
   .running-status-text {
@@ -549,7 +551,8 @@ defineExpose({
   }
 
   .cancel-btn {
-    min-width: 80px;
+    min-width: 100px;
+    border-radius: var(--radius-sm);
   }
 }
 
@@ -559,6 +562,8 @@ defineExpose({
 
   .return-params-btn {
     display: block;
+    margin-top: 12px;
+    border-radius: var(--radius-sm);
   }
 }
 
@@ -569,8 +574,15 @@ defineExpose({
   .empty-card {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 8px;
-    padding: 40px;
+    border-radius: var(--radius-lg);
+    padding: 48px 24px;
+    box-shadow: var(--shadow-card);
+    transition: all var(--transition-base);
+
+    &:hover {
+      box-shadow: var(--shadow-card-hover);
+      border-color: var(--color-border-hover);
+    }
   }
 }
 
@@ -594,7 +606,14 @@ defineExpose({
   padding: 0 16px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  transition: all var(--transition-base);
+
+  &:hover {
+    box-shadow: var(--shadow-card-hover);
+    border-color: var(--color-border-hover);
+  }
 
   .action-bar-left {
     display: flex;
@@ -603,9 +622,10 @@ defineExpose({
   }
 
   .result-title {
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 600;
     color: var(--color-text-primary);
+    font-family: var(--font-ui);
   }
 
   .result-subtitle {
@@ -617,6 +637,24 @@ defineExpose({
     display: flex;
     align-items: center;
     gap: 8px;
+
+    .el-button {
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .rerun-btn {
+      background: var(--color-primary);
+      border-color: var(--color-primary);
+      color: #fff;
+      box-shadow: var(--shadow-glow-primary);
+
+      &:hover {
+        background: var(--color-primary-hover);
+        border-color: var(--color-primary-hover);
+      }
+    }
   }
 }
 
@@ -629,7 +667,37 @@ defineExpose({
 .result-tabs {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
-  padding: 16px;
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  box-shadow: var(--shadow-card);
+  transition: all var(--transition-base);
+
+  &:hover {
+    box-shadow: var(--shadow-card-hover);
+    border-color: var(--color-border-hover);
+  }
+
+  :deep(.el-tabs__header) {
+    margin-bottom: 16px;
+  }
+
+  :deep(.el-tabs__item) {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--color-text-tertiary);
+    padding: 0 16px;
+
+    &.is-active {
+      color: var(--color-primary);
+    }
+  }
+
+  :deep(.el-tabs__active-bar) {
+    background: var(--color-primary);
+  }
+
+  :deep(.el-tabs__nav-wrap::after) {
+    background: var(--color-border);
+  }
 }
 </style>

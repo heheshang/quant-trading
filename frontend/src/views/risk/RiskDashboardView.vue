@@ -23,6 +23,7 @@
         type="danger"
         size="large"
         :loading="emergencyLoading"
+        class="btn-emergency"
         @click="handleEmergencyClose"
       >
         <el-icon class="el-icon--left"><WarningFilled /></el-icon>
@@ -357,11 +358,18 @@ onUnmounted(() => {
 </script>
 
 <style scoped lang="scss">
+// Font imports — Outfit (UI) + Work Sans (body/mono fallback)
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Work+Sans:wght@400;500;600;700&display=swap');
+
 .risk-dashboard {
-  padding: 16px;
+  padding: var(--layout-padding-desktop);
   display: flex;
   flex-direction: column;
   gap: 16px;
+
+  @media (max-width: 767px) {
+    padding: var(--layout-padding-mobile);
+  }
 }
 
 // ─── Header ─────────────────────────────────────────────────
@@ -373,10 +381,12 @@ onUnmounted(() => {
 }
 
 .page-title {
-  font-size: 20px;
+  font-family: 'Outfit', var(--font-ui), sans-serif;
+  font-size: 22px;
   font-weight: 700;
   color: var(--color-text-primary);
   margin: 0;
+  letter-spacing: -0.3px;
 }
 
 .header-controls {
@@ -390,42 +400,42 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 12px;
-  border-radius: 20px;
+  padding: 6px 14px;
+  border-radius: var(--radius-lg);
   border: 1px solid transparent;
   font-size: 13px;
   font-weight: 500;
-  transition: all 0.3s;
+  transition: all 0.3s ease;
 
   &--connected {
-    background: rgba(103, 194, 58, 0.08);
-    border-color: rgba(103, 194, 58, 0.3);
-    color: var(--color-positive);
+    background: rgba(59, 130, 246, 0.08);
+    border-color: rgba(59, 130, 246, 0.3);
+    color: var(--color-primary);
 
     .connection-dot {
-      background: var(--color-positive);
-      box-shadow: 0 0 6px var(--color-positive);
+      background: var(--color-primary);
+      box-shadow: 0 0 8px var(--color-primary);
     }
   }
 
   &--warning {
-    background: rgba(230, 162, 60, 0.08);
-    border-color: rgba(230, 162, 60, 0.3);
-    color: #e6a23c;
+    background: rgba(245, 166, 35, 0.08);
+    border-color: rgba(245, 166, 35, 0.3);
+    color: var(--color-warning);
 
     .connection-dot {
-      background: #e6a23c;
+      background: var(--color-warning);
       animation: pulse 1.5s ease-in-out infinite;
     }
   }
 
   &--critical {
-    background: rgba(245, 108, 108, 0.08);
-    border-color: rgba(245, 108, 108, 0.3);
-    color: var(--color-negative);
+    background: rgba(229, 72, 77, 0.08);
+    border-color: rgba(229, 72, 77, 0.3);
+    color: var(--color-error);
 
     .connection-dot {
-      background: var(--color-negative);
+      background: var(--color-error);
       animation: pulse 0.8s ease-in-out infinite;
     }
   }
@@ -449,7 +459,9 @@ onUnmounted(() => {
 }
 
 .connection-label {
-  font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+  font-family: 'Work Sans', var(--font-mono), monospace;
+  font-weight: 500;
+  letter-spacing: 0.3px;
 }
 
 @keyframes pulse {
@@ -462,15 +474,26 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 12px 16px;
+  padding: 14px 20px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
+}
+
+.btn-emergency {
+  font-family: 'Outfit', var(--font-ui), sans-serif;
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(229, 72, 77, 0.3);
+
+  &:hover {
+    box-shadow: 0 6px 24px rgba(229, 72, 77, 0.4);
+  }
 }
 
 .error-text {
-  color: var(--color-negative);
+  color: var(--color-error);
   font-size: 13px;
+  font-family: 'Work Sans', var(--font-ui), sans-serif;
 }
 
 // ─── Overview Cards ─────────────────────────────────────────
@@ -481,12 +504,17 @@ onUnmounted(() => {
 .metric-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 20px;
-  transition: box-shadow 0.2s;
+  transition:
+    box-shadow 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
 
   &:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 4px 20px rgba(59, 130, 246, 0.12);
+    border-color: rgba(59, 130, 246, 0.3);
+    transform: translateY(-2px);
   }
 
   &--loading {
@@ -501,23 +529,30 @@ onUnmounted(() => {
   }
 
   &__label {
+    font-family: 'Work Sans', var(--font-ui), sans-serif;
     font-size: 13px;
+    font-weight: 500;
     color: var(--color-text-tertiary);
+    letter-spacing: 0.2px;
   }
 
   &__icon {
-    color: var(--color-accent);
+    color: var(--color-primary);
+    opacity: 0.8;
   }
 
   &__value {
-    font-size: 24px;
+    font-family: 'Outfit', var(--font-ui), sans-serif;
+    font-size: 26px;
     font-weight: 700;
-    font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+    font-feature-settings: 'tnum';
     color: var(--color-text-primary);
     margin-bottom: 4px;
+    letter-spacing: -0.5px;
   }
 
   &__sub {
+    font-family: 'Work Sans', var(--font-ui), sans-serif;
     font-size: 12px;
     color: var(--color-text-tertiary);
     display: flex;
@@ -531,29 +566,42 @@ onUnmounted(() => {
 }
 
 .skeleton-line {
-  background: var(--color-surface);
-  border-radius: 4px;
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-elevated) 0%,
+    rgba(255, 255, 255, 0.08) 50%,
+    var(--color-surface-elevated) 100%
+  );
+  background-size: 200% 100%;
+  border-radius: var(--radius-sm);
   animation: skeleton-shimmer 1.5s ease-in-out infinite;
 }
 
 @keyframes skeleton-shimmer {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 1; }
+  0% { background-position: 200% 0; opacity: 0.6; }
+  50% { background-position: 0% 0; opacity: 1; }
+  100% { background-position: -200% 0; opacity: 0.6; }
 }
 
 .tag {
+  font-family: 'Work Sans', var(--font-ui), sans-serif;
   font-size: 11px;
-  padding: 1px 6px;
-  border-radius: 4px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
 
   &--active {
-    background: rgba(103, 194, 58, 0.15);
-    color: var(--color-positive);
+    background: var(--color-primary-light);
+    color: var(--color-primary);
+    border: 1px solid rgba(59, 130, 246, 0.2);
   }
 
   &--inactive {
-    background: var(--color-surface);
+    background: var(--color-surface-elevated);
     color: var(--color-text-tertiary);
+    border: 1px solid var(--color-border);
   }
 }
 
@@ -561,27 +609,36 @@ onUnmounted(() => {
 .section-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 20px;
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: var(--color-border-hover);
+  }
 }
 
 .section-header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   margin-bottom: 16px;
 }
 
 .section-title {
-  font-size: 14px;
+  font-family: 'Outfit', var(--font-ui), sans-serif;
+  font-size: 15px;
   font-weight: 600;
   color: var(--color-text-primary);
+  letter-spacing: -0.2px;
 }
 
 .log-count {
+  font-family: 'Work Sans', var(--font-ui), sans-serif;
   font-size: 12px;
   color: var(--color-text-tertiary);
   margin-left: auto;
+  font-weight: 500;
 }
 
 .skeleton-block {
@@ -606,6 +663,10 @@ onUnmounted(() => {
   .action-bar {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .metric-card__value {
+    font-size: 22px;
   }
 }
 </style>

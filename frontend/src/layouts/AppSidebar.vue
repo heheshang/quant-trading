@@ -131,26 +131,23 @@ function handleSelect(index: string) {
 
     .logo-icon {
       flex-shrink: 0;
-      width: 24px;
-      height: 24px;
-      color: var(--color-accent);
+      width: 26px;
+      height: 26px;
+      color: var(--color-primary);
       display: flex;
       align-items: center;
       justify-content: center;
-      filter: drop-shadow(0 0 8px rgba(113, 112, 255, 0.4));
+      filter: drop-shadow(0 0 8px var(--color-primary-glow));
       transition: all var(--transition-base);
     }
 
     .logo-text {
       font-size: 15px;
-      font-weight: 700;
+      font-weight: 600;
+      font-family: var(--font-heading);
       color: var(--color-text-primary);
       white-space: nowrap;
       letter-spacing: -0.3px;
-      background: var(--gradient-accent);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
     }
   }
 
@@ -159,18 +156,18 @@ function handleSelect(index: string) {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
 
     .nav-item {
-      height: 42px;
-      padding: 0 16px;
-      border-radius: 8px;
+      height: 40px;
+      padding: 0 12px;
+      border-radius: var(--radius-md);
       display: flex;
       align-items: center;
       gap: 12px;
       cursor: pointer;
       transition: all var(--transition-fast);
-      color: var(--color-text-tertiary);
+      color: var(--color-text-secondary);
       white-space: nowrap;
       overflow: hidden;
       position: relative;
@@ -184,7 +181,7 @@ function handleSelect(index: string) {
       }
 
       .nav-label {
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 500;
         transition: all var(--transition-fast);
       }
@@ -197,38 +194,36 @@ function handleSelect(index: string) {
         transform: translateY(-50%);
         width: 3px;
         height: 0;
-        background: var(--gradient-accent);
+        background: var(--gradient-primary);
         border-radius: 0 2px 2px 0;
         transition: height var(--transition-fast);
       }
 
       &:hover {
-        background: rgba(255, 255, 255, 0.05);
+        background: rgba(255, 255, 255, 0.04);
         color: var(--color-text-primary);
-        transform: translateX(2px);
 
         .nav-icon {
-          transform: scale(1.1);
+          transform: scale(1.05);
         }
       }
 
       &.is-active {
-        background: var(--color-accent-light);
-        color: var(--color-accent);
+        background: var(--color-primary-light);
+        color: var(--color-primary);
         font-weight: 600;
-        box-shadow: inset 0 0 0 1px rgba(113, 112, 255, 0.2);
 
         &::before {
           height: 60%;
         }
 
         .nav-icon {
-          color: var(--color-accent);
-          filter: drop-shadow(0 0 6px rgba(113, 112, 255, 0.5));
+          color: var(--color-primary);
+          filter: drop-shadow(0 0 6px var(--color-primary-glow));
         }
 
         .nav-label {
-          color: var(--color-accent);
+          color: var(--color-primary);
         }
       }
     }

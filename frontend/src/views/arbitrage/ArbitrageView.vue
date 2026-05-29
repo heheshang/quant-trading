@@ -684,11 +684,67 @@ function getPositionStatusLabel(s: string): string {
 onMounted(fetchAll)
 </script>
 
-<style scoped>
+<style scoped lang="scss">
+// Design tokens — Financial Dashboard system
+// Primary: #3B82F6 | Fonts: Outfit (headings) + Work Sans (body) | radius-lg cards | shadow-glow-primary cards
+
+$color-bg: #08090a;
+$color-surface: #191a1b;
+$color-surface-elevated: #212223;
+$color-border: rgba(255, 255, 255, 0.08);
+$color-text-primary: #f7f8f8;
+$color-text-secondary: #d0d6e0;
+$color-text-tertiary: #8a8f98;
+$color-primary: #3B82F6;
+$color-primary-light: rgba(59, 130, 246, 0.15);
+$color-success: #10b981;
+$color-error: #e5484d;
+$font-outfit: 'Outfit', 'Inter', system-ui, sans-serif;
+$font-work-sans: 'Work Sans', 'Inter', system-ui, sans-serif;
+
+$radius-sm: 6px;
+$radius-md: 8px;
+$radius-lg: 12px;                 // card radius
+$shadow-glow-primary: 0 4px 16px rgba(59, 130, 246, 0.35);
+
+// Design token CSS vars (mirrors global system)
+:root {
+  --color-primary: #{$color-primary};
+  --radius-lg: #{$radius-lg};
+  --shadow-glow-primary: #{$shadow-glow-primary};
+  --font-outfit: #{$font-outfit};
+  --font-work-sans: #{$font-work-sans};
+  --color-text-primary: #{$color-text-primary};
+  --color-text-secondary: #{$color-text-secondary};
+  --color-text-tertiary: #{$color-text-tertiary};
+  --color-success: #{$color-success};
+  --color-error: #{$color-error};
+  --color-surface: #{$color-surface};
+  --color-surface-elevated: #{$color-surface-elevated};
+  --color-border: #{$color-border};
+  --transition-fast: 0.2s ease;
+  --transition-base: 0.3s ease;
+}
+
+@mixin card {
+  background: var(--color-surface);
+  border: 1px solid $color-border;
+  border-radius: var(--radius-lg, #{$radius-lg});
+  box-shadow: $shadow-glow-primary;
+}
+
+@mixin primary-btn {
+  background: $color-primary;
+  box-shadow: $shadow-glow-primary;
+  color: #fff;
+  border: none;
+}
+
 .arbitrage-view {
   padding: 24px;
   max-width: 1400px;
   margin: 0 auto;
+  font-family: var(--font-work-sans);
 }
 
 .page-header {
@@ -700,7 +756,8 @@ onMounted(fetchAll)
 
 .page-title {
   font-size: 24px;
-  font-weight: 600;
+  font-weight: 700;
+  font-family: var(--font-outfit);
   color: var(--color-text-primary);
   margin: 0;
 }
@@ -708,6 +765,11 @@ onMounted(fetchAll)
 .header-actions {
   display: flex;
   gap: 12px;
+
+  :deep(.el-button--primary) {
+    @include primary-btn;
+    border-radius: var(--radius-lg, #{$radius-lg});
+  }
 }
 
 .skeleton-table {
@@ -715,6 +777,7 @@ onMounted(fetchAll)
 }
 
 .state-card {
+  @include card;
   margin-top: 16px;
 }
 
@@ -727,7 +790,9 @@ onMounted(fetchAll)
 }
 
 .summary-card {
-  border-radius: 8px;
+  @include card;
+  padding: 20px;
+  transition: box-shadow var(--transition-fast);
 }
 
 .summary-item {
@@ -738,12 +803,14 @@ onMounted(fetchAll)
 
 .summary-label {
   font-size: 13px;
+  font-family: var(--font-work-sans);
   color: var(--color-text-secondary);
 }
 
 .summary-value {
   font-size: 24px;
-  font-weight: 600;
+  font-weight: 700;
+  font-family: var(--font-outfit);
   color: var(--color-text-primary);
 }
 
@@ -771,6 +838,23 @@ onMounted(fetchAll)
 
 .search-input {
   width: 280px;
+
+  :deep(.el-input__wrapper) {
+    background: var(--color-surface-elevated) !important;
+    border-radius: var(--radius-lg, #{$radius-lg}) !important;
+    box-shadow: none;
+    border: 1px solid var(--color-border);
+    transition: all var(--transition-fast);
+
+    &:hover {
+      border-color: rgba(255, 255, 255, 0.16);
+    }
+
+    &.is-focus {
+      border-color: var(--color-primary) !important;
+      box-shadow: var(--shadow-glow-primary) !important;
+    }
+  }
 }
 
 /* Pairs Grid */
@@ -782,31 +866,40 @@ onMounted(fetchAll)
 }
 
 .pair-card {
-  border-radius: 8px;
+  @include card;
+  padding: 20px;
   cursor: default;
+  transition: box-shadow var(--transition-fast), transform var(--transition-base);
+
+  &:hover {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), var(--shadow-glow-primary);
+    transform: translateY(-2px);
+  }
 }
 
 .card-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 .pair-title {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .pair-symbols {
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 700;
+  font-family: var(--font-outfit);
   color: var(--color-text-primary);
 }
 
 .pair-type-tag {
   align-self: flex-start;
+  border-radius: var(--radius-sm) !important;
 }
 
 .status-badge {
@@ -814,40 +907,44 @@ onMounted(fetchAll)
   align-items: center;
   gap: 4px;
   font-size: 12px;
-  padding: 2px 8px;
-  border-radius: 4px;
+  padding: 3px 10px;
+  border-radius: var(--radius-lg, #{$radius-lg});
+  font-family: var(--font-work-sans);
 }
 
 .status--active {
-  background: rgba(34, 197, 94, 0.1);
+  background: rgba(16, 185, 129, 0.12);
   color: var(--color-success);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.2);
 }
 
 .status--inactive {
-  background: rgba(100, 116, 139, 0.1);
+  background: rgba(138, 143, 152, 0.12);
   color: var(--color-text-tertiary);
 }
 
 .status--open {
-  background: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.12);
+  color: var(--color-primary);
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.2);
 }
 
 .status--closed {
-  background: rgba(100, 116, 139, 0.1);
+  background: rgba(138, 143, 152, 0.12);
   color: var(--color-text-tertiary);
 }
 
 .status--liquidated {
-  background: rgba(239, 68, 68, 0.1);
+  background: rgba(229, 72, 77, 0.12);
   color: var(--color-error);
+  box-shadow: 0 0 8px rgba(229, 72, 77, 0.2);
 }
 
 .card-body {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-bottom: 12px;
+  gap: 8px;
+  margin-bottom: 16px;
 }
 
 .info-row {
@@ -855,6 +952,7 @@ onMounted(fetchAll)
   align-items: center;
   justify-content: space-between;
   font-size: 13px;
+  font-family: var(--font-work-sans);
 }
 
 .info-label {
@@ -863,24 +961,30 @@ onMounted(fetchAll)
 
 .info-value {
   color: var(--color-text-primary);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .card-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-top: 12px;
+  padding-top: 14px;
   border-top: 1px solid var(--color-border);
 }
 
 .update-time {
   font-size: 12px;
+  font-family: var(--font-work-sans);
   color: var(--color-text-tertiary);
 }
 
 .action-btn {
-  padding: 4px;
+  padding: 6px;
+
+  &:hover {
+    background: var(--color-surface-elevated) !important;
+    border-radius: var(--radius-md);
+  }
 }
 
 /* Sections */
@@ -897,19 +1001,66 @@ onMounted(fetchAll)
 
 .section-title {
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 700;
+  font-family: var(--font-outfit);
   color: var(--color-text-primary);
   margin: 0;
 }
 
 .positions-table,
 .signals-table {
-  border-radius: 8px;
+  @include card;
+  padding: 16px;
+  border-radius: var(--radius-lg, #{$radius-lg});
+
+  :deep(.el-table__header th) {
+    font-family: var(--font-outfit);
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  :deep(.el-table__body td) {
+    font-family: var(--font-work-sans);
+    font-size: 13px;
+  }
 }
 
 /* Dialog form */
-.pair-form .full-width {
-  width: 100%;
+.pair-form {
+  .full-width {
+    width: 100%;
+  }
+
+  :deep(.el-form-item__label) {
+    font-family: var(--font-work-sans);
+    color: var(--color-text-secondary);
+  }
+
+  :deep(.el-input__wrapper),
+  :deep(.el-select__wrapper) {
+    background: var(--color-surface-elevated) !important;
+    border-radius: var(--radius-md) !important;
+    border: 1px solid var(--color-border);
+    box-shadow: none !important;
+    transition: all var(--transition-fast);
+
+    &:hover {
+      border-color: rgba(255, 255, 255, 0.16);
+    }
+
+    &.is-focus {
+      border-color: var(--color-primary) !important;
+      box-shadow: var(--shadow-glow-primary) !important;
+    }
+  }
+
+  :deep(.el-input-number) {
+    .el-input__wrapper {
+      border-radius: var(--radius-md) !important;
+    }
+  }
 }
 
 .danger-text {
@@ -918,9 +1069,19 @@ onMounted(fetchAll)
 
 .is-positive {
   color: var(--color-success);
+  font-weight: 600;
 }
 
 .is-negative {
   color: var(--color-error);
+  font-weight: 600;
+}
+
+/* Primary dialog button */
+:deep(.el-dialog__footer) {
+  .el-button--primary {
+    @include primary-btn;
+    border-radius: var(--radius-lg, #{$radius-lg});
+  }
 }
 </style>

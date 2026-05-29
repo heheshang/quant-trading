@@ -795,8 +795,10 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Work+Sans:wght@400;500;600&display=swap');
+
 .admin-view {
-  max-width: 1344px;
+  max-width: var(--content-max-width, 1344px);
 }
 
 .page-header {
@@ -805,6 +807,7 @@ onMounted(() => {
   h1 {
     font-size: 24px;
     font-weight: 600;
+    font-family: var(--font-outfit, 'Outfit', sans-serif);
     color: var(--color-text-primary);
     margin: 0;
   }
@@ -824,12 +827,13 @@ onMounted(() => {
   :deep(.el-tabs__item) {
     color: var(--color-text-tertiary);
     font-size: 14px;
+    font-family: var(--font-work-sans, 'Work Sans', sans-serif);
     &.is-active {
-      color: var(--color-accent);
+      color: var(--color-primary);
     }
   }
   :deep(.el-tabs__active-bar) {
-    background: var(--color-accent);
+    background: var(--color-primary);
   }
 }
 
@@ -897,6 +901,13 @@ onMounted(() => {
 
 .status-card {
   flex: 0 0 auto;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card, 0 2px 8px rgba(0,0,0,0.4));
+  transition: box-shadow var(--transition-base);
+
+  &:hover {
+    box-shadow: var(--shadow-glow-primary);
+  }
 
   .status-indicator {
     display: flex;
@@ -951,6 +962,18 @@ onMounted(() => {
 }
 
 // ─── Emergency Panel ───────────────────────────────────────────
+
+.el-card {
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card, 0 2px 8px rgba(0,0,0,0.4));
+  border: 1px solid var(--color-border);
+  transition: box-shadow var(--transition-base), border-color var(--transition-base);
+
+  &:hover {
+    border-color: var(--color-border-hover);
+    box-shadow: var(--shadow-glow-primary);
+  }
+}
 
 .emergency-status-card {
   .emergency-status-grid {
