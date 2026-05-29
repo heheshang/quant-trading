@@ -741,10 +741,6 @@ $shadow-glow-primary: 0 4px 16px rgba(59, 130, 246, 0.35);
 }
 
 .arbitrage-view {
-  padding: 24px;
-  max-width: 1400px;
-  margin: 0 auto;
-  font-family: var(--font-work-sans);
   overflow: hidden;
 }
 

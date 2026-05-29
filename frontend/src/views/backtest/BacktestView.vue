@@ -466,7 +466,6 @@ defineExpose({
 
 <style scoped lang="scss">
 .backtest-view {
-  max-width: var(--content-max-width);
   overflow: hidden;
 }
 

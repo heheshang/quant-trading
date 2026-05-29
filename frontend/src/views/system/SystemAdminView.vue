@@ -798,7 +798,6 @@ onMounted(() => {
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Work+Sans:wght@400;500;600&display=swap');
 
 .admin-view {
-  max-width: var(--content-max-width, 1344px);
   overflow: hidden;
 }
 

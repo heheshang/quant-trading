@@ -366,7 +366,6 @@ defineExpose({
 
 <style scoped>
 .kline-list-view {
-  padding: 24px;
   overflow: hidden;
 }
 

@@ -113,10 +113,7 @@ onBeforeUnmount(() => {
 
 <style scoped lang="scss">
 .market-view {
-  max-width: var(--content-max-width);
-  padding: 0 var(--layout-padding);
   overflow: hidden;
-  animation: fadeIn var(--transition-base);
 
   .page-header {
     margin-bottom: 24px;
