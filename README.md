@@ -6,61 +6,45 @@
 
 | 层级 | 技术 | 说明 |
 |------|------|------|
-| 运行环境 | Rust 2021 | 高性能系统级语言 |
-| Web 框架 | Axum 0.8 | 异步 Web 框架，原生支持 WebSocket |
+| 前端框架 | Vue 3 + TypeScript | 组合式 API + Pinia 状态管理 |
+| UI 组件 | Element Plus | 金融风格组件库 |
+| 图表 | lightweight-charts | TradingView K 线图表 |
+| 后端 | Rust + Axum 0.8 | 异步 Web 框架，原生 WebSocket |
 | 数据库 | PostgreSQL 16 + SeaORM | 关系型数据库 + ORM |
-| 认证 | JWT (jsonwebtoken) | 双 Token 机制（access + refresh） |
-| 密码 | bcrypt | 密码哈希存储 |
-| 序列化 | Serde + serde_json | JSON 序列化/反序列化 |
+| 缓存 | Redis | WebSocket 会话 / 实时行情 |
+| 认证 | JWT (jsonwebtoken) | 双 Token（access + refresh） |
+| 部署 | Docker Compose | 前后端容器化 |
 
 ## 项目结构
 
 ```
 quant-trading/
-├── backend/                  # Rust 后端
+├── backend/                  # Rust 后端（Axum）
 │   └── src/
 │       ├── main.rs           # 入口 + 路由注册
 │       ├── lib.rs            # 模块导出
 │       ├── config.rs         # 配置管理
-│       ├── db/               # 数据库层（SeaORM 实体 + 迁移）
-│       │   ├── mod.rs
-│       │   ├── strategy.rs   # 策略表实体
-│       │   ├── user.rs       # 用户表实体
-│       │   ├── permission.rs # 权限表实体
-│       │   └── ...
-│       ├── handlers/         # HTTP 处理器
-│       │   ├── mod.rs
-│       │   ├── auth.rs       # 认证处理器
-│       │   ├── strategy.rs   # 策略 CRUD 处理器
-│       │   ├── users.rs      # 用户管理处理器
-│       │   └── ws.rs         # WebSocket 处理器
+│       ├── db/               # SeaORM 实体层
+│       ├── handlers/         # HTTP 处理器（认证/策略/交易/市场/风控）
 │       ├── services/         # 业务逻辑层
-│       │   ├── mod.rs
-│       │   ├── auth.rs       # 认证服务
-│       │   ├── strategy.rs   # 策略服务（模板引擎 + CRUD）
-│       │   └── backtest_engine.rs # 回测引擎核心
-│       ├── models/           # 数据模型
-│       │   ├── mod.rs
-│       │   ├── backtest.rs   # 回测请求/响应/指标模型
-│       │   └── schemas.rs    # 请求/响应 Schema
-│       ├── middleware/       # 中间件
-│       │   ├── mod.rs
-│       │   └── auth.rs       # JWT 认证中间件
-│       └── utils/            # 工具函数
-│           ├── mod.rs
-│           ├── error.rs      # 统一错误处理
-│           └── response.rs   # 统一响应格式
-├── frontend/                 # 前端（Vue/React）
+│       ├── models/           # 请求/响应数据模型
+│       ├── middleware/       # JWT 认证中间件
+│       └── utils/            # 统一错误/响应
+├── frontend/                 # Vue 3 前端
+│   └── src/
+│       ├── api/              # Axios HTTP 客户端
+│       ├── assets/styles/    # 全局样式（CSS 变量系统）
+│       ├── components/       # 公共组件（K 线图/订单表单/持仓面板）
+│       ├── layouts/          # 主布局（侧边栏 + 顶栏）
+│       ├── router/           # Vue Router 路由
+│       ├── stores/           # Pinia 状态管理
+│       ├── types/            # TypeScript 类型定义
+│       └── views/            # 页面视图（11 个业务页面）
 ├── docs/                     # 文档
 │   ├── architecture/         # 架构文档
-│   ├── design/               # 设计文档
-│   ├── prd/                  # 产品需求文档
-│   ├── auth-api.md           # 认证 API 文档
-│   ├── strategy-api.md       # 策略管理 API 文档
-│   ├── backtest-api.md       # 回测引擎 API 文档
-│   ├── backtest-user-guide.md # 回测引擎使用说明
-│   └── backtest-metrics.md   # 回测绩效指标定义
-└── docker-compose.yml        # Docker 编排
+│   ├── design/               # 设计文档（UI/UX 设计规范）
+│   └── ...
+└── docker-compose.yml        # Docker 编排（postgres/redis/backend/frontend）
 ```
 
 ## 快速开始
@@ -211,12 +195,13 @@ cargo clippy     # 代码检查
 
 ## 版本
 
-当前版本: v0.3.0 — [CHANGELOG](./CHANGELOG.md)
+当前版本: v1.0.0 — [CHANGELOG](./CHANGELOG.md)
 
 ### 版本历史
 
 | 版本 | 日期 | 主要变更 |
 |------|------|---------|
+| v1.0.0 | 2026-05-29 | UI 全面重构（Financial Dashboard 风格 + Trust Blue + 铺满布局 + K 线图表优化） |
 | v0.3.0 | 2026-05-13 | 新增回测引擎模块（异步回测 + 14 项绩效指标 + 双向交易） |
 | v0.2.0 | 2026-05-13 | 新增策略管理模块（模板引擎 + CRUD + 状态流转） |
 | v0.1.0 | 2026-05-11 | 初始版本：认证系统 + RBAC 权限 + 用户管理 |
