@@ -266,6 +266,11 @@ impl TriggerOrderService {
             "Stop loss order created"
         );
 
+        // P0-3: count trigger creation by type
+        crate::metrics::TRIGGER_ORDERS_CREATED_TOTAL
+            .with_label_values(&["stop_loss"])
+            .inc();
+
         Ok(result)
     }
 
@@ -342,6 +347,11 @@ impl TriggerOrderService {
             trigger_price = trigger_price,
             "Take profit order created"
         );
+
+        // P0-3: count trigger creation by type
+        crate::metrics::TRIGGER_ORDERS_CREATED_TOTAL
+            .with_label_values(&["take_profit"])
+            .inc();
 
         Ok(result)
     }
@@ -460,13 +470,17 @@ impl TriggerOrderService {
             })?;
 
         info!(
-            user_id = %user_id,
             position_id = %position_id,
             symbol = %symbol,
             stop_loss_price = stop_loss_price,
             take_profit_price = take_profit_price,
             "OCO order pair created"
         );
+
+        // P0-3: an OCO pair creates two trigger orders (sl + tp)
+        crate::metrics::TRIGGER_ORDERS_CREATED_TOTAL
+            .with_label_values(&["oco"])
+            .inc_by(2);
 
         Ok((stop_loss, take_profit))
     }
@@ -529,8 +543,8 @@ impl TriggerOrderService {
             .get_trigger_order_via_raw_text(new_id)
             .await?
             .ok_or_else(|| AppError::NotFound(format!("Trigger order {} not found", new_id)))?;
-
         info!(
+            new_id = %new_id,
             user_id = %user_id,
             symbol = %symbol,
             side = %side,
@@ -540,6 +554,11 @@ impl TriggerOrderService {
             duration_secs = duration_secs,
             "TWAP order created"
         );
+
+        // P0-3: count trigger creation by type
+        crate::metrics::TRIGGER_ORDERS_CREATED_TOTAL
+            .with_label_values(&["twap"])
+            .inc();
 
         Ok(result)
     }
@@ -656,6 +675,11 @@ impl TriggerOrderService {
             current_price = current_price,
             "Trigger order activated"
         );
+
+        // P0-3: count fired trigger orders by type
+        crate::metrics::TRIGGER_ORDERS_FIRED_TOTAL
+            .with_label_values(&[trigger_type_str(&order.trigger_type)])
+            .inc();
 
         Ok(())
     }
@@ -1145,3 +1169,4 @@ impl TriggerOrderService {
         Ok(true)
     }
 }
+

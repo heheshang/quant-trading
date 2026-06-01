@@ -140,6 +140,10 @@ impl OrderRateLimiter {
                     limiter.count(now_ms),
                     self.user_limit
                 );
+                // P0-3: count user-scope rate-limit denial
+                crate::metrics::RATE_LIMIT_DENIED_TOTAL
+                    .with_label_values(&["user"])
+                    .inc();
                 return Err(AppError::TooManyRequests(
                     "RL-001: Order rate limit exceeded".into(),
                 ));
@@ -159,6 +163,10 @@ impl OrderRateLimiter {
                     limiter.count(now_ms),
                     self.symbol_limit
                 );
+                // P0-3: count symbol-scope rate-limit denial
+                crate::metrics::RATE_LIMIT_DENIED_TOTAL
+                    .with_label_values(&["symbol"])
+                    .inc();
                 return Err(AppError::TooManyRequests(
                     "RL-001: Order rate limit exceeded".into(),
                 ));
@@ -174,6 +182,10 @@ impl OrderRateLimiter {
                     global.count(now_ms),
                     self.global_limit_count
                 );
+                // P0-3: count global-scope rate-limit denial
+                crate::metrics::RATE_LIMIT_DENIED_TOTAL
+                    .with_label_values(&["global"])
+                    .inc();
                 return Err(AppError::TooManyRequests(
                     "RL-001: Order rate limit exceeded".into(),
                 ));

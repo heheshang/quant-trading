@@ -600,6 +600,16 @@ pub async fn create_order(
                     AppError::Database(e.to_string())
                 })?;
 
+                // P0-3: count market-order creation + fill
+                crate::metrics::ORDERS_CREATED_TOTAL
+                    .with_label_values(&[order_side_str(&side), "market", "local"])
+                    .inc();
+                if result.is_fully_filled || result.filled_quantity > 0.0 {
+                    crate::metrics::ORDERS_FILLED_TOTAL
+                        .with_label_values(&[order_side_str(&side), "local"])
+                        .inc();
+                }
+
                 return Ok((
                     StatusCode::CREATED,
                     headers.clone(),
@@ -630,6 +640,11 @@ pub async fn create_order(
         .await
         .map_err(|e| AppError::Database(e.to_string()))?
         .ok_or_else(|| AppError::Internal("Order created but not found".to_string()))?;
+
+    // P0-3: count limit-order creation
+    crate::metrics::ORDERS_CREATED_TOTAL
+        .with_label_values(&[order_side_str(&side), "limit", "local"])
+        .inc();
 
     Ok((
         StatusCode::CREATED,
@@ -756,6 +771,11 @@ pub async fn cancel_order(
     })?;
 
     tracing::info!(order_id = %order_id, "Order cancelled");
+
+    // P0-3: count user-initiated cancel
+    crate::metrics::ORDERS_CANCELLED_TOTAL
+        .with_label_values(&["user", "local"])
+        .inc();
 
     Ok(Json(ApiResponse::success(CancelResult {
         order_id: updated.id.to_string(),
@@ -1406,5 +1426,36 @@ mod tests {
         let json_empty = r#"{}"#;
         let req_empty: ClosePositionRequest = serde_json::from_str(json_empty).unwrap();
         assert!(req_empty.quantity.is_none());
+    }
+}
+
+// ---------------------------------------------------------------------------
+// P0-3 helpers: stringify enums for Prometheus label values
+// ---------------------------------------------------------------------------
+
+/// Render an [`OrderSide`] as the lowercase label value used by
+/// `orders_created_total` / `orders_filled_total`. The values
+/// must match `serde_json::to_value(&side)` for the same enum so
+/// that dashboards and logs stay consistent.
+// P0-3: helper functions for Prometheus label values.
+// `#[cfg(test)]` sits above so clippy flags these as
+// "items after a test module"; they are tiny and used in
+// production, so we allow the lint locally.
+#[allow(clippy::items_after_test_module)]
+fn order_side_str(s: &crate::db::order::OrderSide) -> &'static str {
+    match s {
+        crate::db::order::OrderSide::Buy => "buy",
+        crate::db::order::OrderSide::Sell => "sell",
+    }
+}
+
+/// Render an [`OrderType`] as the lowercase label value used by
+/// `orders_created_total`.
+#[allow(dead_code)]
+#[allow(clippy::items_after_test_module)]
+fn order_type_str(t: &crate::db::order::OrderType) -> &'static str {
+    match t {
+        crate::db::order::OrderType::Limit => "limit",
+        crate::db::order::OrderType::Market => "market",
     }
 }

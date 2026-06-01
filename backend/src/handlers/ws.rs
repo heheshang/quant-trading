@@ -254,6 +254,11 @@ async fn handle_socket(
 ) {
     info!("WebSocket connection established for user: {}", user_id);
 
+    // P0-3: count active frontend WS connections
+    crate::metrics::WS_CONNECTIONS_ACTIVE
+        .with_label_values(&["frontend"])
+        .inc();
+
     let (mut sender, mut receiver) = socket.split();
     let mut hub_rx = ws_hub.subscribe();
     let mut subscriptions = ClientSubscriptions {
@@ -350,6 +355,11 @@ async fn handle_socket(
     }
 
     info!("WebSocket connection closed for user: {}", user_id);
+
+    // P0-3: decrement active frontend WS connections
+    crate::metrics::WS_CONNECTIONS_ACTIVE
+        .with_label_values(&["frontend"])
+        .dec();
 }
 
 /// Health check endpoint

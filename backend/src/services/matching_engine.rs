@@ -333,6 +333,17 @@ impl MatchingEngine {
             remaining -= match_qty;
         }
 
+        // P0-3: count filled quantity by side (label set bounded)
+        if filled > 1e-12 {
+            let side_label = match &side {
+                OrderSide::Buy => "buy",
+                OrderSide::Sell => "sell",
+            };
+            crate::metrics::ORDERS_FILLED_TOTAL
+                .with_label_values(&[side_label, "local"])
+                .inc_by(filled as u64);
+        }
+
         let avg_price = if filled > 1e-12 {
             Some(total_cost / filled)
         } else {
@@ -440,6 +451,15 @@ impl MatchingEngine {
                     is_maker: true,
                 });
 
+                // P0-3: count each limit-order fill
+                let side_label = match &entry.side {
+                    OrderSide::Buy => "buy",
+                    OrderSide::Sell => "sell",
+                };
+                crate::metrics::ORDERS_FILLED_TOTAL
+                    .with_label_values(&[side_label, "local"])
+                    .inc_by(fill_qty as u64);
+
                 // 更新剩余数量
                 entry.remaining_quantity -= fill_qty;
 
@@ -485,6 +505,15 @@ impl MatchingEngine {
                     fee: trade_fee,
                     is_maker: true,
                 });
+
+                // P0-3: count each limit-order fill
+                let side_label = match &entry.side {
+                    OrderSide::Buy => "buy",
+                    OrderSide::Sell => "sell",
+                };
+                crate::metrics::ORDERS_FILLED_TOTAL
+                    .with_label_values(&[side_label, "local"])
+                    .inc_by(fill_qty as u64);
 
                 entry.remaining_quantity -= fill_qty;
 

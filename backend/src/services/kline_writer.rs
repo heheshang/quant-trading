@@ -142,6 +142,12 @@ impl KlineWriter {
                     "KlineWriter: flushed {} records ({} inserted)",
                     count, inserted
                 );
+                // P0-3: count kline persistence by exchange (we only
+                // ingest Binance, but the label is kept for future
+                // multi-exchange fan-in).
+                crate::metrics::KLINE_PERSIST_TOTAL
+                    .with_label_values(&["binance", "all"])
+                    .inc_by(inserted as u64);
             }
             Err(e) => {
                 error!("KlineWriter: flush failed - {}", e);

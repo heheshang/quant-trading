@@ -279,6 +279,24 @@ pub async fn get_prediction(
         }
     };
 
+    // P0-3: count AI predictions by direction. Use
+    // `prediction.unwrap_or(...)` direction since the
+    // `Option<PredictionResult>` is always populated (defaults to
+    // neutral on errors) — this guarantees the label set is bounded
+    // (long/short/neutral).
+    let direction_label = match prediction
+        .as_ref()
+        .map(|p| p.direction.as_str())
+        .unwrap_or("neutral")
+    {
+        "long" => "long",
+        "short" => "short",
+        _ => "neutral",
+    };
+    crate::metrics::AI_PREDICTIONS_TOTAL
+        .with_label_values(&[direction_label])
+        .inc();
+
     Ok(Json(PredictionResponse {
         symbol,
         interval,

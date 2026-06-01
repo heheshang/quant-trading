@@ -204,6 +204,10 @@ impl RiskManager {
                 self.send_alert(user_id, ERR_DAILY_LOSS, "当日亏损超限，已执行自动平仓")
                     .await?;
             }
+            // P0-3: count risk rule trip
+            crate::metrics::RISK_RULES_TRIPPED_TOTAL
+                .with_label_values(&["daily_loss"])
+                .inc();
             return Err(AppError::RiskViolation(format!(
                 "当日亏损 {:.2} 超过限制 {:.2}",
                 daily_loss, rules.daily_loss_limit
@@ -249,6 +253,10 @@ impl RiskManager {
                     None,
                 )
                 .await?;
+                // P0-3: count risk rule trip
+                crate::metrics::RISK_RULES_TRIPPED_TOTAL
+                    .with_label_values(&["single_trade"])
+                    .inc();
                 return Err(AppError::RiskViolation(format!(
                     "单笔预估亏损比例 {:.2}% 超过限制 {:.2}%",
                     estimated_loss_ratio * Decimal::from(100),
@@ -266,6 +274,10 @@ impl RiskManager {
                     self.send_alert(user_id, ERR_DRAWDOWN, "总回撤超限，已执行自动平仓")
                         .await?;
                 }
+                // P0-3: count risk rule trip
+                crate::metrics::RISK_RULES_TRIPPED_TOTAL
+                    .with_label_values(&["max_drawdown"])
+                    .inc();
                 return Err(AppError::RiskViolation(format!(
                     "总回撤 {:.2}% 超过限制 {:.2}%",
                     drawdown * Decimal::from(100),

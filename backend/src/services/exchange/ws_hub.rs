@@ -293,6 +293,21 @@ impl WsHub {
         &self,
         msg: HubMessage,
     ) -> Result<usize, Box<broadcast::error::SendError<HubMessage>>> {
+        // P0-3: count WS broadcast by HubMessage variant. The kind
+        // label is the lowercase variant name so the same source of
+        // truth (`HubMessage`) is used to mint the label, avoiding
+        // a divergent string-table inside the dashboard.
+        let kind = match &msg {
+            HubMessage::Ticker { .. } => "ticker",
+            HubMessage::Depth { .. } => "depth",
+            HubMessage::Kline { .. } => "kline",
+            HubMessage::TradeExecuted { .. } => "trade_executed",
+            HubMessage::BacktestProgress { .. } => "backtest_progress",
+            HubMessage::AIPredict { .. } => "ai_predict",
+        };
+        crate::metrics::WS_MESSAGES_BROADCAST_TOTAL
+            .with_label_values(&[kind])
+            .inc();
         self.tx.send(msg).map_err(Box::new)
     }
 
