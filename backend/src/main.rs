@@ -617,6 +617,14 @@ fn create_router(
     )
     .merge(public_routes)
     .layer(cors)
+    // P0-2: HTTP metrics middleware (P0-1 metric definitions)
+    // Placed inside CORS but outside TraceLayer so:
+    //   - CORS preflight responses are still counted
+    //   - TraceLayer sees the real status from inner handlers
+    //   - The middleware itself can read response.status() cheaply
+    .layer(middleware::from_fn(
+        quant_trading_backend::middleware::metrics::http_metrics_middleware,
+    ))
     .layer(TraceLayer::new_for_http())
     .with_state(app_state.db.clone())
 }
