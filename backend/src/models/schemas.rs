@@ -400,6 +400,7 @@ pub struct KlineCleanRequest {
 #[derive(Debug, Clone, Serialize)]
 pub struct KlineCleanResult {
     pub removed_count: i64,
+    pub backup_count: i64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -407,9 +408,7 @@ pub struct KlineExportParams {
     pub symbol: String,
     pub interval: String,
     pub format: Option<String>,
-    #[allow(dead_code)]
     pub start_time: Option<i64>,
-    #[allow(dead_code)]
     pub end_time: Option<i64>,
 }
 

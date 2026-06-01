@@ -46,6 +46,50 @@ fn serialize_hub_message(msg: HubMessage) -> String {
                 }),
             }).unwrap_or_default()
         }
+        HubMessage::TradeExecuted { user_id, order_id, symbol, side, filled_quantity, avg_fill_price, is_fully_filled, realized_pnl } => {
+            serde_json::to_string(&WsJsonMessage {
+                channel: "trade:executed",
+                symbol: &symbol,
+                data: serde_json::json!({
+                    "user_id": user_id.to_string(),
+                    "order_id": order_id.to_string(),
+                    "side": side,
+                    "filled_quantity": filled_quantity,
+                    "avg_fill_price": avg_fill_price,
+                    "is_fully_filled": is_fully_filled,
+                    "realized_pnl": realized_pnl,
+                }),
+            }).unwrap_or_default()
+        }
+        HubMessage::BacktestProgress { backtest_id, progress, status } => {
+            serde_json::to_string(&WsJsonMessage {
+                channel: "backtest:progress",
+                symbol: "",
+                data: serde_json::json!({
+                    "backtest_id": backtest_id.to_string(),
+                    "progress": progress,
+                    "status": status,
+                }),
+            }).unwrap_or_default()
+        }
+        HubMessage::AIPredict { symbol, interval, direction, confidence, signal, price_target, analysis, indicators, generated_at } => {
+            serde_json::to_string(&WsJsonMessage {
+                channel: "ai:predict",
+                symbol: &symbol,
+                data: serde_json::json!({
+                    "type": "prediction",
+                    "symbol": symbol,
+                    "interval": interval,
+                    "direction": direction,
+                    "confidence": confidence,
+                    "signal": signal,
+                    "price_target": price_target,
+                    "analysis": analysis,
+                    "indicators": indicators,
+                    "generated_at": generated_at,
+                }),
+            }).unwrap_or_default()
+        }
     }
 }
 

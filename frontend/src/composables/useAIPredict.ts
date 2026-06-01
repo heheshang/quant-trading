@@ -1,7 +1,7 @@
 /**
  * useAIPredict - AI 预测 WebSocket Composable
  *
- * 连接 ws://localhost:8002/ws/predict/{symbol}?interval={interval}
+ * 连接后端统一 WebSocket /api/v1/ws?token=xxx，订阅 ai:predict:{symbol}:{interval} 频道
  * - 自动重连（指数退避 1s→2s→4s→...→30s）
  * - 心跳 ping/pong
  * - 消息状态回调注册
@@ -14,9 +14,13 @@ import type {
   AIPredictResponse,
 } from '@/types/ai'
 
-const WS_BASE_URL = 'ws://localhost:8002'
+// 后端统一 WS 地址（通过参数注入或环境变量）
+const DEFAULT_WS_URL = import.meta.env.VITE_WS_URL ||
+  `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/v1/ws`
 
 export interface UseAIPredictOptions {
+  /** 后端 WebSocket URL（默认使用 VITE_WS_URL 或相对路径 /api/v1/ws） */
+  wsUrl?: string
   /** 自动重连（默认 true） */
   useAutoReconnect?: boolean
   /** 重连最大间隔（默认 30000ms） */
@@ -28,7 +32,7 @@ export interface UseAIPredictOptions {
 export interface UseAIPredictReturn {
   status: Readonly<ReturnType<typeof ref<AIWsStatus>>>
   latestPrediction: Readonly<ReturnType<typeof ref<AIPredictResponse | null>>>
-  connect: (symbol: string, interval: string) => void
+  connect: (symbol: string, interval: string, token?: string) => void
   disconnect: () => void
   onMessage: (callback: (msg: WsAIPredictMessage) => void) => void
   onStatus: (callback: (status: AIWsStatus) => void) => void
@@ -36,6 +40,7 @@ export interface UseAIPredictReturn {
 
 export function useAIPredict(options: UseAIPredictOptions = {}): UseAIPredictReturn {
   const {
+    wsUrl = DEFAULT_WS_URL,
     useAutoReconnect = true,
     maxReconnectDelay = 30000,
     heartbeatInterval = 30000,
@@ -50,6 +55,7 @@ export function useAIPredict(options: UseAIPredictOptions = {}): UseAIPredictRet
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null
   let currentSymbol = ''
   let currentInterval = '1h'
+  let currentToken = ''
 
   let messageCallbacks: ((msg: WsAIPredictMessage) => void)[] = []
   let statusCallbacks: ((s: AIWsStatus) => void)[] = []
@@ -87,7 +93,7 @@ export function useAIPredict(options: UseAIPredictOptions = {}): UseAIPredictRet
     stopHeartbeat()
     heartbeatTimer = setInterval(() => {
       if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'ping' }))
+        ws.send(JSON.stringify({ action: 'pong' }))
       }
     }, heartbeatInterval)
   }
@@ -99,30 +105,44 @@ export function useAIPredict(options: UseAIPredictOptions = {}): UseAIPredictRet
     }
   }
 
-  function connect(symbol: string, interval: string): void {
+  function connect(symbol: string, interval: string, token?: string): void {
     // 清理旧连接
     disconnect()
 
     currentSymbol = symbol
     currentInterval = interval
+    if (token) currentToken = token
 
-    const url = `${WS_BASE_URL}/ws/predict/${encodeURIComponent(symbol)}?interval=${encodeURIComponent(interval)}`
+    // 构建订阅频道名
+    const channel = `ai:predict:${symbol}:${interval}`
+    // 若 wsUrl 中已包含 token 参数则直接使用，否则在 query 中追加 token
+    let url = wsUrl
+    if (token && !wsUrl.includes('token=')) {
+      url = `${wsUrl}${wsUrl.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`
+    }
+
     notifyStatus('connecting')
-
     ws = new WebSocket(url)
 
     ws.onopen = () => {
       notifyStatus('connected')
       reconnectAttempts = 0
+      // 订阅 ai:predict 频道
+      ws?.send(JSON.stringify({ action: 'subscribe', channels: [channel] }))
       startHeartbeat()
     }
 
     ws.onmessage = (event: MessageEvent) => {
       try {
-        const msg: WsAIPredictMessage = JSON.parse(event.data)
+        const msg: WsAIPredictMessage & { channel?: string } = JSON.parse(event.data)
 
         if (msg.type === 'heartbeat') {
           // 后端心跳响应
+          return
+        }
+
+        // 过滤非 ai:predict 频道的消息（支持多频道 WS 的情况）
+        if (msg.channel && !msg.channel.startsWith('ai:predict:')) {
           return
         }
 
@@ -155,7 +175,7 @@ export function useAIPredict(options: UseAIPredictOptions = {}): UseAIPredictRet
     reconnectTimer = setTimeout(() => {
       reconnectTimer = null
       if (currentSymbol) {
-        connect(currentSymbol, currentInterval)
+        connect(currentSymbol, currentInterval, currentToken)
       }
     }, delay)
   }

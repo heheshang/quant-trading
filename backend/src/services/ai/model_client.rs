@@ -101,6 +101,12 @@ pub struct PredictionResponse {
     pub generated_at: String,
     #[serde(default)]
     pub price_target: Option<f64>, // optional price forecast
+    #[serde(default)]
+    pub signal: Option<String>,
+    #[serde(default)]
+    pub analysis: Option<String>,
+    #[serde(default)]
+    pub indicators: Option<serde_json::Value>,
 }
 
 /// Available AI model information.

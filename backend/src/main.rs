@@ -541,6 +541,40 @@ fn create_router(
         ),
     });
 
+    // Spawn AI prediction broadcaster — polls AI service every 60s, broadcasts to all WS clients
+    {
+        let hub = ws_hub.clone();
+        let ai = ai_services.clone();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(60));
+            loop {
+                interval.tick().await;
+                let features = vec![
+                    0.01, 0.02, 0.015, 45.0, 0.5, 0.1, 0.5, 0.02, 20.0, 50.0,
+                    0.5, 0.01, 1.2, 0.02, 0.01, 0.01, 0.5, 1.5, 1.2, 0.01,
+                ];
+                match ai.model_client.predict_price_direction(&features, "BTCUSDT", "1h", None).await {
+                    Ok(p) => {
+                        let _ = hub.broadcast(quant_trading_backend::services::exchange::ws_hub::HubMessage::AIPredict {
+                            symbol: "BTCUSDT".to_string(),
+                            interval: "1h".to_string(),
+                            direction: p.direction.clone(),
+                            confidence: p.confidence,
+                            signal: p.signal.unwrap_or_else(|| "neutral".to_string()),
+                            price_target: p.price_target,
+                            analysis: p.analysis.unwrap_or_default(),
+                            indicators: p.indicators.unwrap_or(serde_json::Value::Null),
+                            generated_at: p.generated_at.clone(),
+                        });
+                    }
+                    Err(e) => {
+                        tracing::warn!("AI prediction broadcast failed: {}", e);
+                    }
+                }
+            }
+        });
+    }
+
     app.merge(
         handlers::ai::router()
             .layer(axum::Extension(ai_services))

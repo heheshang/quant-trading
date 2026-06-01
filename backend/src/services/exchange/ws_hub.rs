@@ -59,6 +59,18 @@ pub enum HubMessage {
         progress: u32,
         status: String,
     },
+    /// AI prediction result — broadcast to all WS subscribers
+    AIPredict {
+        symbol: String,
+        interval: String,
+        direction: String,
+        confidence: f64,
+        signal: String,
+        price_target: Option<f64>,
+        analysis: String,
+        indicators: serde_json::Value,
+        generated_at: String,
+    },
 }
 
 /// HubEvent - server lifecycle events

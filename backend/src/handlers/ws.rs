@@ -137,6 +137,33 @@ fn serialize_hub_message(msg: HubMessage) -> String {
             }),
         })
         .unwrap_or_default(),
+        HubMessage::AIPredict {
+            symbol,
+            interval,
+            direction,
+            confidence,
+            signal,
+            price_target,
+            analysis,
+            indicators,
+            generated_at,
+        } => serde_json::to_string(&WsJsonMessage {
+            msg_type: "ai_predict",
+            symbol: &symbol,
+            data: serde_json::json!({
+                "type": "prediction",
+                "symbol": symbol,
+                "interval": interval,
+                "direction": direction,
+                "confidence": confidence,
+                "signal": signal,
+                "price_target": price_target,
+                "analysis": analysis,
+                "indicators": indicators,
+                "generated_at": generated_at,
+            }),
+        })
+        .unwrap_or_default(),
     }
 }
 
@@ -171,8 +198,17 @@ fn message_matches_subscription(msg: &HubMessage, subs: &ClientSubscriptions) ->
             let channel = format!("market:kline:{}", symbol);
             (channel, symbol.as_str())
         }
-        HubMessage::TradeExecuted { .. } => unreachable!(),
-        HubMessage::BacktestProgress { .. } => unreachable!(),
+        HubMessage::TradeExecuted { symbol, .. } => {
+            let channel = "trade:executed".to_string();
+            (channel, symbol.as_str())
+        }
+        HubMessage::BacktestProgress { .. } => {
+            ("backtest:progress".to_string(), "")
+        }
+        HubMessage::AIPredict { symbol, .. } => {
+            let channel = format!("ai:predict:{}", symbol);
+            (channel, symbol.as_str())
+        }
     };
 
     let channel_match = subs.channels.is_empty() || subs.channels.contains(&channel);
@@ -190,6 +226,7 @@ fn hub_msg_type(msg: &HubMessage) -> &'static str {
         HubMessage::Kline { .. } => "kline",
         HubMessage::TradeExecuted { .. } => "trade_executed",
         HubMessage::BacktestProgress { .. } => "backtest_progress",
+        HubMessage::AIPredict { .. } => "ai_predict",
     }
 }
 

@@ -85,7 +85,9 @@ const {
   latestPrediction,
   connect: connectAi,
   disconnect: disconnectAi,
-} = useAIPredict()
+} = useAIPredict({
+  wsUrl: `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/v1/ws`,
+})
 
 // WS Message routing
 const wsHandlers: ((msg: WsMessage) => void)[] = []
@@ -122,8 +124,8 @@ onMounted(() => {
       subscribe(['market:ticker:BTCUSDT', 'market:ticker:ETHUSDT', 'market:ticker:BNBUSDT'])
     }, 1000)
   }
-  // Connect AI Predict WebSocket
-  connectAi('BTCUSDT', '1h')
+  // Connect AI Predict WebSocket (pass JWT token for backend WS auth)
+  connectAi('BTCUSDT', '1h', authStore.token ?? undefined)
 })
 
 onBeforeUnmount(() => {
