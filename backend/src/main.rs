@@ -525,6 +525,7 @@ fn create_router(
         .with_state(app_state.clone())
         .route("/ws", get(handlers::ws::ws_handler))
         .route("/api/v1/ws", get(handlers::ws::ws_handler))
+        .route("/metrics", get(handlers::metrics_handler::metrics))
         .layer(Extension(ws_hub.clone()));
 
     app = Router::new()

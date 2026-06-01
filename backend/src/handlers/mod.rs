@@ -10,6 +10,7 @@ pub mod export;
 pub mod indicator;
 pub mod kline;
 pub mod market;
+pub mod metrics_handler;
 pub mod order;
 pub mod portfolio;
 pub mod position_alert;

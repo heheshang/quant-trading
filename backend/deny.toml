@@ -5,6 +5,12 @@
 # Advisory database is fetched from GitHub
 ignore = [
     "RUSTSEC-2025-0134", # rustls-pemfile unmaintained - no safe upgrade
+    # RUSTSEC-2024-0437: protobuf 2.28.0 (transitive via prometheus 0.13.4) can
+    # stack-overflow on untrusted protobuf input. We do NOT use the protobuf
+    # feature of `prometheus` (only IntCounterVec/IntGaugeVec/HistogramVec), so
+    # the vulnerable code path is unreachable. Upgrading to prometheus 0.14
+    # is an API-breaking change; revisit when we migrate.
+    "RUSTSEC-2024-0437",
 ]
 
 [licenses]

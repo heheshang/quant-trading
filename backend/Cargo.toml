@@ -95,6 +95,9 @@ url = "2"
 lettre = "0.11"
 native-tls = "0.2"
 
+# Metrics / Prometheus exposition
+prometheus = "0.13"
+
 [[bin]]
 name = "stress-test"
 path = "src/bin/stress_test/main.rs"
@@ -105,6 +108,7 @@ rstest = "0.24"
 tokio-test = "0.4"
 axum-test = "16"
 tracing-test = "0.2"
+tower = { version = "0.5", features = ["util"] }
 
 [profile.release]
 opt-level = 3
