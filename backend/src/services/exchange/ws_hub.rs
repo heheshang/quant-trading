@@ -284,12 +284,16 @@ impl WsHub {
         self.tx.subscribe()
     }
 
-    /// Broadcast a HubMessage to all subscribers
+    /// Broadcast a HubMessage to all subscribers.
+    ///
+    /// The error is boxed to keep the result type small — `HubMessage` is
+    /// large (carries kline/ticker/trade payloads), so an unboxed error
+    /// variant bloats every caller.
     pub fn broadcast(
         &self,
         msg: HubMessage,
-    ) -> Result<usize, broadcast::error::SendError<HubMessage>> {
-        self.tx.send(msg)
+    ) -> Result<usize, Box<broadcast::error::SendError<HubMessage>>> {
+        self.tx.send(msg).map_err(Box::new)
     }
 
     /// Subscribe to hub events (for monitoring/admin).
