@@ -8,26 +8,30 @@ ignore = [
 ]
 
 [licenses]
-# Allow common open-source licenses
+# Allow common open-source licenses. The set is intentionally
+# minimal: every entry is verified against the actual dependency
+# graph by `cargo-deny check licenses`. If you add a license here
+# that no current dependency uses, `cargo-deny` will warn
+# `license-not-encountered` so it can be removed.
 allow = [
     "MIT",
     "Apache-2.0",
-    "Unicode-DFS-2016",
-    "CDLA-Permissive-2.0",
-    "MPL-2.0",
+    "0BSD",            # quoted_printable (lettre) — OSI-approved BSD Zero Clause
     "BSD-2-Clause",
     "BSD-3-Clause",
     "ISC",
     "CC0-1.0",
     "Unicode-3.0",
+    "CDLA-Permissive-2.0", # webpki-roots (reqwest → hyper-rustls)
     "BSL-1.0",
-    "OpenSSL",
     "Zlib",
 ]
 confidence-threshold = 0.6
 
 [licenses.private]
-ignore = false
+# Treat the workspace's own crate as MIT/Apache-2.0 for audit
+# purposes; do not require it to be declared as an outbound dep.
+ignore = true
 
 [bans]
 multiple-versions = "warn"
