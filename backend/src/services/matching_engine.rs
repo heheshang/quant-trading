@@ -338,9 +338,9 @@ impl MatchingEngine {
     /// PRD: US-TE-07 (模拟撮合引擎)
     /// ADR D4: 深度变更事件驱动
     pub fn on_depth_update(&self, symbol: &str, depth: &DepthData) -> Result<(), AppError> {
-        // 1. 获取该交易对的订单簿
-        let books = self.order_books.lock().unwrap();
-        let book = match books.get(symbol) {
+        // 1. 获取该交易对的订单簿（可写锁）
+        let mut books = self.order_books.lock().unwrap();
+        let book = match books.get_mut(symbol) {
             Some(b) => b,
             None => return Ok(()),
         };
@@ -350,71 +350,119 @@ impl MatchingEngine {
             return Ok(());
         }
 
-        let best_ask_price = depth.asks[0].price;
-        let best_bid_price = depth.bids[0].price;
+        // 2. 构建深度档位映射: price -> (quantity, level_index)
+        //    用于多档深度撮合
+        let ask_levels: Vec<(f64, f64)> = depth
+            .asks
+            .iter()
+            .map(|lvl| (lvl.price, lvl.quantity))
+            .collect();
+        let bid_levels: Vec<(f64, f64)> = depth
+            .bids
+            .iter()
+            .map(|lvl| (lvl.price, lvl.quantity))
+            .collect();
 
-        // 2. 遍历买盘: price >= depth.asks[0].price 的订单可撮合（买入吃卖单）
-        // 3. 遍历卖盘: price <= depth.bids[0].price 的订单可撮合（卖出吃买单）
-        // 由于需要修改订单簿，先收集可撮合的订单
-        let mut matched_bids: Vec<(f64, f64, OrderEntry)> = Vec::new();
-        let mut matched_asks: Vec<(f64, f64, OrderEntry)> = Vec::new();
+        let mut trades_to_emit: Vec<TradeRecord> = Vec::new();
 
-        for (price_key, queue) in book.bids.iter() {
+        // 3. 遍历买盘: price >= best_ask 的订单可撮合（买入吃卖单）
+        for (price_key, queue) in book.bids.iter_mut() {
             let price = price_key.0.0;
-            if price >= best_ask_price {
-                for entry in queue.iter() {
-                    matched_bids.push((price, entry.remaining_quantity, entry.clone()));
+            if price < ask_levels[0].0 {
+                continue; // 价格不够好，跳过
+            }
+
+            // 找到深度档位: ask 价格 <= 订单价格 的最优档位
+            let Some((_, ask_qty_at_price)) =
+                ask_levels.iter().find(|(ask_price, _)| *ask_price <= price)
+            else {
+                continue;
+            };
+
+            // 遍历该价格队列中的所有订单
+            let mut i = 0;
+            while i < queue.len() {
+                let entry = &mut queue[i];
+                let fill_qty = entry.remaining_quantity.min(*ask_qty_at_price);
+                if fill_qty <= 0.0 {
+                    i += 1;
+                    continue;
+                }
+
+                // 计算成交费用
+                let trade_fee = fill_qty * price * self.fee_rate;
+                trades_to_emit.push(TradeRecord {
+                    order_id: entry.order_id,
+                    user_id: entry.user_id,
+                    symbol: entry.symbol.clone(),
+                    side: entry.side.clone(),
+                    price,
+                    quantity: fill_qty,
+                    fee: trade_fee,
+                    is_maker: true,
+                });
+
+                // 更新剩余数量
+                entry.remaining_quantity -= fill_qty;
+
+                if entry.remaining_quantity <= 0.0 {
+                    // 订单完全成交，从队列移除
+                    queue.remove(i);
+                } else {
+                    i += 1;
                 }
             }
         }
 
-        for (price_key, queue) in book.asks.iter() {
+        // 4. 遍历卖盘: price <= best_bid 的订单可撮合（卖出吃买单）
+        for (price_key, queue) in book.asks.iter_mut() {
             let price = price_key.0;
-            if price <= best_bid_price {
-                for entry in queue.iter() {
-                    matched_asks.push((price, entry.remaining_quantity, entry.clone()));
+            if price > bid_levels[0].0 {
+                continue; // 价格不够好，跳过
+            }
+
+            let Some((_, bid_qty_at_price)) =
+                bid_levels.iter().find(|(bid_price, _)| *bid_price >= price)
+            else {
+                continue;
+            };
+
+            let mut i = 0;
+            while i < queue.len() {
+                let entry = &mut queue[i];
+                let fill_qty = entry.remaining_quantity.min(*bid_qty_at_price);
+                if fill_qty <= 0.0 {
+                    i += 1;
+                    continue;
+                }
+
+                let trade_fee = fill_qty * price * self.fee_rate;
+                trades_to_emit.push(TradeRecord {
+                    order_id: entry.order_id,
+                    user_id: entry.user_id,
+                    symbol: entry.symbol.clone(),
+                    side: entry.side.clone(),
+                    price,
+                    quantity: fill_qty,
+                    fee: trade_fee,
+                    is_maker: true,
+                });
+
+                entry.remaining_quantity -= fill_qty;
+
+                if entry.remaining_quantity <= 0.0 {
+                    queue.remove(i);
+                } else {
+                    i += 1;
                 }
             }
         }
+
         drop(books);
 
-        // 4. 逐笔撮合买盘订单（买入吃卖）
-        for (_price, remaining_qty, entry) in matched_bids {
-            let fill_qty = remaining_qty.min(depth.asks[0].quantity);
-            let fill_price = depth.asks[0].price;
-            let trade_fee = fill_qty * fill_price * self.fee_rate;
-
-            // 通过 trade_sink 异步发送 TradeRecord
-            let trade_record = TradeRecord {
-                order_id: entry.order_id,
-                user_id: entry.user_id,
-                symbol: entry.symbol.clone(),
-                side: entry.side.clone(),
-                price: fill_price,
-                quantity: fill_qty,
-                fee: trade_fee,
-                is_maker: true,
-            };
-            let _ = self.trade_sink.try_send(trade_record);
-        }
-
-        // 逐笔撮合卖盘订单（卖出吃买）
-        for (_price, remaining_qty, entry) in matched_asks {
-            let fill_qty = remaining_qty.min(depth.bids[0].quantity);
-            let fill_price = depth.bids[0].price;
-            let trade_fee = fill_qty * fill_price * self.fee_rate;
-
-            let trade_record = TradeRecord {
-                order_id: entry.order_id,
-                user_id: entry.user_id,
-                symbol: entry.symbol.clone(),
-                side: entry.side.clone(),
-                price: fill_price,
-                quantity: fill_qty,
-                fee: trade_fee,
-                is_maker: true,
-            };
-            let _ = self.trade_sink.try_send(trade_record);
+        // 5. 批量发送成交记录（原子化，避免部分发送）
+        for record in trades_to_emit {
+            let _ = self.trade_sink.try_send(record);
         }
 
         Ok(())
@@ -503,23 +551,24 @@ impl MatchingEngine {
             return Ok(0);
         }
 
-        let mut count = 0u64;
+        let count = expired_orders.len() as u64;
+        let order_ids: Vec<uuid::Uuid> = expired_orders.iter().map(|o| o.id).collect();
+        let now = chrono::Utc::now();
+
+        // 批量更新所有过期订单状态
         for order in expired_orders {
-            let order_id = order.id;
-            // 2. 逐笔更新 status='expired'
             let mut active_model: order_model::ActiveModel = order.into();
             active_model.status = sea_orm::Set(OrderStatus::Expired);
-            active_model.updated_at = sea_orm::Set(chrono::Utc::now());
+            active_model.updated_at = sea_orm::Set(now);
 
-            active_model
-                .update(self.db.as_ref())
-                .await
-                .map_err(|e| AppError::Database(e.to_string()))?;
+            if let Err(e) = active_model.update(self.db.as_ref()).await {
+                error!("Failed to expire order: {:?}", e);
+            }
+        }
 
-            // 3. 从内存订单簿移除
+        // 3. 批量从内存订单簿移除
+        for order_id in order_ids {
             self.remove_from_book(order_id);
-
-            count += 1;
         }
 
         info!("Expired {} orders", count);
@@ -565,6 +614,16 @@ impl MatchingEngine {
 
         info!("Flushing {} trade records to DB", records.len());
 
+        // 按 order_id 分组聚合成交
+        let mut order_fills: std::collections::HashMap<uuid::Uuid, (f64, f64, f64)> =
+            std::collections::HashMap::new();
+        for r in records {
+            let entry = order_fills.entry(r.order_id).or_insert((0.0, 0.0, 0.0));
+            entry.0 += r.quantity;
+            entry.1 += r.quantity * r.price;
+            entry.2 += r.fee;
+        }
+
         // 1. 批量 INSERT trades 表
         let trade_models: Vec<TradeActiveModel> = records
             .iter()
@@ -586,33 +645,33 @@ impl MatchingEngine {
             .exec(db.as_ref())
             .await?;
 
-        // 2. 批量 UPDATE orders 表（基于成交结果聚合）
-        // 按 order_id 分组聚合
-        let mut order_fills: std::collections::HashMap<uuid::Uuid, (f64, f64, f64)> =
-            std::collections::HashMap::new();
-        for r in records {
-            let entry = order_fills.entry(r.order_id).or_insert((0.0, 0.0, 0.0));
-            entry.0 += r.quantity;
-            entry.1 += r.quantity * r.price;
-            entry.2 += r.fee;
-        }
+        // 2. 批量 UPDATE orders（聚合更新，避免 O(N) 查询）
+        // 注意: is_in 对 Uuid 类型有兼容性问题，改用内存过滤
+        let order_ids_set: std::collections::HashSet<uuid::Uuid> =
+            order_fills.keys().copied().collect();
+        let orders = order_model::Entity::find()
+            .filter(order_model::Column::Status.eq(OrderStatus::Pending))
+            .all(db.as_ref())
+            .await?
+            .into_iter()
+            .filter(|o| order_ids_set.contains(&o.id))
+            .collect::<Vec<_>>();
 
-        for (order_id, (filled_qty, total_cost, total_fee)) in order_fills {
-            let avg_price = total_cost / filled_qty;
+            for order in orders {
+                let (filled_qty, total_cost, total_fee) =
+                    match order_fills.get(&order.id) {
+                        Some(v) => *v,
+                        None => continue,
+                    };
 
-            // 查询当前订单状态
-            if let Some(order) = order_model::Entity::find_by_id(order_id)
-                .one(db.as_ref())
-                .await?
-            {
                 let new_filled = order.filled_quantity + filled_qty;
                 let is_fully_filled = new_filled >= order.quantity - 1e-12;
-                let old_fee = order.fee;
+                let avg_price = total_cost / filled_qty;
 
-                let mut active_model: order_model::ActiveModel = order.into();
+                let mut active_model: order_model::ActiveModel = order.clone().into();
                 active_model.filled_quantity = sea_orm::Set(new_filled);
                 active_model.avg_fill_price = sea_orm::Set(Some(avg_price));
-                active_model.fee = sea_orm::Set(old_fee + total_fee);
+                active_model.fee = sea_orm::Set(order.fee + total_fee);
                 active_model.status = sea_orm::Set(if is_fully_filled {
                     OrderStatus::Filled
                 } else {
@@ -625,7 +684,6 @@ impl MatchingEngine {
 
                 active_model.update(db.as_ref()).await?;
             }
-        }
 
         Ok(())
     }

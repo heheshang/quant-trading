@@ -39,6 +39,14 @@
         :ws-status="wsStatus"
         :on-ws-message="registerWsHandler"
       />
+      <AIPredictPanel
+        v-if="activeTab === 'ticker'"
+        :prediction="latestPrediction"
+        :status="aiStatus"
+        symbol="BTCUSDT"
+        interval="1h"
+        class="ai-predict-panel"
+      />
       <DepthView
         v-if="activeTab === 'depth'"
         ref="depthViewRef"
@@ -55,9 +63,11 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { TrendCharts, DataLine, WarningFilled } from '@element-plus/icons-vue'
 import type { WsMessage, WsStatus } from '@/types'
 import { useMarketWs } from '@/composables/useMarketWs'
+import { useAIPredict } from '@/composables/useAIPredict'
 import { useAuthStore } from '@/stores/auth'
 import TickerListView from '@/views/market/TickerListView.vue'
 import DepthView from '@/views/market/DepthView.vue'
+import AIPredictPanel from '@/components/ai/AIPredictPanel.vue'
 import { ElMessage } from 'element-plus'
 
 const activeTab = ref('ticker')
@@ -68,6 +78,14 @@ const { status: wsStatus, connect, disconnect, subscribe, unsubscribe, onMessage
 
 const authStore = useAuthStore()
 const userRole = computed(() => authStore.user?.role || 'trader')
+
+// AI 预测 WebSocket
+const {
+  status: aiStatus,
+  latestPrediction,
+  connect: connectAi,
+  disconnect: disconnectAi,
+} = useAIPredict()
 
 // WS Message routing
 const wsHandlers: ((msg: WsMessage) => void)[] = []
@@ -104,10 +122,13 @@ onMounted(() => {
       subscribe(['market:ticker:BTCUSDT', 'market:ticker:ETHUSDT', 'market:ticker:BNBUSDT'])
     }, 1000)
   }
+  // Connect AI Predict WebSocket
+  connectAi('BTCUSDT', '1h')
 })
 
 onBeforeUnmount(() => {
   disconnect()
+  disconnectAi()
 })
 </script>
 
@@ -198,7 +219,7 @@ onBeforeUnmount(() => {
   font-family: 'Work Sans', var(--font-ui);
   font-size: 13px;
   font-weight: 500;
-  animation: slideUp var(--transition-base);
+  /* no animation — static banner */
 
   .el-icon {
     font-size: 18px;
@@ -206,6 +227,10 @@ onBeforeUnmount(() => {
 }
 
 .tab-content {
-  animation: fadeIn var(--transition-base);
+  /* no animation — static content */
+}
+
+.ai-predict-panel {
+  margin-top: 16px;
 }
 </style>

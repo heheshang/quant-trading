@@ -21,6 +21,7 @@ services:
       - INITIAL_BALANCE=100000
       - FEE_RATE=0.001
       - TRADE_MODE=paper
+      - AI_MODEL_SERVICE_URL=http://ai-service:8001
     depends_on:
       postgres:
         condition: service_healthy
@@ -34,6 +35,30 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
+
+  # ─── AI Service (Python FastAPI) ────
+  ai-service:
+    build:
+      context: ./python-ai-service
+      dockerfile: Dockerfile
+    container_name: quant-ai-service
+    restart: unless-stopped
+    expose:
+      - "8001"
+    ports:
+      - "8002:8001"
+    environment:
+      - PORT=8001
+      - MODEL_VERSION=${AI_MODEL_VERSION:-v1.0.0}
+      - USE_MOCK=${AI_USE_MOCK:-true}
+    networks:
+      - quant-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   # ─── Frontend (Vue SPA via Nginx) ────
   frontend:

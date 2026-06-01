@@ -241,7 +241,6 @@ pub async fn load_klines(
     use crate::db::kline::Column as K;
 
     let results = kline::Entity::find()
-        .filter(K::UserId.eq(Uuid::nil())) // Placeholder: filter by actual user_id in production
         .filter(K::Symbol.eq(symbol))
         .filter(K::Interval.eq(interval))
         .filter(K::OpenTime.gte(start_ms))

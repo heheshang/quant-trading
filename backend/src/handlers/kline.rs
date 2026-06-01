@@ -208,17 +208,29 @@ pub async fn export_klines(
     State(db): State<Arc<DatabaseConnection>>,
     Query(params): Query<KlineExportParams>,
 ) -> Result<impl IntoResponse, AppError> {
+    let format = params.format.clone().as_deref().unwrap_or("csv").to_string();
     let csv_content = kline::export_klines(&db, user.user_id, params).await?;
 
     let mut headers = HeaderMap::new();
-    headers.insert(
-        axum::http::header::CONTENT_TYPE,
-        "text/csv".parse().unwrap(),
-    );
-    headers.insert(
-        axum::http::header::CONTENT_DISPOSITION,
-        "attachment; filename=\"klines.csv\"".parse().unwrap(),
-    );
+    if format == "json" {
+        headers.insert(
+            axum::http::header::CONTENT_TYPE,
+            "application/json".parse().unwrap(),
+        );
+        headers.insert(
+            axum::http::header::CONTENT_DISPOSITION,
+            "attachment; filename=\"klines.json\"".parse().unwrap(),
+        );
+    } else {
+        headers.insert(
+            axum::http::header::CONTENT_TYPE,
+            "text/csv".parse().unwrap(),
+        );
+        headers.insert(
+            axum::http::header::CONTENT_DISPOSITION,
+            "attachment; filename=\"klines.csv\"".parse().unwrap(),
+        );
+    }
 
     Ok((headers, csv_content).into_response())
 }

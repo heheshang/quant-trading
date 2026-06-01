@@ -206,7 +206,7 @@ impl WsHub {
             let last = self.last_heartbeat.load(Ordering::SeqCst);
             let now = UNIX_EPOCH.elapsed().map(|d| d.as_secs()).unwrap_or(0);
             let elapsed = if last == 0 {
-                now
+                0 // 从未收到心跳，视为无断线（初始状态）
             } else {
                 now.saturating_sub(last)
             };
@@ -250,7 +250,7 @@ impl WsHub {
         let last = self.last_heartbeat.load(Ordering::SeqCst);
         let now = UNIX_EPOCH.elapsed().map(|d| d.as_secs()).unwrap_or(0);
         let elapsed = if last == 0 {
-            now
+            0 // 从未收到心跳，视为无断线（初始状态）
         } else {
             now.saturating_sub(last)
         };
@@ -383,17 +383,8 @@ impl WsHub {
                             let threshold = disconnect_threshold_secs.load(Ordering::SeqCst);
                             let last = last_heartbeat.load(Ordering::SeqCst);
                             if last == 0 {
-                                // 从未收到消息 → 从进程启动开始计时
-                                if let Ok(now) = UNIX_EPOCH.elapsed() {
-                                    let secs = now.as_secs();
-                                    if secs > threshold {
-                                        Some(secs)
-                                    } else {
-                                        None
-                                    }
-                                } else {
-                                    None
-                                }
+                                // 从未收到消息 → 不视为断线（初始状态，等待首次心跳）
+                                None
                             } else {
                                 let now = UNIX_EPOCH.elapsed().map(|d| d.as_secs()).unwrap_or(0);
                                 let gap = now.saturating_sub(last);

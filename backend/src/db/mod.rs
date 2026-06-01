@@ -7,6 +7,7 @@ pub mod backtest_results;
 pub mod dashboard;
 pub mod exchange_api_keys;
 pub mod kline;
+pub mod kline_backup;
 pub mod model_versions;
 pub mod order;
 pub mod permission;
@@ -22,6 +23,7 @@ pub mod ticker_snapshot;
 pub mod trigger_order;
 pub mod user;
 pub mod user_session;
+pub mod user_strategies;
 
 use sea_orm::PaginatorTrait;
 use sea_orm::{
@@ -93,6 +95,14 @@ pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), sea_orm::DbEr
     );
     db.execute(stmt).await?;
 
+    // Create user_strategies table
+    let stmt = backend.build(
+        schema
+            .create_table_from_entity(user_strategies::Entity)
+            .if_not_exists(),
+    );
+    db.execute(stmt).await?;
+
     // Add description column to strategies table (migration for existing DBs)
     let alter_sql = "ALTER TABLE strategies ADD COLUMN IF NOT EXISTS description VARCHAR(500) NOT NULL DEFAULT ''";
     db.execute(sea_orm::Statement::from_string(
@@ -130,6 +140,22 @@ pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), sea_orm::DbEr
     db.execute(sea_orm::Statement::from_string(
         backend,
         alter_sql.to_string(),
+    ))
+    .await?;
+
+    // Create kline_backup table for clean operation snapshots
+    let stmt = backend.build(
+        schema
+            .create_table_from_entity(kline_backup::Entity)
+            .if_not_exists(),
+    );
+    db.execute(stmt).await?;
+
+    // Add original_id column to kline_backup table (migration for existing DBs)
+    let alter_backup = "ALTER TABLE kline_backup ADD COLUMN IF NOT EXISTS original_id BIGINT";
+    db.execute(sea_orm::Statement::from_string(
+        backend,
+        alter_backup.to_string(),
     ))
     .await?;
 

@@ -1,4 +1,5 @@
 use crate::db::kline::{self, Entity as Kline};
+use crate::db::kline_backup;
 use crate::models::kline_entity::Entity as KlinePhase4;
 use crate::models::schemas::{
     KlineCleanRequest, KlineCleanResult, KlineExportParams, KlineImportItem,
@@ -825,6 +826,33 @@ pub async fn clean_klines(
         _ => 3_600_000,
     };
 
+    // Backup klines to kline_backup before cleaning (snapshot for rollback)
+    let now = chrono::Utc::now();
+    let mut backup_count = 0_i64;
+    for k in &klines {
+        let backup_active = kline_backup::ActiveModel {
+            id: sea_orm::Set(0_i64),
+            user_id: sea_orm::Set(user_id),
+            symbol: sea_orm::Set(k.symbol.clone()),
+            interval: sea_orm::Set(k.interval.clone()),
+            open_time: sea_orm::Set(k.open_time),
+            open: sea_orm::Set(k.open.clone()),
+            high: sea_orm::Set(k.high.clone()),
+            low: sea_orm::Set(k.low.clone()),
+            close: sea_orm::Set(k.close.clone()),
+            volume: sea_orm::Set(k.volume.clone()),
+            close_time: sea_orm::Set(k.close_time),
+            quote_volume: sea_orm::Set(k.quote_volume.clone()),
+            trades: sea_orm::Set(k.trades),
+            source: sea_orm::Set(k.source.clone()),
+            created_at: sea_orm::Set(now),
+            original_id: sea_orm::Set(Some(k.id)),
+        };
+        if backup_active.insert(db).await.is_ok() {
+            backup_count += 1;
+        }
+    }
+
     let mut removed = 0_i64;
     let mut seen_open_times: std::collections::HashSet<i64> = std::collections::HashSet::new();
 
@@ -872,6 +900,7 @@ pub async fn clean_klines(
 
     Ok(KlineCleanResult {
         removed_count: removed,
+        backup_count,
     })
 }
 
@@ -1016,6 +1045,7 @@ pub async fn rollback_clean(
 
     Ok(KlineCleanResult {
         removed_count: update_result.rows_affected as i64,
+        backup_count: 0,
     })
 }
 
@@ -1116,14 +1146,36 @@ pub async fn export_klines(
         return Err(AppError::Validation("invalid interval".into()));
     }
 
-    let klines = Kline::find()
+    let mut query = Kline::find()
         .filter(kline::Column::UserId.eq(user_id))
         .filter(kline::Column::Symbol.eq(&params.symbol))
-        .filter(kline::Column::Interval.eq(&params.interval))
+        .filter(kline::Column::Interval.eq(&params.interval));
+
+    if let Some(start) = params.start_time {
+        query = query.filter(kline::Column::OpenTime.gte(start));
+    }
+    if let Some(end) = params.end_time {
+        query = query.filter(kline::Column::OpenTime.lte(end));
+    }
+
+    let klines = query
         .order_by_asc(kline::Column::OpenTime)
         .all(db)
         .await?;
 
+    let format = params.format.as_deref().unwrap_or("csv");
+
+    if format == "json" {
+        let items: Vec<KlineResponse> = klines
+            .into_iter()
+            .map(model_to_response)
+            .collect();
+        let json_output = serde_json::to_string_pretty(&items)
+            .map_err(|e| AppError::Internal(format!("JSON serialization error: {}", e)))?;
+        return Ok(json_output);
+    }
+
+    // Default to CSV format
     let mut csv =
         String::from("open_time,open,high,low,close,volume,close_time,quote_volume,trades\n");
     for k in klines {
