@@ -127,7 +127,7 @@ const routes: RouteRecordRaw[] = [
         path: 'admin',
         name: 'Admin',
         component: () => import('@/views/system/SystemAdminView.vue'),
-        meta: { requiresAuth: true, title: '系统管理', roles: ['admin'] },
+        meta: { requiresAuth: true, title: '系统管理' },
       },
       {
         path: 'api-keys',
@@ -139,7 +139,7 @@ const routes: RouteRecordRaw[] = [
         path: 'strategy-review',
         name: 'StrategyReview',
         component: () => import('@/views/strategy/StrategyReviewView.vue'),
-        meta: { requiresAuth: true, title: '策略审核', roles: ['admin'] },
+        meta: { requiresAuth: true, title: '策略审核' },
       },
     ],
   },

@@ -85,7 +85,12 @@ pub struct ApiKeyListResponse(pub PaginatedResponse<ApiKeyResponse>);
 
 // ─── Handlers ────────────────────────────────────────────────────────────────
 
-/// Helper: require admin role
+/// Helper: require admin role.
+///
+/// Currently unused — admin authorization is enforced at the router layer via
+/// `require_admin_middleware` on the admin sub-router. Kept here for handlers
+/// that need to perform an in-handler role check (e.g. self-service escalation).
+#[allow(dead_code)]
 fn require_admin(user: &AuthenticatedUser) -> Result<(), AppError> {
     if user.role != "admin" {
         return Err(AppError::Forbidden("Admin privileges required".into()));
@@ -267,13 +272,11 @@ pub async fn test_api_key(
 ///
 /// 管理员查看所有 Key（分页）
 pub async fn admin_list_api_keys(
-    user: AuthenticatedUser,
+    _user: AuthenticatedUser,
     State(_db): State<Arc<DatabaseConnection>>,
     Extension(key_store): Extension<Arc<ApiKeyStore>>,
     Query(params): Query<PaginationParams>,
 ) -> Result<Json<ApiResponse<ApiKeyListResponse>>, AppError> {
-    require_admin(&user)?;
-
     let page = params.page();
     let size = params.size();
 
@@ -315,13 +318,15 @@ mod tests {
     fn test_api_key_response_masking() {
         use crate::services::exchange::api_keys::ExchangeApiKey;
 
+        // SAFETY: Test fixture only — masks the last-4-char logic of from_key().
+        const TEST_API_KEY: &str = "test-api-key-fixture-abcd";
         let key = ExchangeApiKey {
             id: Uuid::new_v4(),
             user_id: Uuid::new_v4(),
             exchange: "binance".to_string(),
-            api_key: "MY_SECRET_KEY_ABCD".to_string(),
-            secret_encrypted: "encrypted".to_string(),
-            nonce: "nonce".to_string(),
+            api_key: TEST_API_KEY.to_string(),
+            secret_encrypted: "encrypted-fixture".to_string(),
+            nonce: "nonce-fixture".to_string(),
             permissions: "read,trade".to_string(),
             is_active: true,
             last_used_at: None,
@@ -329,7 +334,7 @@ mod tests {
         };
 
         let resp = ApiKeyResponse::from_key(&key);
-        assert_eq!(resp.api_key, "***ABCD");
+        assert_eq!(resp.api_key, "***abcd");
         assert_eq!(resp.exchange, "binance");
         assert_eq!(resp.permissions, "read,trade");
         assert!(resp.is_active);

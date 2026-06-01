@@ -24,3 +24,4 @@ frontend/coverage/
 *.sln
 *.sw?
 node_modules
+ruvector.db

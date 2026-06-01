@@ -4,17 +4,7 @@
       <h1>System Administration</h1>
     </div>
 
-    <!-- Admin-only check -->
-    <div v-if="!authStore.isAdmin" class="access-denied">
-      <el-result icon="warning" title="Access Denied" sub-title="You do not have permission to view this page">
-        <template #extra>
-          <el-button type="primary" @click="$router.push('/dashboard')">Back to Dashboard</el-button>
-        </template>
-      </el-result>
-    </div>
-
-    <template v-else>
-      <el-tabs v-model="activeTab" class="admin-tabs">
+    <el-tabs v-model="activeTab" class="admin-tabs">
         <el-tab-pane label="Users" name="users">
           <!-- Search and Create -->
           <div class="toolbar">
@@ -358,7 +348,6 @@
           </div>
         </el-tab-pane>
       </el-tabs>
-    </template>
 
     <!-- Create/Edit Dialog -->
     <el-dialog
@@ -409,7 +398,6 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, reactive, watch } from 'vue'
-import { useAuthStore } from '@/stores/auth'
 import { useFormat } from '@/composables/useFormat'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Plus, Refresh } from '@element-plus/icons-vue'
@@ -431,7 +419,6 @@ import type {
   ConnectionStatus,
 } from '@/types'
 
-const authStore = useAuthStore()
 const f = useFormat()
 const activeTab = ref('users')
 const searchQuery = ref('')

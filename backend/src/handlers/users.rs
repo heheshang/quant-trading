@@ -17,7 +17,12 @@ use sea_orm::{
 };
 use uuid::Uuid;
 
-/// Require the authenticated user to have admin role
+/// Require the authenticated user to have admin role.
+///
+/// Currently unused — admin authorization is enforced at the router layer via
+/// `require_admin_middleware` on the admin sub-router. Kept here for handlers
+/// that need to perform an in-handler role check (e.g. self-service escalation).
+#[allow(dead_code)]
 fn require_admin(user: &AuthenticatedUser) -> Result<(), AppError> {
     if user.role != "admin" {
         return Err(AppError::Forbidden("Admin privileges required".into()));
@@ -67,11 +72,10 @@ pub async fn get_me_internal(
 
 /// List all users (admin only)
 pub async fn list_users(
-    user: AuthenticatedUser,
+    _user: AuthenticatedUser,
     State(db): State<std::sync::Arc<DatabaseConnection>>,
     Query(params): Query<PaginationParams>,
 ) -> Result<Json<ApiResponse<crate::models::schemas::UserListResponse>>, AppError> {
-    require_admin(&user)?;
     let page = params.page();
     let size = params.size();
     let offset = params.offset();
@@ -201,12 +205,11 @@ pub async fn change_password(
 
 /// Admin: update user (including role)
 pub async fn admin_update_user(
-    user: AuthenticatedUser,
+    _user: AuthenticatedUser,
     State(db): State<std::sync::Arc<DatabaseConnection>>,
     Path(user_id): Path<Uuid>,
     Json(body): Json<AdminUpdateUserRequest>,
 ) -> Result<Json<ApiResponse<crate::models::schemas::UserResponse>>, AppError> {
-    require_admin(&user)?;
     let user_model = user::Entity::find_by_id(user_id)
         .one(&*db)
         .await?
@@ -256,12 +259,10 @@ pub async fn admin_update_user(
 
 /// Admin: delete user
 pub async fn admin_delete_user(
-    user: AuthenticatedUser,
+    _user: AuthenticatedUser,
     State(db): State<std::sync::Arc<DatabaseConnection>>,
     Path(user_id): Path<Uuid>,
 ) -> Result<Json<ApiResponse<crate::models::schemas::ChangePasswordResponse>>, AppError> {
-    require_admin(&user)?;
-
     let user_model = user::Entity::find_by_id(user_id)
         .one(&*db)
         .await?

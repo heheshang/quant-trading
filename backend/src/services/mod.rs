@@ -19,6 +19,7 @@ pub mod market_data;
 pub mod matching_engine;
 pub mod notification;
 pub mod okx_rest;
+pub mod okx_signed_client;
 pub mod order_rate_limiter;
 pub mod portfolio;
 pub mod position_alert_monitor;

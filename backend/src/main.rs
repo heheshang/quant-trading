@@ -13,6 +13,7 @@ use quant_trading_backend::services::exchange::ws_hub::{WsHub, WsHubBuilder};
 use quant_trading_backend::services::exchange::{
     api_keys::{ApiKeyStore, get_master_key},
     signed_client::SignedBinanceClient,
+    SignedOkxClient,
 };
 use quant_trading_backend::services::gate_rest::GateRestClient;
 use quant_trading_backend::services::kline_writer::KlineWriter;
@@ -98,6 +99,7 @@ async fn main() {
     let master_key = get_master_key().unwrap_or([0u8; 32]);
     let key_store = Arc::new(ApiKeyStore::new(db.clone(), master_key));
     let signed_client = Arc::new(SignedBinanceClient::new(key_store.clone()));
+    let okx_signed_client = Arc::new(SignedOkxClient::new(key_store.clone()));
 
     // Initialize KlineWriter background task
     let (kline_tx, kline_rx) = mpsc::channel(100);
@@ -142,6 +144,7 @@ async fn main() {
         bybit_rest,
         ws_hub,
         signed_client,
+        okx_signed_client,
         key_store,
         risk_manager.clone(),
     );
@@ -170,6 +173,7 @@ fn create_router(
     bybit_rest: Arc<BybitRestClient>,
     ws_hub: Arc<WsHub>,
     signed_client: Arc<SignedBinanceClient>,
+    okx_signed_client: Arc<SignedOkxClient>,
     key_store: Arc<ApiKeyStore>,
     risk_manager: Arc<RiskManager>,
 ) -> Router {
@@ -458,7 +462,7 @@ fn create_router(
     // Admin API Key routes (authenticated + admin role check inside handler)
     let admin_api_key_routes = Router::new()
         .route(
-            "/admin/api-keys",
+            "/api-keys",
             get(handlers::api_key::admin_list_api_keys),
         )
         .layer(Extension(key_store.clone()))
@@ -488,10 +492,37 @@ fn create_router(
         ))
         .with_state(app_state.db.clone());
 
+    // OKX Exchange routes (authenticated, with signed OKX client)
+    let okx_exchange_routes = Router::new()
+        .route("/exchange/okx/ping", get(handlers::exchange::exchange_okx_ping))
+        .route(
+            "/exchange/okx/account",
+            get(handlers::exchange::exchange_okx_account),
+        )
+        .route(
+            "/exchange/okx/order",
+            post(handlers::exchange::exchange_okx_create_order),
+        )
+        .route(
+            "/exchange/okx/order/{orderId}",
+            delete(handlers::exchange::exchange_okx_cancel_order),
+        )
+        .route(
+            "/exchange/okx/orders/pending",
+            get(handlers::exchange::exchange_okx_pending_orders),
+        )
+        .layer(Extension(okx_signed_client.clone()))
+        .layer(middleware::from_fn(
+            quant_trading_backend::middleware::auth::auth_middleware,
+        ))
+        .with_state(app_state.db.clone());
+
     // Public routes — registered as direct path to avoid /api/v1 nesting shadowing
     // Both /ws and /api/v1/ws registered (nginx regex proxy_pass preserves full path)
     let public_routes = Router::new()
-        .route("/health", get(handlers::ws::health_check))
+        .route("/health", get(handlers::health::liveness))
+        .route("/api/v1/health/ready", get(handlers::health::readiness))
+        .with_state(app_state.clone())
         .route("/ws", get(handlers::ws::ws_handler))
         .route("/api/v1/ws", get(handlers::ws::ws_handler))
         .layer(Extension(ws_hub.clone()));
@@ -524,6 +555,7 @@ fn create_router(
         .nest("/api/v1", dashboard_routes)
         .nest("/api/v1", backtest_routes)
         .nest("/api/v1", exchange_routes)
+        .nest("/api/v1", okx_exchange_routes)
         .nest("/api/v1", api_key_routes)
         .nest("/api/v1/admin", admin_api_key_routes)
         .nest("/api/v1", review_routes);

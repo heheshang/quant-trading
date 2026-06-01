@@ -19,5 +19,6 @@ pub use signed_client::{
     AccountInfo, Balance, CancelOrderResponse, Fill, NewOrder, OrderResponse, PingResponse,
     RateLimitInfo, SignedBinanceClient,
 };
+pub use crate::services::okx_signed_client::SignedOkxClient;
 pub use types::{MarketMessage, SUPPORTED_SYMBOLS};
 pub use ws_hub::{HubEvent, HubMessage, WsHub};

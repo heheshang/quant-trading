@@ -268,3 +268,11 @@ fn deserialize_ticker_from_hash(
         timestamp: fields.get("timestamp")?.parse().ok()?,
     })
 }
+
+impl RedisCache {
+    /// Borrow the underlying `ConnectionManager` for direct commands
+    /// (e.g. `PING` for the readiness probe).
+    pub fn conn(&self) -> ConnectionManager {
+        self.conn.clone()
+    }
+}

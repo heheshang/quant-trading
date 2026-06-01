@@ -4,7 +4,7 @@
 //! ADR: ADR-TRADING-EXECUTION D1 (内存撮合+异步DB写入), D4 (深度变更事件驱动), D7 (加权平均均价)
 
 use std::collections::{BTreeMap, HashMap, VecDeque};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use tokio::sync::mpsc;
@@ -12,6 +12,44 @@ use tracing::{error, info, warn};
 
 use crate::db::order::{self as order_model, OrderSide, OrderStatus, OrderType};
 use crate::utils::error::AppError;
+
+// ─── Lock Helpers ───────────────────────────────────────────────
+
+/// Acquire a `Mutex` lock and convert a `PoisonError` into `AppError::Internal`.
+///
+/// In a long-running process a panic inside the critical section would otherwise
+/// poison the lock and cause every subsequent `lock().unwrap()` to panic again,
+/// turning one transient error into a service-wide outage.
+fn lock_or_internal<'a, T>(mutex: &'a Mutex<T>, ctx: &str) -> Result<MutexGuard<'a, T>, AppError> {
+    mutex
+        .lock()
+        .map_err(|e| AppError::Internal(format!("Mutex poisoned ({}): {}", ctx, e)))
+}
+
+/// Acquire an `RwLock` read guard and convert a `PoisonError` into `AppError::Internal`.
+///
+/// Reserved for future `RwLock` migrations in `MatchingEngine` (e.g. read-heavy
+/// order book snapshot paths). Not yet used; current locks are `Mutex` only.
+#[allow(dead_code)]
+fn read_lock_or_internal<'a, T>(
+    lock: &'a RwLock<T>,
+    ctx: &str,
+) -> Result<RwLockReadGuard<'a, T>, AppError> {
+    lock.read()
+        .map_err(|e| AppError::Internal(format!("RwLock poisoned ({}): {}", ctx, e)))
+}
+
+/// Acquire an `RwLock` write guard and convert a `PoisonError` into `AppError::Internal`.
+///
+/// Reserved for future `RwLock` migrations in `MatchingEngine`.
+#[allow(dead_code)]
+fn write_lock_or_internal<'a, T>(
+    lock: &'a RwLock<T>,
+    ctx: &str,
+) -> Result<RwLockWriteGuard<'a, T>, AppError> {
+    lock.write()
+        .map_err(|e| AppError::Internal(format!("RwLock poisoned ({}): {}", ctx, e)))
+}
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -162,7 +200,7 @@ impl MatchingEngine {
             .await
             .map_err(|e| AppError::Database(e.to_string()))?;
 
-        let mut books = self.order_books.lock().unwrap();
+        let mut books = lock_or_internal(&self.order_books, "rebuild_order_book")?;
         for order in orders {
             let entry = OrderEntry {
                 order_id: order.id,
@@ -213,7 +251,7 @@ impl MatchingEngine {
             }
         };
 
-        let mut books = self.order_books.lock().unwrap();
+        let mut books = lock_or_internal(&self.order_books, "insert_limit_order").expect("order_books lock");
         let book = books.entry(symbol).or_default();
         match entry.side {
             OrderSide::Buy => {
@@ -245,7 +283,7 @@ impl MatchingEngine {
     ) -> Result<MatchResult, AppError> {
         // 1. 获取深度数据
         let depth = {
-            let cache = self.depth_cache.lock().unwrap();
+            let cache = lock_or_internal(&self.depth_cache, "match_market")?;
             cache
                 .get(symbol)
                 .cloned()
@@ -339,7 +377,7 @@ impl MatchingEngine {
     /// ADR D4: 深度变更事件驱动
     pub fn on_depth_update(&self, symbol: &str, depth: &DepthData) -> Result<(), AppError> {
         // 1. 获取该交易对的订单簿（可写锁）
-        let mut books = self.order_books.lock().unwrap();
+        let mut books = lock_or_internal(&self.order_books, "on_depth_update")?;
         let book = match books.get_mut(symbol) {
             Some(b) => b,
             None => return Ok(()),
@@ -470,7 +508,8 @@ impl MatchingEngine {
 
     /// 从订单簿移除订单（撤单时调用）
     pub fn remove_from_book(&self, order_id: uuid::Uuid) {
-        let mut books = self.order_books.lock().unwrap();
+        let mut books = lock_or_internal(&self.order_books, "remove_from_book")
+            .expect("order_books lock");
         for (_symbol, book) in books.iter_mut() {
             // 检查买盘
             for (_, queue) in book.bids.iter_mut() {
@@ -489,13 +528,15 @@ impl MatchingEngine {
 
     /// 更新深度数据缓存
     pub fn update_depth(&self, symbol: &str, depth: DepthData) {
-        let mut cache = self.depth_cache.lock().unwrap();
+        let mut cache = lock_or_internal(&self.depth_cache, "update_depth")
+            .expect("depth_cache lock");
         cache.insert(symbol.to_string(), depth);
     }
 
     /// 获取交易对的深度数据
     pub fn get_depth(&self, symbol: &str) -> Option<DepthData> {
-        let cache = self.depth_cache.lock().unwrap();
+        let cache = lock_or_internal(&self.depth_cache, "get_depth")
+            .expect("depth_cache lock");
         cache.get(symbol).cloned()
     }
 

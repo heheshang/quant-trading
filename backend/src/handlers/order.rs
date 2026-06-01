@@ -293,8 +293,19 @@ async fn unfreeze_on_cancel(
                 .map_err(|e| AppError::Database(e.to_string()))?
                 .ok_or_else(|| AppError::NotFound("Paper account not found".to_string()))?;
             let mut acc_active: crate::db::order::paper_accounts::ActiveModel = account.into();
-            acc_active.frozen_balance = Set(acc_active.frozen_balance.unwrap() - unfilled_notional);
-            acc_active.balance = Set(acc_active.balance.unwrap() + unfilled_notional);
+            // INVARIANT: `balance` and `frozen_balance` are NOT NULL columns
+            // (see migration 20260120000001_paper_accounts.sql). A None here
+            // would indicate a deserialization bug, not a runtime data error.
+            let frozen_balance = acc_active
+                .frozen_balance
+                .take()
+                .expect("frozen_balance NOT NULL column");
+            let balance = acc_active
+                .balance
+                .take()
+                .expect("balance NOT NULL column");
+            acc_active.frozen_balance = Set(frozen_balance - unfilled_notional);
+            acc_active.balance = Set(balance + unfilled_notional);
             acc_active.updated_at = Set(chrono::Utc::now());
             acc_active.update(db).await.map_err(|e| {
                 tracing::error!("Failed to unfreeze margin on cancel: {:?}", e);
@@ -464,10 +475,21 @@ pub async fn create_order(
 
     // ── D3: 保证金冻结 (限价买单) ──
     if side == OrderSide::Buy && order_type == OrderType::Limit {
-        let notional = price.unwrap() * quantity;
+        // INVARIANT: limit orders always carry a price; caller-side validation
+        // rejects `None` for Limit orders before reaching this branch.
+        let notional = price.expect("Limit order price") * quantity;
         let mut account_active: crate::db::order::paper_accounts::ActiveModel = account.into();
-        let new_balance = account_active.balance.unwrap() - notional;
-        let new_frozen = account_active.frozen_balance.unwrap() + notional;
+        // INVARIANT: balance/frozen_balance are NOT NULL columns.
+        let balance = account_active
+            .balance
+            .take()
+            .expect("balance NOT NULL column");
+        let frozen_balance = account_active
+            .frozen_balance
+            .take()
+            .expect("frozen_balance NOT NULL column");
+        let new_balance = balance - notional;
+        let new_frozen = frozen_balance + notional;
         account_active.balance = Set(new_balance);
         account_active.frozen_balance = Set(new_frozen);
         account_active.updated_at = Set(chrono::Utc::now());
@@ -1062,8 +1084,17 @@ pub async fn close_position(
                 .map_err(|e| AppError::Database(e.to_string()))?
                 .ok_or_else(|| AppError::NotFound("Paper account not found".to_string()))?;
             let mut acc_active: crate::db::order::paper_accounts::ActiveModel = account.into();
-            acc_active.total_pnl = Set(acc_active.total_pnl.unwrap() + realized_pnl);
-            acc_active.balance = Set(acc_active.balance.unwrap() + realized_pnl);
+            // INVARIANT: total_pnl / balance are NOT NULL columns.
+            let total_pnl = acc_active
+                .total_pnl
+                .take()
+                .expect("total_pnl NOT NULL column");
+            let balance = acc_active
+                .balance
+                .take()
+                .expect("balance NOT NULL column");
+            acc_active.total_pnl = Set(total_pnl + realized_pnl);
+            acc_active.balance = Set(balance + realized_pnl);
             acc_active.updated_at = Set(chrono::Utc::now());
             acc_active.update(&*db).await.map_err(|e| {
                 tracing::error!("Failed to update account PnL: {:?}", e);

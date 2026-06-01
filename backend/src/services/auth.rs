@@ -443,7 +443,9 @@ mod tests {
 
     #[test]
     fn test_hash_password_roundtrip() {
-        let password = "MySecureP@ss123";
+        // SAFETY: Test fixture only — never used in production code paths.
+        const TEST_PASSWORD: &str = "test-pwd-fixture-001";
+        let password = TEST_PASSWORD;
         let hash = hash_password(password).unwrap();
         assert!(hash.starts_with("$2b$") || hash.starts_with("$2a$"));
         assert!(verify_password(password, &hash).unwrap());

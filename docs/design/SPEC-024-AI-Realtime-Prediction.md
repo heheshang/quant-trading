@@ -32,7 +32,7 @@
 
 ```
 quant-trading/
-├── ai-service/                          # Python AI 预测服务（新建）
+├── python-ai-service/                  # Python AI 预测服务（FastAPI + DeepSeek）
 │   ├── main.py                            # FastAPI 入口
 │   ├── config.py                          # 配置（DeepSeek API Key 等）
 │   ├── deepseek_client.py                 # DeepSeek API 调用
@@ -207,7 +207,7 @@ AI_SERVICE_PORT=8002
 
 ```bash
 # 启动 Python AI 服务
-cd ai-service && uvicorn main:app --port 8002 --reload
+cd python-ai-service && uvicorn main:app --port 8001 --reload
 
 # 健康检查
 curl http://localhost:8002/health

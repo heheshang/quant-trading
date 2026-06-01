@@ -11,7 +11,9 @@ DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
 BINANCE_WS_URL = os.getenv("BINANCE_WS_URL", "wss://stream.binance.com:9443/ws")
 BINANCE_REST_URL = os.getenv("BINANCE_REST_URL", "https://api.binance.com/api/v3")
 
-AI_SERVICE_PORT = int(os.getenv("AI_SERVICE_PORT", "8002"))
+# Container-internal port is 8001 (matches docker-compose ports mapping 8002:8001).
+# AI_MODEL_SERVICE_URL in Rust backend must point to http://ai-service:8001.
+AI_SERVICE_PORT = int(os.getenv("AI_SERVICE_PORT", "8001"))
 AI_SERVICE_HOST = os.getenv("AI_SERVICE_HOST", "0.0.0.0")
 
 DEFAULT_SYMBOL = os.getenv("DEFAULT_SYMBOL", "BTCUSDT")
