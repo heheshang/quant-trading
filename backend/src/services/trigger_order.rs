@@ -5,7 +5,8 @@
 
 use chrono::{Duration as ChronoDuration, Utc};
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, Set,
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseBackend, DatabaseConnection,
+    EntityTrait, QueryFilter, Set, Statement,
 };
 use std::sync::Arc;
 use tracing::{error, info};
@@ -14,10 +15,172 @@ use uuid::Uuid;
 use crate::db::order::positions::Entity as PositionEntity;
 use crate::db::order::{OrderSide, OrderStatus, OrderType, TimeInForce, TradeMode};
 use crate::db::trigger_order::{
-    ActiveModel as TriggerOrderActive, Entity as TriggerOrderEntity, Model as TriggerOrder,
-    TriggerDirection, TriggerStatus, TriggerType, TwapSide,
+    Entity as TriggerOrderEntity, Model as TriggerOrder, TriggerDirection, TriggerStatus,
+    TriggerType, TwapSide,
 };
 use crate::utils::error::AppError;
+
+// ────────────────────────── enum string-value helpers ──────────────────────────
+//
+// SeaORM 1.1.x's `DeriveActiveEnum` ships a generated `IntoActiveValue<TriggerType>`
+// that inserts the variant's **Rust name** (e.g. `"StopLoss"`) as `text`, but
+// our Postgres `trigger_orders` columns are real enums (e.g. `trigger_type`).
+// The result is a `text → trigger_type` type-mismatch on every `INSERT` and
+// `text → trigger_status` on every `SELECT … WHERE` (`sea-orm#2500`).
+//
+// Workaround: every write path bypasses SeaORM and emits the `string_value`
+// directly (`'stop_loss'::trigger_type`). These helpers centralize the mapping
+// so the raw SQL stays in sync with the entity definition.
+fn trigger_type_str(v: &TriggerType) -> &'static str {
+    match v {
+        TriggerType::StopLoss => "stop_loss",
+        TriggerType::TakeProfit => "take_profit",
+        TriggerType::Oco => "oco",
+        TriggerType::Twap => "twap",
+    }
+}
+// Currently used only by future service methods (e.g. cancel/status
+// updates); suppress the dead-code warning for now.
+#[allow(dead_code)]
+fn trigger_status_str(v: &TriggerStatus) -> &'static str {
+    match v {
+        TriggerStatus::Pending => "pending",
+        TriggerStatus::Triggered => "triggered",
+        TriggerStatus::Cancelled => "cancelled",
+        TriggerStatus::Expired => "expired",
+        TriggerStatus::Failed => "failed",
+    }
+}
+fn trigger_direction_str(v: &TriggerDirection) -> &'static str {
+    match v {
+        TriggerDirection::Up => "up",
+        TriggerDirection::Down => "down",
+    }
+}
+fn parse_trigger_type(s: &str) -> TriggerType {
+    match s {
+        "stop_loss" => TriggerType::StopLoss,
+        "take_profit" => TriggerType::TakeProfit,
+        "oco" => TriggerType::Oco,
+        "twap" => TriggerType::Twap,
+        _ => TriggerType::StopLoss,
+    }
+}
+fn parse_trigger_status(s: &str) -> TriggerStatus {
+    match s {
+        "pending" => TriggerStatus::Pending,
+        "triggered" => TriggerStatus::Triggered,
+        "cancelled" => TriggerStatus::Cancelled,
+        "expired" => TriggerStatus::Expired,
+        "failed" => TriggerStatus::Failed,
+        _ => TriggerStatus::Pending,
+    }
+}
+fn parse_trigger_direction(s: &str) -> TriggerDirection {
+    match s {
+        "up" => TriggerDirection::Up,
+        "down" => TriggerDirection::Down,
+        _ => TriggerDirection::Down,
+    }
+}
+
+/// Decode a single `QueryResult` row (post `::text` cast) into a typed
+/// `TriggerOrder` model. Returned error is a database string for upstream
+/// wrapping into `AppError::Database`.
+fn row_to_trigger_order(row: sea_orm::QueryResult) -> Result<TriggerOrder, String> {
+    Ok(TriggerOrder {
+        id: row.try_get_by::<Uuid, _>("id").map_err(|e| e.to_string())?,
+        user_id: row
+            .try_get_by::<Uuid, _>("user_id")
+            .map_err(|e| e.to_string())?,
+        position_id: row
+            .try_get_by::<Option<Uuid>, _>("position_id")
+            .map_err(|e| e.to_string())?,
+        symbol: row
+            .try_get_by::<String, _>("symbol")
+            .map_err(|e| e.to_string())?,
+        trigger_type: parse_trigger_type(
+            &row.try_get_by::<String, _>("trigger_type").map_err(|e| e.to_string())?,
+        ),
+        status: parse_trigger_status(
+            &row.try_get_by::<String, _>("status").map_err(|e| e.to_string())?,
+        ),
+        trigger_direction: parse_trigger_direction(
+            &row.try_get_by::<String, _>("trigger_direction").map_err(|e| e.to_string())?,
+        ),
+        trigger_price: row
+            .try_get_by::<f64, _>("trigger_price")
+            .map_err(|e| e.to_string())?,
+        trigger_price_upper: row
+            .try_get_by::<Option<f64>, _>("trigger_price_upper")
+            .map_err(|e| e.to_string())?,
+        trigger_price_lower: row
+            .try_get_by::<Option<f64>, _>("trigger_price_lower")
+            .map_err(|e| e.to_string())?,
+        base_price: row
+            .try_get_by::<Option<f64>, _>("base_price")
+            .map_err(|e| e.to_string())?,
+        side: match row
+            .try_get_by::<String, _>("side")
+            .map_err(|e| e.to_string())?
+            .as_str()
+        {
+            "sell" => TwapSide::Sell,
+            _ => TwapSide::Buy,
+        },
+        quantity: row
+            .try_get_by::<f64, _>("quantity")
+            .map_err(|e| e.to_string())?,
+        filled_quantity: row
+            .try_get_by::<f64, _>("filled_quantity")
+            .map_err(|e| e.to_string())?,
+        avg_fill_price: row
+            .try_get_by::<Option<f64>, _>("avg_fill_price")
+            .map_err(|e| e.to_string())?,
+        twap_slice_quantity: row
+            .try_get_by::<f64, _>("twap_slice_quantity")
+            .map_err(|e| e.to_string())?,
+        twap_interval_secs: row
+            .try_get_by::<i32, _>("twap_interval_secs")
+            .map_err(|e| e.to_string())?,
+        twap_start_time: row
+            .try_get_by::<Option<chrono::DateTime<Utc>>, _>("twap_start_time")
+            .map_err(|e| e.to_string())?,
+        twap_end_time: row
+            .try_get_by::<Option<chrono::DateTime<Utc>>, _>("twap_end_time")
+            .map_err(|e| e.to_string())?,
+        twap_executed_slices: row
+            .try_get_by::<i32, _>("twap_executed_slices")
+            .map_err(|e| e.to_string())?,
+        twap_max_slices: row
+            .try_get_by::<i32, _>("twap_max_slices")
+            .map_err(|e| e.to_string())?,
+        oco_pair_id: row
+            .try_get_by::<Option<Uuid>, _>("oco_pair_id")
+            .map_err(|e| e.to_string())?,
+        triggered_order_id: row
+            .try_get_by::<Option<Uuid>, _>("triggered_order_id")
+            .map_err(|e| e.to_string())?,
+        trigger_reason: row
+            .try_get_by::<Option<String>, _>("trigger_reason")
+            .map_err(|e| e.to_string())?,
+        triggered_at: row
+            .try_get_by::<Option<chrono::DateTime<Utc>>, _>("triggered_at")
+            .map_err(|e| e.to_string())?,
+        expire_at: row
+            .try_get_by::<Option<chrono::DateTime<Utc>>, _>("expire_at")
+            .map_err(|e| e.to_string())?,
+        created_at: row
+            .try_get_by::<chrono::DateTime<Utc>, _>("created_at")
+            .map_err(|e| e.to_string())?,
+        updated_at: row
+            .try_get_by::<chrono::DateTime<Utc>, _>("updated_at")
+            .map_err(|e| e.to_string())?,
+        cancelled_at: row
+            .try_get_by::<Option<chrono::DateTime<Utc>>, _>("cancelled_at")
+            .map_err(|e| e.to_string())?,
+    })
+}
 
 /// Trigger Order Service - 条件触发单服务
 pub struct TriggerOrderService {
@@ -62,42 +225,38 @@ impl TriggerOrderService {
         };
 
         let now = Utc::now();
-        let model = TriggerOrderActive {
-            id: Set(Uuid::new_v4()),
-            user_id: Set(user_id),
-            position_id: Set(Some(position_id)),
-            symbol: Set(symbol.to_string()),
-            trigger_type: Set(TriggerType::StopLoss),
-            status: Set(TriggerStatus::Pending),
-            trigger_direction: Set(trigger_direction),
-            trigger_price: Set(trigger_price),
-            trigger_price_upper: Set(None),
-            trigger_price_lower: Set(None),
-            base_price: Set(base_price),
-            side: Set(side),
-            quantity: Set(quantity),
-            filled_quantity: Set(0.0),
-            avg_fill_price: Set(None),
-            twap_slice_quantity: Set(0.0),
-            twap_interval_secs: Set(60),
-            twap_start_time: Set(None),
-            twap_end_time: Set(None),
-            twap_executed_slices: Set(0),
-            twap_max_slices: Set(0),
-            oco_pair_id: Set(None),
-            triggered_order_id: Set(None),
-            trigger_reason: Set(None),
-            triggered_at: Set(None),
-            expire_at: Set(None),
-            created_at: Set(now),
-            updated_at: Set(now),
-            cancelled_at: Set(None),
-        };
+        let new_id = Uuid::new_v4();
+        self.insert_trigger_order_raw(
+            new_id,
+            user_id,
+            Some(position_id),
+            symbol,
+            TriggerType::StopLoss,
+            trigger_direction,
+            Some(trigger_price),
+            None,
+            None,
+            base_price,
+            side,
+            quantity,
+            0.0,
+            60,
+            None,
+            None,
+            0,
+            0,
+            None,
+            None,
+            None,
+            None,
+            now,
+        )
+        .await?;
 
-        let result = model.insert(self.db.as_ref()).await.map_err(|e| {
-            error!("Failed to create stop loss order: {:?}", e);
-            AppError::Database(e.to_string())
-        })?;
+        let result = self
+            .get_trigger_order_via_raw_text(new_id)
+            .await?
+            .ok_or_else(|| AppError::NotFound(format!("Trigger order {} not found", new_id)))?;
 
         info!(
             user_id = %user_id,
@@ -143,42 +302,38 @@ impl TriggerOrderService {
         };
 
         let now = Utc::now();
-        let model = TriggerOrderActive {
-            id: Set(Uuid::new_v4()),
-            user_id: Set(user_id),
-            position_id: Set(Some(position_id)),
-            symbol: Set(symbol.to_string()),
-            trigger_type: Set(TriggerType::TakeProfit),
-            status: Set(TriggerStatus::Pending),
-            trigger_direction: Set(trigger_direction),
-            trigger_price: Set(trigger_price),
-            trigger_price_upper: Set(None),
-            trigger_price_lower: Set(None),
-            base_price: Set(base_price),
-            side: Set(side),
-            quantity: Set(quantity),
-            filled_quantity: Set(0.0),
-            avg_fill_price: Set(None),
-            twap_slice_quantity: Set(0.0),
-            twap_interval_secs: Set(60),
-            twap_start_time: Set(None),
-            twap_end_time: Set(None),
-            twap_executed_slices: Set(0),
-            twap_max_slices: Set(0),
-            oco_pair_id: Set(None),
-            triggered_order_id: Set(None),
-            trigger_reason: Set(None),
-            triggered_at: Set(None),
-            expire_at: Set(None),
-            created_at: Set(now),
-            updated_at: Set(now),
-            cancelled_at: Set(None),
-        };
+        let new_id = Uuid::new_v4();
+        self.insert_trigger_order_raw(
+            new_id,
+            user_id,
+            Some(position_id),
+            symbol,
+            TriggerType::TakeProfit,
+            trigger_direction,
+            Some(trigger_price),
+            None,
+            None,
+            base_price,
+            side,
+            quantity,
+            0.0,
+            60,
+            None,
+            None,
+            0,
+            0,
+            None,
+            None,
+            None,
+            None,
+            now,
+        )
+        .await?;
 
-        let result = model.insert(self.db.as_ref()).await.map_err(|e| {
-            error!("Failed to create take profit order: {:?}", e);
-            AppError::Database(e.to_string())
-        })?;
+        let result = self
+            .get_trigger_order_via_raw_text(new_id)
+            .await?
+            .ok_or_else(|| AppError::NotFound(format!("Trigger order {} not found", new_id)))?;
 
         info!(
             user_id = %user_id,
@@ -232,105 +387,77 @@ impl TriggerOrderService {
 
         // 创建止损单
         let stop_loss_id = Uuid::new_v4();
-        let stop_loss_model = TriggerOrderActive {
-            id: Set(stop_loss_id),
-            user_id: Set(user_id),
-            position_id: Set(Some(position_id)),
-            symbol: Set(symbol.to_string()),
-            trigger_type: Set(TriggerType::Oco),
-            status: Set(TriggerStatus::Pending),
-            trigger_direction: Set(stop_trigger_dir),
-            trigger_price: Set(stop_loss_price),
-            trigger_price_upper: Set(Some(take_profit_price)),
-            trigger_price_lower: Set(None),
-            base_price: Set(base_price),
-            side: Set(side.clone()),
-            quantity: Set(quantity),
-            filled_quantity: Set(0.0),
-            avg_fill_price: Set(None),
-            twap_slice_quantity: Set(0.0),
-            twap_interval_secs: Set(60),
-            twap_start_time: Set(None),
-            twap_end_time: Set(None),
-            twap_executed_slices: Set(0),
-            twap_max_slices: Set(0),
-            oco_pair_id: Set(None), // 稍后更新
-            triggered_order_id: Set(None),
-            trigger_reason: Set(None),
-            triggered_at: Set(None),
-            expire_at: Set(None),
-            created_at: Set(now),
-            updated_at: Set(now),
-            cancelled_at: Set(None),
-        };
-
         // 创建止盈单
         let take_profit_id = Uuid::new_v4();
-        let take_profit_model = TriggerOrderActive {
-            id: Set(take_profit_id),
-            user_id: Set(user_id),
-            position_id: Set(Some(position_id)),
-            symbol: Set(symbol.to_string()),
-            trigger_type: Set(TriggerType::Oco),
-            status: Set(TriggerStatus::Pending),
-            trigger_direction: Set(profit_trigger_dir),
-            trigger_price: Set(take_profit_price),
-            trigger_price_upper: Set(None),
-            trigger_price_lower: Set(Some(stop_loss_price)),
-            base_price: Set(base_price),
-            side: Set(side),
-            quantity: Set(quantity),
-            filled_quantity: Set(0.0),
-            avg_fill_price: Set(None),
-            twap_slice_quantity: Set(0.0),
-            twap_interval_secs: Set(60),
-            twap_start_time: Set(None),
-            twap_end_time: Set(None),
-            twap_executed_slices: Set(0),
-            twap_max_slices: Set(0),
-            oco_pair_id: Set(None), // 稍后更新
-            triggered_order_id: Set(None),
-            trigger_reason: Set(None),
-            triggered_at: Set(None),
-            expire_at: Set(None),
-            created_at: Set(now),
-            updated_at: Set(now),
-            cancelled_at: Set(None),
-        };
 
-        // 插入两个订单
-        let stop_loss = stop_loss_model
-            .insert(self.db.as_ref())
-            .await
-            .map_err(|e| {
-                error!("Failed to create stop loss order: {:?}", e);
-                AppError::Database(e.to_string())
+        self.insert_trigger_order_raw(
+            stop_loss_id,
+            user_id,
+            Some(position_id),
+            symbol,
+            TriggerType::Oco,
+            stop_trigger_dir,
+            Some(stop_loss_price),
+            Some(take_profit_price),
+            None,
+            base_price,
+            side.clone(),
+            quantity,
+            0.0,
+            60,
+            None,
+            None,
+            0,
+            0,
+            Some(take_profit_id), // oco_pair_id
+            None,
+            None,
+            None,
+            now,
+        )
+        .await?;
+        self.insert_trigger_order_raw(
+            take_profit_id,
+            user_id,
+            Some(position_id),
+            symbol,
+            TriggerType::Oco,
+            profit_trigger_dir,
+            Some(take_profit_price),
+            None,
+            Some(stop_loss_price),
+            base_price,
+            side,
+            quantity,
+            0.0,
+            60,
+            None,
+            None,
+            0,
+            0,
+            Some(stop_loss_id), // oco_pair_id
+            None,
+            None,
+            None,
+            now,
+        )
+        .await?;
+
+        let stop_loss = self
+            .get_trigger_order_via_raw_text(stop_loss_id)
+            .await?
+            .ok_or_else(|| {
+                AppError::NotFound(format!("Stop loss order {} not found", stop_loss_id))
             })?;
-
-        let take_profit = take_profit_model
-            .insert(self.db.as_ref())
-            .await
-            .map_err(|e| {
-                error!("Failed to create take profit order: {:?}", e);
-                AppError::Database(e.to_string())
+        let take_profit = self
+            .get_trigger_order_via_raw_text(take_profit_id)
+            .await?
+            .ok_or_else(|| {
+                AppError::NotFound(format!(
+                    "Take profit order {} not found",
+                    take_profit_id
+                ))
             })?;
-
-        // 更新互相关联
-        let mut stop_loss_update: TriggerOrderActive = stop_loss.clone().into();
-        stop_loss_update.oco_pair_id = Set(Some(take_profit_id));
-        stop_loss_update.updated_at = Set(Utc::now());
-        stop_loss_update
-            .update(self.db.as_ref())
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
-
-        let mut take_profit_update: TriggerOrderActive = take_profit.clone().into();
-        take_profit_update.oco_pair_id = Set(Some(stop_loss_id));
-        take_profit_update.updated_at = Set(Utc::now());
-        take_profit_update
-            .update(self.db.as_ref())
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
 
         info!(
             user_id = %user_id,
@@ -365,46 +492,43 @@ impl TriggerOrderService {
             _ => return Err(AppError::BadRequest(format!("Invalid side: {}", side))),
         };
 
-        let model = TriggerOrderActive {
-            id: Set(Uuid::new_v4()),
-            user_id: Set(user_id),
-            position_id: Set(None),
-            symbol: Set(symbol.to_string()),
-            trigger_type: Set(TriggerType::Twap),
-            status: Set(TriggerStatus::Pending),
-            trigger_direction: Set(if side == "buy" {
-                TriggerDirection::Up
-            } else {
-                TriggerDirection::Down
-            }),
-            trigger_price: Set(0.0), // TWAP不需要触发价格监控
-            trigger_price_upper: Set(None),
-            trigger_price_lower: Set(None),
-            base_price: Set(None),
-            side: Set(twap_side),
-            quantity: Set(quantity),
-            filled_quantity: Set(0.0),
-            avg_fill_price: Set(None),
-            twap_slice_quantity: Set(slice_quantity),
-            twap_interval_secs: Set(interval_secs),
-            twap_start_time: Set(Some(now)),
-            twap_end_time: Set(Some(end_time)),
-            twap_executed_slices: Set(0),
-            twap_max_slices: Set(duration_secs / interval_secs),
-            oco_pair_id: Set(None),
-            triggered_order_id: Set(None),
-            trigger_reason: Set(None),
-            triggered_at: Set(None),
-            expire_at: Set(Some(end_time)),
-            created_at: Set(now),
-            updated_at: Set(now),
-            cancelled_at: Set(None),
+        let trigger_direction = if side == "buy" {
+            TriggerDirection::Up
+        } else {
+            TriggerDirection::Down
         };
+        let new_id = Uuid::new_v4();
+        self.insert_trigger_order_raw(
+            new_id,
+            user_id,
+            None,
+            symbol,
+            TriggerType::Twap,
+            trigger_direction,
+            None,
+            None,
+            None,
+            None,
+            twap_side,
+            quantity,
+            slice_quantity,
+            interval_secs,
+            Some(now),
+            Some(end_time),
+            0,
+            duration_secs / interval_secs,
+            None,
+            None,
+            None,
+            Some(end_time),
+            now,
+        )
+        .await?;
 
-        let result = model.insert(self.db.as_ref()).await.map_err(|e| {
-            error!("Failed to create TWAP order: {:?}", e);
-            AppError::Database(e.to_string())
-        })?;
+        let result = self
+            .get_trigger_order_via_raw_text(new_id)
+            .await?
+            .ok_or_else(|| AppError::NotFound(format!("Trigger order {} not found", new_id)))?;
 
         info!(
             user_id = %user_id,
@@ -422,13 +546,14 @@ impl TriggerOrderService {
 
     /// 检查价格是否触发条件单
     pub async fn check_trigger(&self, symbol: &str, current_price: f64) -> Result<(), AppError> {
-        // 查询所有待触发的条件单
-        let pending_orders = TriggerOrderEntity::find()
-            .filter(crate::db::trigger_order::Column::Symbol.eq(symbol))
-            .filter(crate::db::trigger_order::Column::Status.eq(TriggerStatus::Pending))
-            .all(self.db.as_ref())
+        // Bypass SeaORM's enum-aware Select because the generated
+        // `DeriveActiveEnum` decode path fails on the real Postgres
+        // enum type. Use raw SQL with `::text` cast on read and
+        // string-value literal on compare.
+        let pending_orders: Vec<TriggerOrder> = self
+            .list_pending_trigger_orders_raw(symbol)
             .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
+            .map_err(AppError::Database)?;
 
         for order in pending_orders {
             let should_trigger = match order.trigger_type {
@@ -501,15 +626,24 @@ impl TriggerOrderService {
             AppError::Database(e.to_string())
         })?;
 
-        // 更新条件单状态
-        let mut active: TriggerOrderActive = order.clone().into();
-        active.status = Set(TriggerStatus::Triggered);
-        active.triggered_at = Set(Some(now));
-        active.triggered_order_id = Set(Some(new_order_id));
-        active.trigger_reason = Set(Some(format!("price_triggered_at_{}", current_price)));
-        active.updated_at = Set(now);
-        active
-            .update(self.db.as_ref())
+        // 更新条件单状态 (raw SQL — see comment on cancel_trigger_order)
+        let reason = format!("price_triggered_at_{}", current_price);
+        let upd_sql = format!(
+            "UPDATE trigger_orders SET \
+                status = 'triggered'::trigger_status, \
+                triggered_at = '{now}'::timestamptz, \
+                triggered_order_id = '{oid}'::uuid, \
+                trigger_reason = '{rsn}', \
+                updated_at = '{now}'::timestamptz \
+             WHERE id = '{id}'::uuid",
+            now = now.to_rfc3339(),
+            oid = new_order_id,
+            rsn = reason.replace('\'', "''"),
+            id = order.id
+        );
+        self.db
+            .as_ref()
+            .execute(Statement::from_string(DatabaseBackend::Postgres, upd_sql))
             .await
             .map_err(|e| AppError::Database(e.to_string()))?;
 
@@ -528,10 +662,11 @@ impl TriggerOrderService {
 
     /// 取消条件单
     pub async fn cancel_trigger_order(&self, order_id: Uuid, reason: &str) -> Result<(), AppError> {
-        let order = TriggerOrderEntity::find_by_id(order_id)
-            .one(self.db.as_ref())
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?
+        // Bypass SeaORM's enum decode on read; cancel uses raw UPDATE too
+        // to avoid the same variant-name-as-text issue.
+        let order = self
+            .get_trigger_order_via_raw_text(order_id)
+            .await?
             .ok_or_else(|| AppError::NotFound(format!("Trigger order not found: {}", order_id)))?;
 
         if order.status.is_terminal() {
@@ -542,34 +677,46 @@ impl TriggerOrderService {
         }
 
         let now = Utc::now();
-        let mut active: TriggerOrderActive = order.clone().into();
-        active.status = Set(TriggerStatus::Cancelled);
-        active.cancelled_at = Set(Some(now));
-        active.trigger_reason = Set(Some(reason.to_string()));
-        active.updated_at = Set(now);
-        active
-            .update(self.db.as_ref())
+        let sql = format!(
+            "UPDATE trigger_orders SET \
+                status = 'cancelled'::trigger_status, \
+                cancelled_at = '{now}'::timestamptz, \
+                trigger_reason = '{rsn}', \
+                updated_at = '{now}'::timestamptz \
+             WHERE id = '{oid}'::uuid",
+            now = now.to_rfc3339(),
+            rsn = reason.replace('\'', "''"),
+            oid = order_id
+        );
+        self.db
+            .as_ref()
+            .execute(Statement::from_string(DatabaseBackend::Postgres, sql))
             .await
             .map_err(|e| AppError::Database(e.to_string()))?;
 
         // 如果是OCO单，也取消关联的另一单
         if let Some(oco_pair_id) = order.oco_pair_id {
-            let pair = TriggerOrderEntity::find_by_id(oco_pair_id)
-                .one(self.db.as_ref())
-                .await
-                .map_err(|e| AppError::Database(e.to_string()))?;
-
+            let pair = self
+                .get_trigger_order_via_raw_text(oco_pair_id)
+                .await?;
             if let Some(pair_order) = pair
                 && pair_order.status == TriggerStatus::Pending
             {
-                let mut pair_active: TriggerOrderActive = pair_order.clone().into();
-                pair_active.status = Set(TriggerStatus::Cancelled);
-                pair_active.cancelled_at = Set(Some(now));
-                pair_active.trigger_reason =
-                    Set(Some(format!("OCO cancelled by pair: {}", reason)));
-                pair_active.updated_at = Set(now);
-                pair_active
-                    .update(self.db.as_ref())
+                let pair_reason = format!("OCO cancelled by pair: {}", reason);
+                let pair_sql = format!(
+                    "UPDATE trigger_orders SET \
+                        status = 'cancelled'::trigger_status, \
+                        cancelled_at = '{now}'::timestamptz, \
+                        trigger_reason = '{rsn}', \
+                        updated_at = '{now}'::timestamptz \
+                     WHERE id = '{oid}'::uuid",
+                    now = now.to_rfc3339(),
+                    rsn = pair_reason.replace('\'', "''"),
+                    oid = oco_pair_id
+                );
+                self.db
+                    .as_ref()
+                    .execute(Statement::from_string(DatabaseBackend::Postgres, pair_sql))
                     .await
                     .map_err(|e| AppError::Database(e.to_string()))?;
             }
@@ -591,44 +738,47 @@ impl TriggerOrderService {
         status: Option<String>,
         symbol: Option<String>,
     ) -> Result<Vec<TriggerOrder>, AppError> {
-        let mut query =
-            TriggerOrderEntity::find().filter(crate::db::trigger_order::Column::UserId.eq(user_id));
-
-        if let Some(ref s) = status {
-            match s.as_str() {
-                "pending" => {
-                    query = query
-                        .filter(crate::db::trigger_order::Column::Status.eq(TriggerStatus::Pending))
-                }
-                "triggered" => {
-                    query = query.filter(
-                        crate::db::trigger_order::Column::Status.eq(TriggerStatus::Triggered),
-                    )
-                }
-                "cancelled" => {
-                    query = query.filter(
-                        crate::db::trigger_order::Column::Status.eq(TriggerStatus::Cancelled),
-                    )
-                }
-                "expired" => {
-                    query = query
-                        .filter(crate::db::trigger_order::Column::Status.eq(TriggerStatus::Expired))
-                }
-                _ => {}
-            }
-        }
-
-        if let Some(ref sym) = symbol {
-            query = query.filter(crate::db::trigger_order::Column::Symbol.eq(sym));
-        }
-
-        let orders = query
-            .order_by_desc(crate::db::trigger_order::Column::CreatedAt)
-            .all(self.db.as_ref())
+        // Bypass SeaORM filter chain because the generated enum decode
+        // fails on real Postgres enum columns.
+        let status_clause = match status.as_deref() {
+            Some("pending") => "AND status = 'pending'::trigger_status",
+            Some("triggered") => "AND status = 'triggered'::trigger_status",
+            Some("cancelled") => "AND status = 'cancelled'::trigger_status",
+            Some("expired") => "AND status = 'expired'::trigger_status",
+            _ => "",
+        };
+        let symbol_clause = match symbol.as_deref() {
+            Some(s) if !s.is_empty() => format!("AND symbol = '{}'", s),
+            _ => String::new(),
+        };
+        let sql = format!(
+            "SELECT id, user_id, position_id, symbol, \
+                    trigger_type::text      AS trigger_type, \
+                    status::text            AS status, \
+                    trigger_direction::text AS trigger_direction, \
+                    trigger_price, trigger_price_upper, trigger_price_lower, \
+                    base_price, side, quantity, filled_quantity, avg_fill_price, \
+                    twap_slice_quantity, twap_interval_secs, twap_start_time, \
+                    twap_end_time, twap_executed_slices, twap_max_slices, \
+                    oco_pair_id, triggered_order_id, trigger_reason, \
+                    triggered_at, expire_at, created_at, updated_at, cancelled_at \
+             FROM trigger_orders \
+             WHERE user_id = '{uid}'::uuid {st} {sy} \
+             ORDER BY created_at DESC",
+            uid = user_id,
+            st = status_clause,
+            sy = symbol_clause
+        );
+        let rows = self
+            .db
+            .as_ref()
+            .query_all(Statement::from_string(DatabaseBackend::Postgres, sql))
             .await
             .map_err(|e| AppError::Database(e.to_string()))?;
-
-        Ok(orders)
+        rows.into_iter()
+            .map(row_to_trigger_order)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(AppError::Database)
     }
 
     /// 获取单个条件单详情
@@ -637,10 +787,9 @@ impl TriggerOrderService {
         user_id: Uuid,
         order_id: Uuid,
     ) -> Result<TriggerOrder, AppError> {
-        let order = TriggerOrderEntity::find_by_id(order_id)
-            .one(self.db.as_ref())
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?
+        let order = self
+            .get_trigger_order_via_raw_text(order_id)
+            .await?
             .ok_or_else(|| AppError::NotFound(format!("Trigger order not found: {}", order_id)))?;
 
         if order.user_id != user_id {
@@ -650,6 +799,246 @@ impl TriggerOrderService {
         }
 
         Ok(order)
+    }
+
+    /// Internal: insert a single trigger_order row using raw SQL.
+    /// Bypasses SeaORM's generated `DeriveActiveEnum` `IntoActiveValue`
+    /// (which sends the variant's Rust name as `text`, failing the
+    /// real Postgres enum column).
+    #[allow(clippy::too_many_arguments, clippy::result_large_err)]
+    pub(crate) async fn insert_trigger_order_raw(
+        &self,
+        new_id: Uuid,
+        user_id: Uuid,
+        position_id: Option<Uuid>,
+        symbol: &str,
+        trigger_type: TriggerType,
+        trigger_direction: TriggerDirection,
+        trigger_price: Option<f64>,
+        trigger_price_upper: Option<f64>,
+        trigger_price_lower: Option<f64>,
+        base_price: Option<f64>,
+        side: TwapSide,
+        quantity: f64,
+        twap_slice_quantity: f64,
+        twap_interval_secs: i32,
+        twap_start_time: Option<chrono::DateTime<Utc>>,
+        twap_end_time: Option<chrono::DateTime<Utc>>,
+        twap_executed_slices: i32,
+        twap_max_slices: i32,
+        oco_pair_id: Option<Uuid>,
+        triggered_order_id: Option<Uuid>,
+        trigger_reason: Option<&str>,
+        expire_at: Option<chrono::DateTime<Utc>>,
+        now: chrono::DateTime<Utc>,
+    ) -> Result<(), AppError> {
+        let opt_str = |v: Option<chrono::DateTime<Utc>>| match v {
+            Some(t) => format!("'{}'::timestamptz", t.to_rfc3339()),
+            None => "NULL".to_string(),
+        };
+        let opt_uuid = |v: Option<Uuid>| match v {
+            Some(u) => format!("'{}'::uuid", u),
+            None => "NULL".to_string(),
+        };
+        let opt_f64 = |v: Option<f64>| match v {
+            Some(f) => f.to_string(),
+            None => "NULL".to_string(),
+        };
+        let opt_text = |v: Option<&str>| match v {
+            Some(s) => format!("'{}'", s.replace('\'', "''")),
+            None => "NULL".to_string(),
+        };
+        let sql = format!(
+            "INSERT INTO trigger_orders (\
+                id, user_id, position_id, symbol, trigger_type, status, \
+                trigger_direction, trigger_price, trigger_price_upper, \
+                trigger_price_lower, base_price, side, quantity, \
+                filled_quantity, avg_fill_price, twap_slice_quantity, \
+                twap_interval_secs, twap_start_time, twap_end_time, \
+                twap_executed_slices, twap_max_slices, oco_pair_id, \
+                triggered_order_id, trigger_reason, triggered_at, \
+                expire_at, created_at, updated_at, cancelled_at\
+             ) VALUES (\
+                '{id}'::uuid, '{uid}'::uuid, {pid}, '{sym}', \
+                '{tt}'::trigger_type, 'pending'::trigger_status, \
+                '{td}'::trigger_direction, {tp}, {tpu}, {tpl}, {bp}, '{sd}', \
+                {qty}, 0.0, NULL, {tsq}, {tis}, {tst}, {tet}, \
+                {tes}, {tms}, {oco}, {trid}, {trsn}, NULL, \
+                {exp}, '{now}'::timestamptz, '{now}'::timestamptz, NULL\
+             )",
+            id = new_id,
+            uid = user_id,
+            pid = opt_uuid(position_id),
+            sym = symbol,
+            tt = trigger_type_str(&trigger_type),
+            td = trigger_direction_str(&trigger_direction),
+            tp = opt_f64(trigger_price),
+            tpu = opt_f64(trigger_price_upper),
+            tpl = opt_f64(trigger_price_lower),
+            bp = opt_f64(base_price),
+            sd = match side {
+                TwapSide::Buy => "buy",
+                TwapSide::Sell => "sell",
+            },
+            qty = quantity,
+            tsq = twap_slice_quantity,
+            tis = twap_interval_secs,
+            tst = opt_str(twap_start_time),
+            tet = opt_str(twap_end_time),
+            tes = twap_executed_slices,
+            tms = twap_max_slices,
+            oco = opt_uuid(oco_pair_id),
+            trid = opt_uuid(triggered_order_id),
+            trsn = opt_text(trigger_reason),
+            exp = opt_str(expire_at),
+            now = now.to_rfc3339(),
+        );
+        self.db
+            .as_ref()
+            .execute(Statement::from_string(DatabaseBackend::Postgres, sql))
+            .await
+            .map_err(|e| {
+                error!("Failed to insert trigger order: {:?}", e);
+                AppError::Database(e.to_string())
+            })?;
+        Ok(())
+    }
+
+    /// Internal: append a TWAP slice execution: increment `filled_quantity`
+    /// and `twap_executed_slices`, and (optionally) mark the order as
+    /// `triggered` when the final slice completes.
+    pub(crate) async fn update_twap_slice_raw(
+        &self,
+        order_id: Uuid,
+        new_filled: f64,
+        new_slices: i32,
+        final_slice: bool,
+        now: chrono::DateTime<Utc>,
+    ) -> Result<(), AppError> {
+        let status_clause = if final_slice {
+            ", status = 'triggered'::trigger_status"
+        } else {
+            ""
+        };
+        let sql = format!(
+            "UPDATE trigger_orders SET \
+                filled_quantity = {nf}, \
+                twap_executed_slices = {ns}, \
+                updated_at = '{n}'::timestamptz \
+                {st} \
+             WHERE id = '{id}'::uuid",
+            nf = new_filled,
+            ns = new_slices,
+            n = now.to_rfc3339(),
+            st = status_clause,
+            id = order_id
+        );
+        self.db
+            .as_ref()
+            .execute(Statement::from_string(DatabaseBackend::Postgres, sql))
+            .await
+            .map_err(|e| AppError::Database(e.to_string()))?;
+        Ok(())
+    }
+
+    /// Internal: update the `status` column of a trigger_order to one of the
+    /// known enum values, using raw SQL. Required because the SeaORM
+    /// `DeriveActiveEnum` `IntoActiveValue` cannot encode the variant name
+    /// as the corresponding Postgres enum value.
+    pub(crate) async fn update_trigger_status_raw(
+        &self,
+        order_id: Uuid,
+        new_status: TriggerStatus,
+    ) -> Result<(), AppError> {
+        let status_str = match new_status {
+            TriggerStatus::Pending => "pending",
+            TriggerStatus::Triggered => "triggered",
+            TriggerStatus::Cancelled => "cancelled",
+            TriggerStatus::Expired => "expired",
+            TriggerStatus::Failed => "failed",
+        };
+        let sql = format!(
+            "UPDATE trigger_orders SET status = '{s}'::trigger_status, updated_at = '{n}'::timestamptz WHERE id = '{id}'::uuid",
+            s = status_str,
+            n = Utc::now().to_rfc3339(),
+            id = order_id
+        );
+        self.db
+            .as_ref()
+            .execute(Statement::from_string(DatabaseBackend::Postgres, sql))
+            .await
+            .map_err(|e| AppError::Database(e.to_string()))?;
+        Ok(())
+    }
+
+    /// Internal: list all pending trigger_orders for the given symbol using
+    /// raw SQL with `::text` casts. Required because SeaORM 1.1.x's enum
+    /// decode on the real Postgres enum type fails.
+    pub(crate) async fn list_pending_trigger_orders_raw(
+        &self,
+        symbol: &str,
+    ) -> Result<Vec<TriggerOrder>, String> {
+        let sql = format!(
+            "SELECT id, user_id, position_id, symbol, \
+                    trigger_type::text      AS trigger_type, \
+                    status::text            AS status, \
+                    trigger_direction::text AS trigger_direction, \
+                    trigger_price, trigger_price_upper, trigger_price_lower, \
+                    base_price, side, quantity, filled_quantity, avg_fill_price, \
+                    twap_slice_quantity, twap_interval_secs, twap_start_time, \
+                    twap_end_time, twap_executed_slices, twap_max_slices, \
+                    oco_pair_id, triggered_order_id, trigger_reason, \
+                    triggered_at, expire_at, created_at, updated_at, cancelled_at \
+             FROM trigger_orders \
+             WHERE symbol = '{sym}' \
+               AND status = 'pending'::trigger_status",
+            sym = symbol
+        );
+        let rows = self
+            .db
+            .as_ref()
+            .query_all(Statement::from_string(DatabaseBackend::Postgres, sql))
+            .await
+            .map_err(|e| e.to_string())?;
+        rows.into_iter()
+            .map(row_to_trigger_order)
+            .collect::<Result<Vec<_>, _>>()
+    }
+
+    /// Internal: read a single trigger_order row using a raw SELECT that
+    /// casts the enum columns to text. Required because SeaORM 1.1.x's
+    /// generated `FromQueryResult` for a `DeriveActiveEnum` enum column
+    /// decodes the value as TEXT, which fails against the real Postgres
+    /// enum type on the wire.
+    async fn get_trigger_order_via_raw_text(
+        &self,
+        order_id: Uuid,
+    ) -> Result<Option<TriggerOrder>, AppError> {
+        let sql = format!(
+            "SELECT id, user_id, position_id, symbol, \
+                    trigger_type::text      AS trigger_type, \
+                    status::text            AS status, \
+                    trigger_direction::text AS trigger_direction, \
+                    trigger_price, trigger_price_upper, trigger_price_lower, \
+                    base_price, side, quantity, filled_quantity, avg_fill_price, \
+                    twap_slice_quantity, twap_interval_secs, twap_start_time, \
+                    twap_end_time, twap_executed_slices, twap_max_slices, \
+                    oco_pair_id, triggered_order_id, trigger_reason, \
+                    triggered_at, expire_at, created_at, updated_at, cancelled_at \
+             FROM trigger_orders WHERE id = '{id}'::uuid",
+            id = order_id
+        );
+        let row = self
+            .db
+            .as_ref()
+            .query_one(Statement::from_string(DatabaseBackend::Postgres, sql))
+            .await
+            .map_err(|e| AppError::Database(e.to_string()))?;
+        let Some(row) = row else { return Ok(None) };
+        // Map the (post-cast) text columns to the strongly-typed Model.
+        row_to_trigger_order(row)
+            .map(Some)
+            .map_err(AppError::Database)
     }
 
     /// 处理TWAP订单切片
@@ -678,25 +1067,15 @@ impl TriggerOrderService {
         if let Some(end_time) = order.twap_end_time
             && Utc::now() > end_time
         {
-            let mut active: TriggerOrderActive = order.clone().into();
-            active.status = Set(TriggerStatus::Expired);
-            active.updated_at = Set(Utc::now());
-            active
-                .update(self.db.as_ref())
-                .await
-                .map_err(|e| AppError::Database(e.to_string()))?;
+            self.update_trigger_status_raw(order.id, TriggerStatus::Expired)
+                .await?;
             return Ok(false);
         }
 
         // 检查是否达到最大切片数
         if order.twap_executed_slices >= order.twap_max_slices {
-            let mut active: TriggerOrderActive = order.clone().into();
-            active.status = Set(TriggerStatus::Triggered);
-            active.updated_at = Set(Utc::now());
-            active
-                .update(self.db.as_ref())
-                .await
-                .map_err(|e| AppError::Database(e.to_string()))?;
+            self.update_trigger_status_raw(order.id, TriggerStatus::Triggered)
+                .await?;
             return Ok(false);
         }
 
@@ -705,13 +1084,8 @@ impl TriggerOrderService {
         let slice_qty = remaining_qty.min(order.twap_slice_quantity);
 
         if slice_qty <= 1e-12 {
-            let mut active: TriggerOrderActive = order.clone().into();
-            active.status = Set(TriggerStatus::Triggered);
-            active.updated_at = Set(Utc::now());
-            active
-                .update(self.db.as_ref())
-                .await
-                .map_err(|e| AppError::Database(e.to_string()))?;
+            self.update_trigger_status_raw(order.id, TriggerStatus::Triggered)
+                .await?;
             return Ok(false);
         }
 
@@ -752,23 +1126,13 @@ impl TriggerOrderService {
             .await
             .map_err(|e| AppError::Database(e.to_string()))?;
 
-        // 更新TWAP订单状态
-        let mut active: TriggerOrderActive = order.clone().into();
-        active.filled_quantity = Set(order.filled_quantity + slice_qty);
-        active.twap_executed_slices = Set(order.twap_executed_slices + 1);
-        active.updated_at = Set(now);
-
-        // 如果已完成，更新状态
+        // 更新TWAP订单状态 (raw SQL — see comment on insert_trigger_order_raw)
         let new_filled = order.filled_quantity + slice_qty;
         let current_slices = order.twap_executed_slices + 1;
-        if new_filled >= order.quantity - 1e-12 || current_slices >= order.twap_max_slices {
-            active.status = Set(TriggerStatus::Triggered);
-        }
-
-        active
-            .update(self.db.as_ref())
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
+        let final_slice =
+            new_filled >= order.quantity - 1e-12 || current_slices >= order.twap_max_slices;
+        self.update_twap_slice_raw(order.id, new_filled, current_slices, final_slice, now)
+            .await?;
 
         info!(
             order_id = %order_id,
