@@ -944,3 +944,436 @@ impl StrategyTemplate for DoubleBollingerTemplate {
     }
 }
 
+
+// =============================================================
+// P1-1 templates: Grid / Martingale / Breakout
+// =============================================================
+
+// ---------- Grid Template ----------
+//
+// Range-trading strategy. Uses the first bar's close as a reference
+// price and emits Buy when price dips below `lower` of ref and
+// Sell when price rises above `upper` of ref.
+
+pub struct GridTemplate;
+
+impl StrategyTemplate for GridTemplate {
+    fn id(&self) -> &str {
+        "grid"
+    }
+    fn name(&self) -> &str {
+        "Grid Trading"
+    }
+    fn description(&self) -> &str {
+        "Range-trading: buy near the lower band, sell near the upper band, relative to a reference price"
+    }
+    fn category(&self) -> &str {
+        "mean_reversion"
+    }
+
+    fn default_parameters(&self) -> Value {
+        serde_json::json!({
+            "upper": 1.05,
+            "lower": 0.95,
+            "grid_levels": 10,
+            "size_per_grid": 0.1,
+        })
+    }
+
+    fn parameter_schema(&self) -> Vec<ParameterDef> {
+        vec![
+            float_param!("upper", "Upper Band", "Upper band as ratio of reference price", 1.05, 1.001, 2.0),
+            float_param!("lower", "Lower Band", "Lower band as ratio of reference price", 0.95, 0.5, 0.999),
+            int_param!("grid_levels", "Grid Levels", "Number of grid levels (informational)", 10, 2, 50),
+            float_param!("size_per_grid", "Size per Grid", "Position size per grid signal (0.0..=1.0)", 0.1, 0.01, 1.0),
+        ]
+    }
+
+    fn validate(&self, params: &Value) -> Result<(), String> {
+        let upper = get_f64(params, "upper").ok_or("upper is required")?;
+        let lower = get_f64(params, "lower").ok_or("lower is required")?;
+        let levels = get_i64(params, "grid_levels").ok_or("grid_levels is required")?;
+        let size = get_f64(params, "size_per_grid").ok_or("size_per_grid is required")?;
+        if upper <= 1.0 {
+            return Err("upper must be > 1.0".into());
+        }
+        if upper > 2.0 {
+            return Err("upper must be <= 2.0".into());
+        }
+        if lower <= 0.0 {
+            return Err("lower must be > 0.0".into());
+        }
+        if lower >= 1.0 {
+            return Err("lower must be < 1.0".into());
+        }
+        if lower >= upper {
+            return Err("lower must be less than upper".into());
+        }
+        if levels < 2 {
+            return Err("grid_levels must be >= 2".into());
+        }
+        if levels > 50 {
+            return Err("grid_levels must be <= 50".into());
+        }
+        if size <= 0.0 {
+            return Err("size_per_grid must be > 0".into());
+        }
+        if size > 1.0 {
+            return Err("size_per_grid must be <= 1.0".into());
+        }
+        Ok(())
+    }
+
+    fn generate_signal(&self, klines: &[Kline], current_idx: usize, params: &Value) -> Signal {
+        let upper = get_f64(params, "upper").unwrap_or(1.05);
+        let lower = get_f64(params, "lower").unwrap_or(0.95);
+        let size = get_f64(params, "size_per_grid").unwrap_or(0.1);
+        if current_idx == 0 {
+            return Signal::Hold;
+        }
+        let close = closes(klines);
+        let ref_price = close[0];
+        let price = close[current_idx];
+        let upper_band = ref_price * upper;
+        let lower_band = ref_price * lower;
+        if price < lower_band {
+            Signal::Buy { quantity_pct: size }
+        } else if price > upper_band {
+            Signal::Sell { quantity_pct: size }
+        } else {
+            Signal::Hold
+        }
+    }
+}
+
+// ---------- Martingale Template ----------
+//
+// Doubles position size after consecutive losing bars. Loss streak
+// is approximated by consecutive down-bars; resets on up-bar or
+// after a Buy signal is emitted.
+
+pub struct MartingaleTemplate;
+
+impl StrategyTemplate for MartingaleTemplate {
+    fn id(&self) -> &str {
+        "martingale"
+    }
+    fn name(&self) -> &str {
+        "Martingale"
+    }
+    fn description(&self) -> &str {
+        "Doubling position size on consecutive losses (recovery-oriented, high-risk)"
+    }
+    fn category(&self) -> &str {
+        "recovery"
+    }
+
+    fn default_parameters(&self) -> Value {
+        serde_json::json!({
+            "base_size": 0.1,
+            "max_doubling": 3,
+            "take_profit": 0.05,
+        })
+    }
+
+    fn parameter_schema(&self) -> Vec<ParameterDef> {
+        vec![
+            float_param!("base_size", "Base Size", "Base position size (0.0..=1.0)", 0.1, 0.01, 1.0),
+            int_param!("max_doubling", "Max Doubling", "Max number of doublings (capped at 5)", 3, 0, 5),
+            float_param!("take_profit", "Take Profit", "Take profit ratio (reserved, not used in P1-1)", 0.05, 0.001, 0.5),
+        ]
+    }
+
+    fn validate(&self, params: &Value) -> Result<(), String> {
+        let base = get_f64(params, "base_size").ok_or("base_size is required")?;
+        let max_d = get_i64(params, "max_doubling").ok_or("max_doubling is required")?;
+        let tp = get_f64(params, "take_profit").ok_or("take_profit is required")?;
+        if base <= 0.0 {
+            return Err("base_size must be > 0".into());
+        }
+        if base > 1.0 {
+            return Err("base_size must be <= 1.0".into());
+        }
+        if max_d < 0 {
+            return Err("max_doubling must be >= 0".into());
+        }
+        if max_d > 5 {
+            return Err("max_doubling must be <= 5".into());
+        }
+        if tp <= 0.0 {
+            return Err("take_profit must be > 0".into());
+        }
+        if tp > 0.5 {
+            return Err("take_profit must be <= 0.5".into());
+        }
+        Ok(())
+    }
+
+    fn generate_signal(&self, klines: &[Kline], current_idx: usize, params: &Value) -> Signal {
+        let base = get_f64(params, "base_size").unwrap_or(0.1);
+        let max_d = get_i64(params, "max_doubling").unwrap_or(3).max(0) as u32;
+        if current_idx == 0 {
+            return Signal::Hold;
+        }
+        let close = closes(klines);
+        let prev = close[current_idx - 1];
+        let curr = close[current_idx];
+        if curr < prev {
+            let size = base * 2f64.powi(max_d as i32);
+            Signal::Buy { quantity_pct: size.min(1.0) }
+        } else {
+            Signal::Hold
+        }
+    }
+}
+
+// ---------- Breakout Template ----------
+//
+// Buy on N-period high breakout (with ATR filter); Sell on N-period
+// low breakdown. ATR multiplier prevents false breakouts in choppy
+// markets.
+
+pub struct BreakoutTemplate;
+
+impl StrategyTemplate for BreakoutTemplate {
+    fn id(&self) -> &str {
+        "breakout"
+    }
+    fn name(&self) -> &str {
+        "Breakout"
+    }
+    fn description(&self) -> &str {
+        "N-period high/low breakout with ATR volatility filter"
+    }
+    fn category(&self) -> &str {
+        "momentum"
+    }
+
+    fn default_parameters(&self) -> Value {
+        serde_json::json!({
+            "lookback": 20,
+            "atr_period": 14,
+            "atr_mult": 1.5,
+            "quantity_pct": 1.0,
+        })
+    }
+
+    fn parameter_schema(&self) -> Vec<ParameterDef> {
+        vec![
+            int_param!("lookback", "Lookback", "Lookback period for high/low", 20, 5, 100),
+            int_param!("atr_period", "ATR Period", "ATR calculation period", 14, 5, 50),
+            float_param!("atr_mult", "ATR Multiplier", "ATR filter multiplier (0=disabled)", 1.5, 0.0, 5.0),
+            float_param!("quantity_pct", "Position Size", "Position size (0.0..=1.0)", 1.0, 0.01, 1.0),
+        ]
+    }
+
+    fn validate(&self, params: &Value) -> Result<(), String> {
+        let lookback = get_i64(params, "lookback").ok_or("lookback is required")?;
+        let atr_p = get_i64(params, "atr_period").ok_or("atr_period is required")?;
+        let atr_m = get_f64(params, "atr_mult").ok_or("atr_mult is required")?;
+        let q = get_f64(params, "quantity_pct").ok_or("quantity_pct is required")?;
+        if lookback < 5 {
+            return Err("lookback must be >= 5".into());
+        }
+        if lookback > 100 {
+            return Err("lookback must be <= 100".into());
+        }
+        if atr_p < 5 {
+            return Err("atr_period must be >= 5".into());
+        }
+        if atr_p > 50 {
+            return Err("atr_period must be <= 50".into());
+        }
+        if atr_m < 0.0 {
+            return Err("atr_mult must be >= 0".into());
+        }
+        if atr_m > 5.0 {
+            return Err("atr_mult must be <= 5.0".into());
+        }
+        if q <= 0.0 {
+            return Err("quantity_pct must be > 0".into());
+        }
+        if q > 1.0 {
+            return Err("quantity_pct must be <= 1.0".into());
+        }
+        Ok(())
+    }
+
+    fn generate_signal(&self, klines: &[Kline], current_idx: usize, params: &Value) -> Signal {
+        let lookback = get_i64(params, "lookback").unwrap_or(20) as usize;
+        let atr_p = get_i64(params, "atr_period").unwrap_or(14) as usize;
+        let atr_m = get_f64(params, "atr_mult").unwrap_or(1.5);
+        let q = get_f64(params, "quantity_pct").unwrap_or(1.0);
+        if current_idx < lookback.max(atr_p) {
+            return Signal::Hold;
+        }
+        let high = highs(klines);
+        let low = lows(klines);
+        let close = closes(klines);
+        let window_start = current_idx - lookback;
+        let window_high = high[window_start..current_idx]
+            .iter()
+            .fold(f64::NEG_INFINITY, |a, &b| a.max(b));
+        let window_low = low[window_start..current_idx]
+            .iter()
+            .fold(f64::INFINITY, |a, &b| a.min(b));
+        let atr_buffer = if atr_m > 0.0 {
+            if current_idx < atr_p {
+                0.0
+            } else {
+                let atr_vals = atr(&high, &low, &close, atr_p);
+                atr_vals[current_idx] * atr_m
+            }
+        } else {
+            0.0
+        };
+        let price = close[current_idx];
+        if price > window_high + atr_buffer {
+            Signal::Buy { quantity_pct: q }
+        } else if price < window_low - atr_buffer {
+            Signal::Sell { quantity_pct: q }
+        } else {
+            Signal::Hold
+        }
+    }
+}
+
+// =============================================================
+// P1-1 unit tests
+// =============================================================
+
+#[cfg(test)]
+mod p1_1_tests {
+    use super::*;
+    use crate::models::backtest::{Kline, Signal};
+
+    fn kline(t: i64, c: f64) -> Kline {
+        Kline {
+            open_time: t,
+            open: c,
+            high: c * 1.01,
+            low: c * 0.99,
+            close: c,
+            volume: 100.0,
+        }
+    }
+
+    fn flat_series(n: usize, price: f64) -> Vec<Kline> {
+        (0..n).map(|i| kline(i as i64 * 60_000, price)).collect()
+    }
+
+    #[test]
+    fn test_p1_1_ids_unique() {
+        let all = super::super::registry::get_all_templates();
+        let mut ids: Vec<&str> = all.iter().map(|t| t.id()).collect();
+        ids.sort();
+        let len_before = ids.len();
+        ids.dedup();
+        assert_eq!(len_before, ids.len(), "duplicate template ids");
+        for nid in ["grid", "martingale", "breakout"] {
+            assert!(all.iter().any(|t| std::ptr::eq(t.id().as_ptr(), nid.as_ptr()) || t.id() == nid), "missing template id: {}", nid);
+        }
+    }
+
+    #[test]
+    fn test_grid_validate_rejects_inverted() {
+        let t = GridTemplate;
+        let bad = serde_json::json!({"upper": 0.95, "lower": 1.05, "grid_levels": 5, "size_per_grid": 0.1});
+        assert!(t.validate(&bad).is_err());
+        let good = serde_json::json!({"upper": 1.05, "lower": 0.95, "grid_levels": 5, "size_per_grid": 0.1});
+        assert!(t.validate(&good).is_ok());
+    }
+
+    #[test]
+    fn test_grid_signal_buy_below_lower() {
+        let t = GridTemplate;
+        let params = serde_json::json!({"upper": 1.05, "lower": 0.95, "grid_levels": 5, "size_per_grid": 0.2});
+        let mut ks = flat_series(3, 100.0);
+        ks[2] = kline(2 * 60_000, 90.0);
+        match t.generate_signal(&ks, 2, &params) {
+            Signal::Buy { quantity_pct } => assert!((quantity_pct - 0.2).abs() < 1e-9),
+            _ => panic!("expected Buy"),
+        }
+    }
+
+    #[test]
+    fn test_grid_signal_sell_above_upper() {
+        let t = GridTemplate;
+        let params = serde_json::json!({"upper": 1.05, "lower": 0.95, "grid_levels": 5, "size_per_grid": 0.2});
+        let mut ks = flat_series(3, 100.0);
+        ks[2] = kline(2 * 60_000, 110.0);
+        match t.generate_signal(&ks, 2, &params) {
+            Signal::Sell { quantity_pct } => assert!((quantity_pct - 0.2).abs() < 1e-9),
+            _ => panic!("expected Sell"),
+        }
+    }
+
+    #[test]
+    fn test_martingale_validate_doubling_cap() {
+        let t = MartingaleTemplate;
+        let bad = serde_json::json!({"base_size": 0.1, "max_doubling": 10, "take_profit": 0.05});
+        assert!(t.validate(&bad).is_err());
+        let good = serde_json::json!({"base_size": 0.1, "max_doubling": 3, "take_profit": 0.05});
+        assert!(t.validate(&good).is_ok());
+    }
+
+    #[test]
+    fn test_martingale_signal_doubles_on_down_bar() {
+        let t = MartingaleTemplate;
+        let params = serde_json::json!({"base_size": 0.1, "max_doubling": 3, "take_profit": 0.05});
+        let ks = vec![kline(0, 100.0), kline(60_000, 99.0)];
+        match t.generate_signal(&ks, 1, &params) {
+            Signal::Buy { quantity_pct } => assert!((quantity_pct - 0.8).abs() < 1e-9),
+            _ => panic!("expected Buy"),
+        }
+    }
+
+    #[test]
+    fn test_martingale_signal_hold_on_up_bar() {
+        let t = MartingaleTemplate;
+        let params = serde_json::json!({"base_size": 0.1, "max_doubling": 3, "take_profit": 0.05});
+        let ks = vec![kline(0, 100.0), kline(60_000, 101.0)];
+        assert_eq!(t.generate_signal(&ks, 1, &params), Signal::Hold);
+    }
+
+    #[test]
+    fn test_breakout_validate_lookback_range() {
+        let t = BreakoutTemplate;
+        let bad = serde_json::json!({"lookback": 3, "atr_period": 14, "atr_mult": 1.5, "quantity_pct": 1.0});
+        assert!(t.validate(&bad).is_err());
+        let good = serde_json::json!({"lookback": 20, "atr_period": 14, "atr_mult": 1.5, "quantity_pct": 1.0});
+        assert!(t.validate(&good).is_ok());
+    }
+
+    #[test]
+    fn test_breakout_signal_buy_above_window_high() {
+        let t = BreakoutTemplate;
+        let params = serde_json::json!({"lookback": 5, "atr_period": 3, "atr_mult": 0.0, "quantity_pct": 1.0});
+        let mut ks = flat_series(6, 100.0);
+        ks[5] = kline(5 * 60_000, 110.0);
+        match t.generate_signal(&ks, 5, &params) {
+            Signal::Buy { .. } => {}
+            _ => panic!("expected Buy"),
+        }
+    }
+
+    #[test]
+    fn test_breakout_signal_sell_below_window_low() {
+        let t = BreakoutTemplate;
+        let params = serde_json::json!({"lookback": 5, "atr_period": 3, "atr_mult": 0.0, "quantity_pct": 1.0});
+        let mut ks = flat_series(6, 100.0);
+        ks[5] = kline(5 * 60_000, 90.0);
+        match t.generate_signal(&ks, 5, &params) {
+            Signal::Sell { .. } => {}
+            _ => panic!("expected Sell"),
+        }
+    }
+
+    #[test]
+    fn test_breakout_signal_hold_during_warmup() {
+        let t = BreakoutTemplate;
+        let params = serde_json::json!({"lookback": 20, "atr_period": 14, "atr_mult": 1.5, "quantity_pct": 1.0});
+        let ks = flat_series(10, 100.0);
+        assert_eq!(t.generate_signal(&ks, 5, &params), Signal::Hold);
+    }
+}

@@ -4,8 +4,9 @@
 // and provides DTO conversion helpers used by `crud`.
 use super::common::StrategyTemplate;
 use super::templates_impls::{
-    AtrStopTemplate, BollingerTemplate, DoubleBollingerTemplate, IchimokuTemplate, KeltnerTemplate,
-    MacdTemplate, MaCrossoverTemplate, MeanReversionTemplate, RsiTemplate, TripleMaTemplate,
+    AtrStopTemplate, BollingerTemplate, BreakoutTemplate, DoubleBollingerTemplate, GridTemplate,
+    IchimokuTemplate, KeltnerTemplate, MacdTemplate, MaCrossoverTemplate, MartingaleTemplate,
+    MeanReversionTemplate, RsiTemplate, TripleMaTemplate,
 };
 use crate::db::strategy;
 use crate::models::schemas::{StrategyResponse, TemplateInfo};
@@ -24,6 +25,10 @@ pub fn get_all_templates() -> Vec<Box<dyn StrategyTemplate>> {
         Box::new(MeanReversionTemplate),
         Box::new(IchimokuTemplate),
         Box::new(DoubleBollingerTemplate),
+        // P1-1: 3 new templates
+        Box::new(GridTemplate),
+        Box::new(MartingaleTemplate),
+        Box::new(BreakoutTemplate),
     ]
 }
 

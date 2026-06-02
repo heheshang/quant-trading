@@ -1018,7 +1018,8 @@ mod tests {
         let mut ids: Vec<String> = templates.iter().map(|t| t.id().to_string()).collect();
         ids.sort();
         ids.dedup();
-        assert_eq!(ids.len(), 10);
+        // P1-1: 10 → 13 templates (added grid / martingale / breakout)
+        assert_eq!(ids.len(), 13);
     }
 
     #[test]
@@ -1030,7 +1031,8 @@ mod tests {
 
     #[test]
     fn test_all_templates_categories_valid() {
-        let valid = ["trend", "mean_reversion", "volatility", "composite"];
+        // P1-1: added "momentum" (breakout) and "recovery" (martingale)
+        let valid = ["trend", "mean_reversion", "volatility", "composite", "momentum", "recovery"];
         for t in get_all_templates() {
             assert!(
                 valid.contains(&t.category()),
