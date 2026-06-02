@@ -1,0 +1,44 @@
+# Prometheus scrape config for the quant-trading backend.
+#
+# Point Prometheus at this file via:
+#   prometheus --config.file=ops/prometheus/prometheus.yml
+# (or the equivalent helm/operator override).
+#
+# The backend exposes /metrics on :8080, so the default `quant-trading-backend`
+# job reaches the binary when run with:
+#   DATABASE_URL=... JWT_SECRET=... RUST_LOG=info \
+#     ./target/debug/quant-trading-backend
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: "quant-trading-monitor"
+    env: "dev"
+
+# Alertmanager is provisioned separately; the URL below is a
+# placeholder for the P0-5 work item.
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets: ["localhost:9093"]
+
+rule_files: []
+
+scrape_configs:
+  - job_name: "quant-trading-backend"
+    metrics_path: "/metrics"
+    scheme: "http"
+    static_configs:
+      - targets: ["localhost:8080"]
+        labels:
+          service: "quant-trading-backend"
+          tier: "api"
+          component: "core"
+
+  # Self-scrape is essential for the `up` time series and the
+  # `prometheus_*` internal metrics; without it, dashboard
+  # blank-canvas bugs are hard to triage.
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]

@@ -1,0 +1,23 @@
+# Grafana datasource provisioning.
+#
+# Drop into the Grafana container's provisioning dir, or mount at
+# /etc/grafana/provisioning/datasources/prometheus.yml.
+#
+# The "uid" MUST match the value referenced in every panel's
+# `datasource.uid` field inside the dashboard JSON, otherwise
+# Grafana falls back to the default datasource and the queries
+# may target a different TSDB.
+
+apiVersion: 1
+
+datasources:
+  - name: "Prometheus"
+    type: "prometheus"
+    access: "proxy"
+    uid: "PBFA97CFB590B2093"
+    url: "http://prometheus:9090"
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: "15s"
+      httpMethod: "POST"

@@ -1,0 +1,24 @@
+# Grafana dashboard auto-provisioning.
+#
+# Grafana will pick up any *.json dropped in
+# /etc/grafana/provisioning/dashboards/ (or the path below) on
+# container start, OR on SIGHUP via `curl -XPOST
+# http://admin:admin@localhost:3000/api/admin/provisioning/dashboards/reload`.
+#
+# The path is relative to the Grafana container; mount
+# `ops/grafana/dashboards/` at `/var/lib/grafana/dashboards` in
+# docker-compose, then point this file at it.
+
+apiVersion: 1
+
+providers:
+  - name: "quant-trading-ops"
+    orgId: 1
+    folder: "Operations"
+    type: "file"
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: "/var/lib/grafana/dashboards"
+      foldersFromFilesStructure: false
