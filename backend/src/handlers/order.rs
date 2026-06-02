@@ -45,6 +45,7 @@ pub struct CreateOrderRequest {
     pub trailing_distance: Option<String>, // 追踪止损距离（百分比字符串，如 "0.5" 表示 0.5%）
     // ── P1-2.1: 高级订单参数 ─────────────────────────────
     pub visible_quantity: Option<String>, // Iceberg: 每片显示量
+    // P1-2.2: Bracket reuses stop_loss_price + take_profit_price from P1-F2 (no new fields).
 }
 
 #[derive(Debug, Deserialize)]
@@ -585,6 +586,39 @@ pub async fn create_order(
         order_model.advanced_params = Set(Some(
             serde_json::to_value(&params)
                 .map_err(|e| AppError::Internal(format!("serialize iceberg params: {}", e)))?,
+        ));
+    } else if order_type == crate::db::order::OrderType::Bracket {
+        // P1-2.2: Bracket parent — validate SL/TP prices + persist advanced_params
+        let sl_str = req.stop_loss_price.as_deref().ok_or_else(|| {
+            AppError::BadRequest("Bracket order requires stop_loss_price".to_string())
+        })?;
+        let tp_str = req.take_profit_price.as_deref().ok_or_else(|| {
+            AppError::BadRequest("Bracket order requires take_profit_price".to_string())
+        })?;
+        let sl_price: f64 = sl_str
+            .parse()
+            .map_err(|_| AppError::BadRequest(format!("Invalid stop_loss_price: {}", sl_str)))?;
+        let tp_price: f64 = tp_str
+            .parse()
+            .map_err(|_| AppError::BadRequest(format!("Invalid take_profit_price: {}", tp_str)))?;
+        // entry_price is the parent limit price (already parsed above into `price`)
+        let entry_price: f64 = price.ok_or_else(|| {
+            AppError::BadRequest("Bracket requires a numeric price".to_string())
+        })?;
+        let params = crate::models::bracket_params::BracketParams::validate_new(
+            req.side.as_str(),
+            entry_price,
+            sl_price,
+            tp_price,
+            quantity,
+        )
+        .map_err(AppError::BadRequest)?;
+        order_model.advanced_type = Set(Some(
+            crate::services::bracket::advanced_type::BRACKET.to_string(),
+        ));
+        order_model.advanced_params = Set(Some(
+            serde_json::to_value(&params)
+                .map_err(|e| AppError::Internal(format!("serialize bracket params: {}", e)))?,
         ));
     }
 

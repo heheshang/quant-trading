@@ -779,6 +779,48 @@ impl MatchingEngine {
                         error!("Iceberg replenish failed for child {}: {:?}", order.id, e);
                     }
                 }
+
+                // P1-2.2: Bracket parent fully filled → record bracket_link
+                if is_fully_filled
+                    && order.advanced_type.as_deref()
+                        == Some(crate::services::bracket::advanced_type::BRACKET)
+                {
+                    // Extract SL/TP from parent's advanced_params
+                    if let Some(params_val) = order.advanced_params.as_ref() {
+                        if let Ok(params) = serde_json::from_value::<
+                            crate::models::bracket_params::BracketParams,
+                        >(params_val.clone())
+                        {
+                            let result = crate::services::bracket::record_parent_filled(
+                                db,
+                                crate::services::bracket::RecordParentFilledInput {
+                                    parent_id: order.id,
+                                    filled_quantity: filled_qty,
+                                    sl_price: params.stop_loss_price,
+                                    tp_price: params.take_profit_price,
+                                    symbol: order.symbol.clone(),
+                                    side: match order.side {
+                                        crate::db::order::OrderSide::Buy => "buy".to_string(),
+                                        crate::db::order::OrderSide::Sell => "sell".to_string(),
+                                    },
+                                    user_id: order.user_id,
+                                },
+                            )
+                            .await;
+                            if let Err(e) = result {
+                                error!(
+                                    "Bracket record_parent_filled failed for {}: {:?}",
+                                    order.id, e
+                                );
+                            }
+                        } else {
+                            error!(
+                                "Bracket parent {} has invalid advanced_params",
+                                order.id
+                            );
+                        }
+                    }
+                }
             }
 
         Ok(())

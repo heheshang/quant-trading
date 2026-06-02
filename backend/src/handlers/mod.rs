@@ -2,6 +2,7 @@ pub mod ai;
 pub mod api_key;
 pub mod arbitrage;
 pub mod auth;
+pub mod bracket;
 pub mod health;
 pub mod backtest;
 pub mod dashboard;

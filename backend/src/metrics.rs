@@ -125,6 +125,25 @@ pub static POSITIONS_OPEN: LazyLock<IntGaugeVec> = LazyLock::new(|| {
 // Trigger orders
 // ---------------------------------------------------------------------------
 
+// -----------------------------------------------------------------------
+// P1-2.2: Bracket orders
+// -----------------------------------------------------------------------
+
+/// Bracket parent orders that were fully filled and recorded in `bracket_links`.
+pub static BRACKET_PARENT_FILLED_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
+    register_int_counter_vec_with_registry!(
+        "bracket_parent_filled_total",
+        "Bracket parent orders that have been fully filled and registered in bracket_links.",
+        &["side"],
+        REGISTRY
+    )
+    .expect("register bracket_parent_filled_total")
+});
+
+// -----------------------------------------------------------------------
+// Trigger orders
+// -----------------------------------------------------------------------
+
 /// Trigger orders created, labelled by `(trigger_type)`.
 pub static TRIGGER_ORDERS_CREATED_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
     register_int_counter_vec_with_registry!(
