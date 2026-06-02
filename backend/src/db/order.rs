@@ -30,12 +30,19 @@ impl Serialize for OrderSide {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize)]
-#[sea_orm(rs_type = "String", db_type = "String(StringLen::N(10))")]
+#[sea_orm(rs_type = "String", db_type = "String(StringLen::N(20))")]
 pub enum OrderType {
     #[sea_orm(string_value = "limit")]
     Limit,
     #[sea_orm(string_value = "market")]
     Market,
+    // P1-2: advanced order types
+    #[sea_orm(string_value = "iceberg")]
+    Iceberg,
+    #[sea_orm(string_value = "bracket")]
+    Bracket,
+    #[sea_orm(string_value = "trailing_stop")]
+    TrailingStop,
 }
 
 impl Serialize for OrderType {
@@ -46,6 +53,9 @@ impl Serialize for OrderType {
         serializer.serialize_str(match self {
             OrderType::Limit => "limit",
             OrderType::Market => "market",
+            OrderType::Iceberg => "iceberg",
+            OrderType::Bracket => "bracket",
+            OrderType::TrailingStop => "trailing_stop",
         })
     }
 }
@@ -202,6 +212,9 @@ pub struct Model {
     pub updated_at: DateTimeUtc,
     pub cancelled_at: Option<DateTimeUtc>,
     pub filled_at: Option<DateTimeUtc>,
+    // P1-2: advanced order type parameters
+    pub advanced_type: Option<String>,
+    pub advanced_params: Option<Json>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

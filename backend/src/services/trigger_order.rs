@@ -638,6 +638,9 @@ impl TriggerOrderService {
             updated_at: Set(now),
             cancelled_at: Set(None),
             filled_at: Set(None),
+            // P1-2: advanced order type fields
+            advanced_type: Set(None),
+            advanced_params: Set(None),
         };
 
         market_order.insert(self.db.as_ref()).await.map_err(|e| {
@@ -1143,6 +1146,9 @@ impl TriggerOrderService {
             updated_at: Set(now),
             cancelled_at: Set(None),
             filled_at: Set(None),
+            // P1-2: advanced order type fields
+            advanced_type: Set(None),
+            advanced_params: Set(None),
         };
 
         market_order

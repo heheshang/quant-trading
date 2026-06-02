@@ -203,8 +203,12 @@ fn parse_order_type(s: &str) -> Result<OrderType, AppError> {
     match s {
         "limit" => Ok(OrderType::Limit),
         "market" => Ok(OrderType::Market),
+        // P1-2: 3 advanced order types
+        "iceberg" => Ok(OrderType::Iceberg),
+        "bracket" => Ok(OrderType::Bracket),
+        "trailing_stop" => Ok(OrderType::TrailingStop),
         _ => Err(AppError::BadRequest(format!(
-            "Invalid order_type: {}, expected limit/market",
+            "Invalid order_type: {}, expected limit/market/iceberg/bracket/trailing_stop",
             s
         ))),
     }
@@ -396,11 +400,14 @@ pub async fn create_order(
     }
 
     let price: Option<f64> = match order_type {
-        OrderType::Limit => {
+        OrderType::Limit
+        | OrderType::Iceberg
+        | OrderType::Bracket
+        | OrderType::TrailingStop => {
             let p = req
                 .price
                 .as_deref()
-                .ok_or_else(|| AppError::BadRequest("Limit order requires price".to_string()))?
+                .ok_or_else(|| AppError::BadRequest("Limit/Iceberg/Bracket/TrailingStop order requires price".to_string()))?
                 .parse::<f64>()
                 .map_err(|_| AppError::BadRequest("Invalid price format".to_string()))?;
             if p <= 0.0 {
@@ -557,6 +564,9 @@ pub async fn create_order(
         updated_at: Set(now),
         cancelled_at: Set(None),
         filled_at: Set(None),
+        // P1-2: advanced order type fields
+        advanced_type: Set(None),
+        advanced_params: Set(None),
     };
 
     let inserted = order_model.insert(&*db).await.map_err(|e| {
@@ -1027,6 +1037,9 @@ pub async fn close_position(
         updated_at: Set(now),
         cancelled_at: Set(None),
         filled_at: Set(None),
+        // P1-2: advanced order type fields
+        advanced_type: Set(None),
+        advanced_params: Set(None),
     };
 
     let inserted = order_model.insert(&*db).await.map_err(|e| {
@@ -1362,6 +1375,9 @@ mod tests {
             updated_at: now,
             cancelled_at: None,
             filled_at: None,
+            // P1-2: advanced order type fields
+            advanced_type: None,
+            advanced_params: None,
         };
 
         let resp = order_to_response(&order);
@@ -1457,5 +1473,8 @@ fn order_type_str(t: &crate::db::order::OrderType) -> &'static str {
     match t {
         crate::db::order::OrderType::Limit => "limit",
         crate::db::order::OrderType::Market => "market",
+        crate::db::order::OrderType::Iceberg => "iceberg",
+        crate::db::order::OrderType::Bracket => "bracket",
+        crate::db::order::OrderType::TrailingStop => "trailing_stop",
     }
 }
