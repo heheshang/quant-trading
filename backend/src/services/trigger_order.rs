@@ -1,7 +1,24 @@
 //! services/trigger_order.rs — Trigger Order Service (条件触发单服务)
+//! services/trigger_order.rs — Trigger Order Service (conditional trigger order service)
 //!
 //! P1-F3: 条件触发单 - 止损单/止盈单/OCO/TWAP
 //! 依赖 P1-F2 实盘止盈止损
+//!
+//! English:
+//! P1-F3 — Conditional trigger orders: stop-loss / take-profit / OCO / TWAP.
+//! Depends on P1-F2 (live take-profit / stop-loss infrastructure).
+//!
+//! 中文四大职责：
+//! 1. create_stop_loss / create_take_profit — 单边触发单
+//! 2. create_oco — 双触发单 + 互斥（一方触发立即取消另一方）
+//! 3. create_twap — 时间加权分片下单（避免大单 market impact）
+//! 4. check_trigger / trigger_order — 价格触发的统一入口
+//!
+//! English — four core responsibilities:
+//! 1. create_stop_loss / create_take-profit — single-leg trigger orders
+//! 2. create_oco — paired triggers (mutual exclusion: one firing cancels the other)
+//! 3. create_twap — time-weighted slicing to avoid market impact on large orders
+//! 4. check_trigger / trigger_order — single entry point for price-based firing
 
 use chrono::{Duration as ChronoDuration, Utc};
 use sea_orm::{
@@ -183,6 +200,8 @@ fn row_to_trigger_order(row: sea_orm::QueryResult) -> Result<TriggerOrder, Strin
 }
 
 /// Trigger Order Service - 条件触发单服务
+/// Trigger Order Service — owns all `trigger_orders` DB access and the
+/// price-firing pipeline. Stateless besides the `Arc<DatabaseConnection>`.
 pub struct TriggerOrderService {
     db: Arc<DatabaseConnection>,
 }
@@ -193,6 +212,21 @@ impl TriggerOrderService {
     }
 
     /// 创建止损单
+    /// Create a stop-loss trigger order for an existing position.
+    ///
+    /// 中文：
+    ///   - 校验持仓存在（user_id 二次过滤防越权）
+    ///   - 触发方向由 position.side 决定：long → 价格下跌触发 (Down) / short → 上涨触发 (Up)
+    ///   - 平仓方向与持仓相反：long → 卖出平仓 (Sell) / short → 买入平仓 (Buy)
+    ///   - 通过 raw SQL 写入以绕开 SeaORM enum bug（参考 `insert_trigger_order_raw`）
+    ///   - 递增 `TRIGGER_ORDERS_CREATED_TOTAL{type="stop_loss"}` 指标
+    ///
+    /// English:
+    ///   - Validates position exists; secondary `user_id` filter prevents cross-tenant access
+    ///   - Trigger direction derives from `position.side`: long → Down on price drop; short → Up on price rise
+    ///   - Closing direction is opposite to the position
+    ///   - Inserts via raw SQL to bypass the SeaORM enum bug (see `insert_trigger_order_raw`)
+    ///   - Increments `TRIGGER_ORDERS_CREATED_TOTAL{type="stop_loss"}` metric
     pub async fn create_stop_loss(
         &self,
         user_id: Uuid,
@@ -275,6 +309,14 @@ impl TriggerOrderService {
     }
 
     /// 创建止盈单
+    /// Create a take-profit trigger order for an existing position.
+    ///
+    /// 中文：与 stop_loss 镜像逻辑，但触发方向相反（long → Up / short → Down）。
+    /// 同样递增 `TRIGGER_ORDERS_CREATED_TOTAL{type="take_profit"}` 指标。
+    ///
+    /// English: Mirror of `create_stop_loss` but with the trigger direction inverted
+    /// (long → Up on price rise; short → Down on price drop). Increments
+    /// `TRIGGER_ORDERS_CREATED_TOTAL{type="take_profit"}`.
     pub async fn create_take_profit(
         &self,
         user_id: Uuid,
@@ -358,6 +400,24 @@ impl TriggerOrderService {
 
     /// 创建OCO单 (One-Cancels-Other)
     /// 当一个触发时，另一个自动取消
+    /// Create an OCO (One-Cancels-Other) pair: stop-loss + take-profit linked
+    /// so that firing either side auto-cancels the other.
+    ///
+    /// 中文：
+    ///   - 多头：SL 在下 (Down 触发) / TP 在上 (Up 触发)
+    ///   - 空头：SL 在上 (Up 触发) / TP 在下 (Down 触发)
+    ///   - 两个子单通过 `oco_pair_id` 互指
+    ///   - atomic 写入：两个 `insert_trigger_order_raw` 都成功才返回 Ok，失败时 caller 需自行补偿
+    ///     （当前未实现回滚，后续可加事务或 saga）
+    ///   - 指标 `TRIGGER_ORDERS_CREATED_TOTAL{type="oco"}` 一次 inc 2（因为产生 2 个 trigger 单）
+    ///
+    /// English:
+    ///   - Long: SL below (Down), TP above (Up)
+    ///   - Short: SL above (Up), TP below (Down)
+    ///   - Two child rows reference each other via `oco_pair_id`
+    ///   - Atomicity caveat: both `insert_trigger_order_raw` calls must succeed;
+    ///     a failure between them leaves an orphan (no transaction / saga yet)
+    ///   - `TRIGGER_ORDERS_CREATED_TOTAL{type="oco"}` is incremented by 2 (one pair)
     #[allow(clippy::too_many_arguments)]
     pub async fn create_oco(
         &self,
@@ -486,6 +546,21 @@ impl TriggerOrderService {
     }
 
     /// 创建TWAP单 (Time-Weighted Average Price)
+    /// Create a TWAP order: time-weighted slicing to spread a large order
+    /// across `duration_secs`, with `slice_quantity` per `interval_secs` tick.
+    ///
+    /// 中文：
+    ///   - 与 SL/TP/OCO 不同：TWAP 是**时间驱动**而非价格驱动（`check_trigger` 中显式返回 false）
+    ///   - 由 `process_twap_slice` 按 `interval_secs` 节拍推进
+    ///   - `twap_max_slices = duration_secs / interval_secs` — 上限由 caller 校验
+    ///   - 递增 `TRIGGER_ORDERS_CREATED_TOTAL{type="twap"}` 指标（按"一个 TWAP 计划"为单位）
+    ///
+    /// English:
+    ///   - Unlike SL/TP/OCO, TWAP is **time-driven**, not price-driven
+    ///     (see `check_trigger` returning `false` for `TriggerType::Twap`)
+    ///   - `process_twap_slice` advances the schedule on each `interval_secs` tick
+    ///   - `twap_max_slices = duration_secs / interval_secs` — caller is expected to validate
+    ///   - Metric `TRIGGER_ORDERS_CREATED_TOTAL{type="twap"}` increments once per TWAP plan
     #[allow(clippy::too_many_arguments)]
     pub async fn create_twap(
         &self,
@@ -564,6 +639,22 @@ impl TriggerOrderService {
     }
 
     /// 检查价格是否触发条件单
+    /// Check all pending triggers for a symbol against the current price.
+    ///
+    /// 中文：
+    ///   - **唯一入口**：上游只应通过本方法检查价格触发（避免重复触发）
+    ///   - 触发判定：SL/TP/OCO 用 trigger_direction 决定 ≤ 或 ≥
+    ///   - TWAP 显式不参与价格检查（时间驱动在 `process_twap_slice`）
+    ///   - 触发后调用 `trigger_order` 创建市价 close 单 + 更新状态
+    ///   - 用 raw SQL 读取（绕开 SeaORM enum bug）
+    ///
+    /// English:
+    ///   - **Single entry point**: callers should funnel all price-trigger checks
+    ///     through this method to avoid duplicate firing
+    ///   - SL/TP/OCO use `trigger_direction` to choose ≤ or ≥
+    ///   - TWAP is explicitly excluded (time-driven path in `process_twap_slice`)
+    ///   - On fire, calls `trigger_order` which creates a market close + status update
+    ///   - Reads via raw SQL (SeaORM enum workaround)
     pub async fn check_trigger(&self, symbol: &str, current_price: f64) -> Result<(), AppError> {
         // Bypass SeaORM's enum-aware Select because the generated
         // `DeriveActiveEnum` decode path fails on the real Postgres
@@ -597,6 +688,19 @@ impl TriggerOrderService {
     }
 
     /// 触发条件单
+    /// Activate a trigger order: create a market close + advance status.
+    ///
+    /// 中文：
+    ///   - OCO 联动：触发一方时自动 cancel 另一方（互斥语义）
+    ///   - 创建 IOC 限价/市价 close 单（price = base_price 优先，否则 current_price）
+    ///   - raw SQL UPDATE 状态（参考 `insert_trigger_order_raw` 的 why）
+    ///   - 递增 `TRIGGER_ORDERS_FIRED_TOTAL{type=...}` 指标
+    ///
+    /// English:
+    ///   - OCO cascade: auto-cancel the paired order (mutual-exclusion semantics)
+    ///   - Creates a market close (IOC); price prefers `base_price`, falls back to `current_price`
+    ///   - Status UPDATE via raw SQL (see `insert_trigger_order_raw` for the why)
+    ///   - Increments `TRIGGER_ORDERS_FIRED_TOTAL{type=...}` metric
     async fn trigger_order(
         &self,
         order: &TriggerOrder,
@@ -688,6 +792,19 @@ impl TriggerOrderService {
     }
 
     /// 取消条件单
+    /// Cancel a trigger order. OCO pair is cancelled automatically.
+    ///
+    /// 中文：
+    ///   - 终态（triggered/cancelled/expired/failed）的 order 不可再 cancel
+    ///   - OCO 联动：如果该 order 是 OCO 的一边，另一边（仍 pending）一并 cancel
+    ///   - 原因（reason）写入 `trigger_reason` 字段供审计
+    ///   - raw SQL 绕开 SeaORM enum bug
+    ///
+    /// English:
+    ///   - Terminal-status orders (triggered / cancelled / expired / failed) cannot be cancelled
+    ///   - OCO cascade: if this is one leg of an OCO, the still-pending pair is cancelled too
+    ///   - `reason` is written to `trigger_reason` for audit
+    ///   - raw SQL bypass for SeaORM enum bug
     pub async fn cancel_trigger_order(&self, order_id: Uuid, reason: &str) -> Result<(), AppError> {
         // Bypass SeaORM's enum decode on read; cancel uses raw UPDATE too
         // to avoid the same variant-name-as-text issue.
@@ -759,6 +876,19 @@ impl TriggerOrderService {
     }
 
     /// 获取用户的条件单列表
+    /// List a user's trigger orders, filtered by `status` and/or `symbol`.
+    ///
+    /// 中文：
+    ///   - 必须带 `user_id` 过滤（多租户隔离）
+    ///   - 按 `created_at DESC` 倒序（最新在前）
+    ///   - raw SQL + `::text` cast 读取（enum workaround）
+    ///   - 无过滤时 `status_clause` / `symbol_clause` 为空串，不会引入无效 WHERE
+    ///
+    /// English:
+    ///   - Always filtered by `user_id` (multi-tenant isolation)
+    ///   - Ordered `created_at DESC` (newest first)
+    ///   - Raw SQL with `::text` cast (enum workaround)
+    ///   - Empty `status` / `symbol` filter produces an empty clause (no spurious WHERE)
     pub async fn list_trigger_orders(
         &self,
         user_id: Uuid,
@@ -809,6 +939,15 @@ impl TriggerOrderService {
     }
 
     /// 获取单个条件单详情
+    /// Fetch a single trigger order with ownership check.
+    ///
+    /// 中文：
+    ///   - 二次校验 `order.user_id == user_id`（防越权）
+    ///   - 不存在返回 `AppError::NotFound`，越权返回 `AppError::Forbidden`
+    ///
+    /// English:
+    ///   - Secondary `user_id` ownership check prevents cross-tenant access
+    ///   - Returns `NotFound` if missing, `Forbidden` if owned by another user
     pub async fn get_trigger_order(
         &self,
         user_id: Uuid,
@@ -832,6 +971,12 @@ impl TriggerOrderService {
     /// Bypasses SeaORM's generated `DeriveActiveEnum` `IntoActiveValue`
     /// (which sends the variant's Rust name as `text`, failing the
     /// real Postgres enum column).
+    ///
+    /// 中文：用 raw SQL INSERT 写入单行 trigger_order。
+    /// 绕开 SeaORM 1.1.x `DeriveActiveEnum` 生成的 `IntoActiveValue`
+    /// （该实现把变体的 Rust 名称当 `text` 发送，与真正的 Postgres enum 类型不匹配，
+    /// 参考 `sea-orm#2500`）。所有 4 个 enum helpers（trigger_type_str 等）
+    /// 集中维护 string-value 映射以保证 raw SQL 与 entity 定义同步。
     #[allow(clippy::too_many_arguments, clippy::result_large_err)]
     pub(crate) async fn insert_trigger_order_raw(
         &self,
@@ -934,6 +1079,11 @@ impl TriggerOrderService {
     /// Internal: append a TWAP slice execution: increment `filled_quantity`
     /// and `twap_executed_slices`, and (optionally) mark the order as
     /// `triggered` when the final slice completes.
+    ///
+    /// 中文：推进 TWAP 状态机：累加 filled_quantity / twap_executed_slices，
+    /// 最后一刀时把 status 升为 triggered。raw SQL 同样为绕开 SeaORM enum bug。
+    ///
+    /// English raw-SQL reason: same SeaORM enum workaround as `insert_trigger_order_raw`.
     pub(crate) async fn update_twap_slice_raw(
         &self,
         order_id: Uuid,
@@ -972,6 +1122,9 @@ impl TriggerOrderService {
     /// known enum values, using raw SQL. Required because the SeaORM
     /// `DeriveActiveEnum` `IntoActiveValue` cannot encode the variant name
     /// as the corresponding Postgres enum value.
+    ///
+    /// 中文：用 raw SQL 把 status 列更新为已知 enum 值之一。
+    /// 同样为绕开 SeaORM 1.1.x 的 enum bug（参考 `insert_trigger_order_raw` 的注释）。
     pub(crate) async fn update_trigger_status_raw(
         &self,
         order_id: Uuid,
@@ -1001,6 +1154,9 @@ impl TriggerOrderService {
     /// Internal: list all pending trigger_orders for the given symbol using
     /// raw SQL with `::text` casts. Required because SeaORM 1.1.x's enum
     /// decode on the real Postgres enum type fails.
+    ///
+    /// 中文：用 raw SQL + `::text` cast 列出某 symbol 的所有 pending trigger 单。
+    /// 同样为绕开 SeaORM 1.1.x enum decode 在真 Postgres enum 类型上的失败。
     pub(crate) async fn list_pending_trigger_orders_raw(
         &self,
         symbol: &str,
@@ -1037,6 +1193,12 @@ impl TriggerOrderService {
     /// generated `FromQueryResult` for a `DeriveActiveEnum` enum column
     /// decodes the value as TEXT, which fails against the real Postgres
     /// enum type on the wire.
+    ///
+    /// 中文：用 raw SELECT + enum→text cast 读单行 trigger_order。
+    /// 原因：SeaORM 1.1.x `DeriveActiveEnum` 生成的 `FromQueryResult` 走 TEXT 解码，
+    /// 遇到真 Postgres enum 类型在 wire 上失败。返回 None 表示行不存在（区别于 DB error）。
+    ///
+    /// English: returns `Ok(None)` if the row does not exist (distinct from DB error).
     async fn get_trigger_order_via_raw_text(
         &self,
         order_id: Uuid,
@@ -1069,6 +1231,24 @@ impl TriggerOrderService {
     }
 
     /// 处理TWAP订单切片
+    /// Process one TWAP tick: create a market slice order, update fill counters.
+    ///
+    /// 中文：
+    ///   - 由 `position_alert_monitor` 或 `matching_engine` 周期调度（每 interval_secs）
+    ///   - 校验：order 必须存在 / 类型为 TWAP / 状态为 pending
+    ///   - 早退：超过 `twap_end_time` → 标 Expired / 已达 `twap_max_slices` → 标 Triggered / 数量耗尽 → 标 Triggered
+    ///   - 切片量 = min(remaining, slice_quantity) — 最后一刀自然吸收余数
+    ///   - raw SQL 推进 filled_quantity + twap_executed_slices
+    ///   - 返回 `Ok(true)` 表示本 tick 下了单，`Ok(false)` 表示推进到终态
+    ///
+    /// English:
+    ///   - Invoked by the periodic scheduler (every `interval_secs`)
+    ///   - Validates: order exists / type is TWAP / status is pending
+    ///   - Early returns: past `twap_end_time` → Expired; reached `twap_max_slices` → Triggered;
+    ///     quantity exhausted → Triggered
+    ///   - Slice size = `min(remaining, slice_quantity)` — last slice naturally absorbs the remainder
+    ///   - Raw SQL to advance `filled_quantity` and `twap_executed_slices`
+    ///   - Returns `Ok(true)` if a slice order was placed, `Ok(false)` if it reached a terminal state
     pub async fn process_twap_slice(
         &self,
         order_id: Uuid,

@@ -620,6 +620,38 @@ pub async fn create_order(
             serde_json::to_value(&params)
                 .map_err(|e| AppError::Internal(format!("serialize bracket params: {}", e)))?,
         ));
+    } else if order_type == crate::db::order::OrderType::TrailingStop {
+        // P1-2.3: Trailing stop — parse trailing_distance as percentage (e.g. "0.5" = 0.5%)
+        // and convert to fraction (0.005) for internal storage
+        let td_pct_str = req.trailing_distance.as_deref().ok_or_else(|| {
+            AppError::BadRequest("TrailingStop order requires trailing_distance".to_string())
+        })?;
+        let td_pct: f64 = td_pct_str
+            .parse()
+            .map_err(|_| AppError::BadRequest(format!("Invalid trailing_distance: {}", td_pct_str)))?;
+        if td_pct <= 0.0 || td_pct >= 10.0 {
+            return Err(AppError::BadRequest(format!(
+                "trailing_distance must be in (0, 10) percent, got {}",
+                td_pct
+            )));
+        }
+        let td_fraction: f64 = td_pct / 100.0; // 0.5% → 0.005
+        let entry_price: f64 = price.ok_or_else(|| {
+            AppError::BadRequest("TrailingStop requires a numeric price".to_string())
+        })?;
+        let params = crate::models::trailing_stop_params::TrailingStopParams::validate_new(
+            entry_price,
+            td_fraction,
+            req.side.as_str(),
+        )
+        .map_err(AppError::BadRequest)?;
+        order_model.advanced_type = Set(Some(
+            crate::services::trailing_stop::TRAILING_STOP.to_string(),
+        ));
+        order_model.advanced_params = Set(Some(
+            serde_json::to_value(&params)
+                .map_err(|e| AppError::Internal(format!("serialize trailing stop params: {}", e)))?,
+        ));
     }
 
     let inserted = order_model.insert(&*db).await.map_err(|e| {

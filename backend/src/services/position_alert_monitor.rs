@@ -1,4 +1,5 @@
 //! services/position_alert_monitor.rs — P1-F2 止盈止损实时监控
+//! services/position_alert_monitor.rs — P1-F2 live take-profit / stop-loss monitor
 //!
 //! PRD: P1-F2 实盘止盈止损
 //! 职责：
@@ -12,6 +13,19 @@
 //! - 通过 `on_price_update()` 接收价格事件并检查
 //!
 //! P1-F6: 告警触发后通过 AlertNotificationService 发送多渠道通知
+//!
+//! English:
+//! P1-F2 live TP/SL monitor — four responsibilities:
+//! 1. Consume real-time price ticks
+//! 2. Trigger-check every active alert
+//! 3. Auto-submit market or limit close orders on fire
+//! 4. Partial-position TP: if residual qty remains, create a new alert for the remainder
+//!
+//! Integration:
+//! - Spawned by `MatchingEngine::spawn_alert_monitor()` as an independent task
+//! - Receives price events via `on_price_update()`
+//!
+//! P1-F6: post-fire notifications are dispatched through `AlertNotificationService` (multi-channel).
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -36,6 +50,7 @@ use uuid::Uuid;
 // ─── Message Types ───────────────────────────────────────────────
 
 /// 价格心跳消息
+/// A single price-tick message (push model from the matching engine / market feed).
 #[derive(Debug, Clone)]
 pub struct PriceTick {
     pub symbol: String,
@@ -45,6 +60,8 @@ pub struct PriceTick {
 }
 
 /// 触发执行结果
+/// Result of a fired alert (after `execute_close_order`).
+/// Returned to the caller so HTTP / WS layers can render a final status to the user.
 #[derive(Debug, Clone)]
 pub struct AlertExecutionResult {
     pub alert_id: Uuid,
@@ -64,6 +81,10 @@ pub struct AlertExecutionResult {
 ///
 /// 在后台任务中运行，接收实时行情心跳，检查所有活跃 alert 是否触发，
 /// 并自动发送平仓指令。触发时通过通知服务发送多渠道告警。
+///
+/// Live TP/SL monitor. Runs as a background tokio task. Consumes real-time price ticks,
+/// checks every active alert, and auto-submits close orders on fire. Fires
+/// `AlertNotificationService` (P1-F6) for multi-channel notifications.
 pub struct PositionAlertMonitor {
     db: Arc<DatabaseConnection>,
     engine: Arc<MatchingEngine>,
@@ -93,6 +114,19 @@ impl PositionAlertMonitor {
     /// 启动监控任务（后台 tokio task）
     ///
     /// 每隔 `interval_ms` 检查一次所有 symbol 的活跃 alerts
+    /// Spawn the periodic alert-check loop as a background tokio task.
+    ///
+    /// 中文：
+    ///   - `interval_ms` 被 clamp 到 [100, 5000]ms（防过快或过慢）
+    ///   - 使用 `tokio::time::interval` 节拍器
+    ///   - 单次轮询失败 `warn!` 而不 kill task（容错）
+    ///   - 与 `on_price_update` 的 push 模型互补：push 即时，pull 兜底
+    ///
+    /// English:
+    ///   - `interval_ms` is clamped to [100, 5000]ms (sanity bounds)
+    ///   - Uses `tokio::time::interval` ticker
+    ///   - Per-tick failures log a `warn!` rather than killing the task (resilience)
+    ///   - Complements the `on_price_update` push path with a periodic pull fallback
     pub fn spawn(self: Arc<Self>, interval_ms: u64) {
         let db = self.db.clone();
         let _symbol_cache = Arc::new(std::sync::Mutex::new(
@@ -119,6 +153,17 @@ impl PositionAlertMonitor {
     }
 
     /// 接收实时价格更新（可被 MatchingEngine 或行情服务调用）
+    /// Push entry point for a single price tick (called by the matching engine / market feed).
+    ///
+    /// 中文：
+    ///   - **push 模型入口**：与 `spawn` 的定期轮询互为冗余
+    ///   - 失败仅 `warn!`（push 路径不应该因为单次失败而中断）
+    ///   - 内部转交 `check_symbol_alerts` 做实际触发判定
+    ///
+    /// English:
+    ///   - **Push-model entry point** that complements the periodic poll in `spawn`
+    ///   - Single failures log a `warn!` and are not propagated (the push path is best-effort)
+    ///   - Delegates to `check_symbol_alerts` for the actual trigger check
     pub async fn on_price_update(&self, tick: PriceTick) {
         if let Err(e) = self
             .check_symbol_alerts(&tick.symbol, tick.price, tick.high_24h, tick.low_24h)
@@ -129,6 +174,15 @@ impl PositionAlertMonitor {
     }
 
     /// 检查指定交易对的所有活跃 alerts
+    /// Check all active alerts for one symbol.
+    ///
+    /// 中文：
+    ///   - 按 symbol 过滤避免 N+1（O(1) DB query → iterate active alerts in-memory）
+    ///   - 单 alert 失败仅 `warn!`（fail-soft，孤立的脏数据不应该影响其他 alert）
+    ///
+    /// English:
+    ///   - Symbol-scoped query avoids N+1 (one DB read, in-memory iteration)
+    ///   - Per-alert failures are isolated (warn + continue) — dirty data must not poison siblings
     async fn check_symbol_alerts(
         &self,
         symbol: &str,
@@ -156,6 +210,17 @@ impl PositionAlertMonitor {
     }
 
     /// 检查所有活跃 alerts（定期全量检查）
+    /// Full sweep of all active alerts (periodic fallback path).
+    ///
+    /// 中文：
+    ///   - 由 `spawn` 的定期 tick 调用，覆盖 push 模型可能漏掉的情况
+    ///   - 跳过 TrailingStop（必须由 push 模型 + 实时价格驱动）
+    ///   - 用 position.avg_entry_price 作为估算价（兜底；不依赖 push 流）
+    ///
+    /// English:
+    ///   - Driven by the `spawn` periodic tick; backstop for missed push ticks
+    ///   - Skips TrailingStop (requires push ticks for high/low persistence)
+    ///   - Uses `position.avg_entry_price` as the fallback price (decoupled from push)
     async fn check_all_active_alerts(
         &self,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -198,6 +263,19 @@ impl PositionAlertMonitor {
     }
 
     /// 检查单个 alert 是否触发，触发则执行平仓
+    /// Check one alert; fire the close order if triggered.
+    ///
+    /// 中文：
+    ///   - 自动清理孤儿 alert（持仓已平 / 数量为 0 → cancel alert）
+    ///   - 触发评估在 `evaluate_alert`（不副作用）
+    ///   - 触发后调 `execute_close_order` 真实平仓
+    ///   - 返回 `Some(AlertExecutionResult)` 给调用方（HTTP/WS 渲染）
+    ///
+    /// English:
+    ///   - Auto-cleans orphan alerts (position closed / qty = 0 → cancel the alert)
+    ///   - Trigger evaluation lives in `evaluate_alert` (no side effects there)
+    ///   - On fire, calls `execute_close_order` for the actual close
+    ///   - Returns `Some(AlertExecutionResult)` to the caller for HTTP / WS rendering
     async fn check_single_alert(
         &self,
         alert: &AlertModel,
@@ -268,6 +346,25 @@ impl PositionAlertMonitor {
     }
 
     /// 评估 alert 是否触发（返回触发条件）
+    /// Pure function: evaluate whether an alert should fire under the given prices.
+    ///
+    /// 中文：
+    ///   - **无副作用**：仅返回 (triggered, exit_price, exit_reason)
+    ///   - 三个分支：
+    ///     * TakeProfit: long 检查 high_24h ≥ trigger_price / short 检查 low_24h ≤ trigger_price
+    ///     * StopLoss:   long 检查 low_24h ≤ trigger_price / short 检查 high_24h ≥ trigger_price
+    ///     * TrailingStop: 维护已激活 peak（long = max, short = min）→ 动态 SL，再判触发
+    ///   - 追踪止损状态通过 `trailing_state: Mutex<HashMap<Uuid, f64>>` 跨 tick 持久化
+    ///   - default `trailing_distance = 0.005` (0.5%) 与 PRD 一致
+    ///
+    /// English:
+    ///   - **Pure function**: returns `(triggered, exit_price, exit_reason)` only
+    ///   - Three branches:
+    ///     * TakeProfit — long: high_24h ≥ trigger_price; short: low_24h ≤ trigger_price
+    ///     * StopLoss   — long: low_24h ≤ trigger_price; short: high_24h ≥ trigger_price
+    ///     * TrailingStop — maintain activated peak (long = max, short = min) → dynamic SL
+    ///   - Trailing state persists across ticks via `trailing_state: Mutex<HashMap<Uuid, f64>>`
+    ///   - Default `trailing_distance = 0.005` (0.5%) matches the PRD
     fn evaluate_alert(
         &self,
         alert: &AlertModel,
@@ -342,6 +439,21 @@ impl PositionAlertMonitor {
     }
 
     /// 执行平仓指令（市价或限价）
+    /// Execute the close order (market via matching engine / limit via order book).
+    ///
+    /// 中文：
+    ///   - 平仓方向与持仓相反：long → Sell / short → Buy
+    ///   - market 模式：直接调 `matching_engine.match_market` 拿成交回报
+    ///   - limit 模式：插入订单簿，挂单等待撮合（异步；不阻塞 fire 路径）
+    ///   - 成功执行后调 `mark_alert_triggered` 标 alert + 清理 trailing 状态 + 发通知
+    ///   - 撮合失败不抛错：返回带 `error` 字段的 `AlertExecutionResult`（caller 可重试）
+    ///
+    /// English:
+    ///   - Close direction is opposite the position: long → Sell, short → Buy
+    ///   - Market mode: calls `matching_engine.match_market` directly and gets the fill
+    ///   - Limit mode: inserts into the order book (asynchronous; does not block the fire path)
+    ///   - On success, calls `mark_alert_triggered` to update status + clear trailing state + notify
+    ///   - Matching failures are non-fatal: returned in `AlertExecutionResult.error` for retry
     async fn execute_close_order(
         &self,
         position: &Position,
@@ -448,6 +560,21 @@ impl PositionAlertMonitor {
     }
 
     /// 平仓后更新持仓
+    /// Update the position row after a partial or full close.
+    ///
+    /// 中文：
+    ///   - 全平（new_qty < 1e-12）：删除 position 行
+    ///   - 部分平：累减 quantity / available_quantity
+    ///   - 阈值 1e-12 防止浮点尾数误判
+    ///   - partial 场景下，**调用方**负责为剩余仓位创建新 alert
+    ///     （状态机纯净：旧 alert → triggered → 删除；新 alert 覆盖剩余仓位）
+    ///
+    /// English:
+    ///   - Full close (new_qty < 1e-12): delete the position row
+    ///   - Partial close: decrement `quantity` and `available_quantity`
+    ///   - 1e-12 epsilon guards against floating-point dust
+    ///   - **Caller** is responsible for creating a new alert for the residual qty
+    ///     (state-machine purity: old alert → triggered → removed; new alert for residual)
     async fn update_position_after_close(
         &self,
         position: &Position,
@@ -474,6 +601,21 @@ impl PositionAlertMonitor {
     }
 
     /// 标记 alert 为已触发，并发送通知
+    /// Mark an alert as triggered; clear trailing state; fire the notification.
+    ///
+    /// 中文：
+    ///   - 设置 status=triggered + triggered_at + triggered_order_id
+    ///   - **保留 alert 行**（不删除），用于审计回溯
+    ///   - 清理 `trailing_state` 哈希中该 alert_id 的状态
+    ///   - clone alert 一次用于通知（避免 `into()` 消费后再用）
+    ///   - 通知为 fire-and-forget：不阻塞 fire 路径
+    ///
+    /// English:
+    ///   - Sets status=triggered + triggered_at + triggered_order_id
+    ///   - **Keeps the alert row** (no delete) for audit history
+    ///   - Clears the `trailing_state` entry for this `alert_id`
+    ///   - Clones the alert before `.into()` to keep a copy for the notification payload
+    ///   - Notification is fire-and-forget (does not block the close path)
     async fn mark_alert_triggered(
         &self,
         alert_id: Uuid,
@@ -508,6 +650,19 @@ impl PositionAlertMonitor {
     }
 
     /// 发送告警通知
+    /// Build and dispatch a notification (P1-F6 multi-channel).
+    ///
+    /// 中文：
+    ///   - 通知服务可为空（不强制依赖 P1-F6）
+    ///   - 通知 severity 由 exit_reason 决定：stop_loss → critical / take_profit → warning / 其他 → info
+    ///   - 携带 alert_id / position_id / exit_reason 作为 metadata
+    ///   - 失败仅 `tracing::error!`（不影响 fire 主流程）
+    ///
+    /// English:
+    ///   - Notification service is optional (P1-F6 is not a hard dependency)
+    ///   - Severity derived from `exit_reason`: stop_loss → critical; take_profit → warning; else → info
+    ///   - Metadata: alert_id / position_id / exit_reason
+    ///   - On send failure, only logs `tracing::error!` (does not affect the fire path)
     async fn send_alert_notification(
         &self,
         alert: &AlertModel,
@@ -543,6 +698,17 @@ impl PositionAlertMonitor {
     }
 
     /// 取消 alert
+    /// Cancel an alert (e.g. when its underlying position is closed).
+    ///
+    /// 中文：
+    ///   - 由孤儿 alert 自动清理 / 手动 cancel 路径调用
+    ///   - 状态机：pending → cancelled（终态）
+    ///   - 同时清理 trailing_state 哈希（避免后续 alert 误用旧状态）
+    ///
+    /// English:
+    ///   - Invoked by orphan-alert auto-cleanup and manual cancel paths
+    ///   - State machine: pending → cancelled (terminal)
+    ///   - Also clears the trailing_state entry (prevents stale state leaking into new alerts)
     async fn cancel_alert(
         &self,
         alert_id: Uuid,

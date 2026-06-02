@@ -126,6 +126,26 @@ pub static POSITIONS_OPEN: LazyLock<IntGaugeVec> = LazyLock::new(|| {
 // ---------------------------------------------------------------------------
 
 // -----------------------------------------------------------------------
+// P1-2.3: Trailing stop
+// -----------------------------------------------------------------------
+
+/// Trailing stop trigger events, labelled by `side` ("buy" | "sell").
+pub static TRAILING_STOP_TRIGGERED_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
+    let m = IntCounterVec::new(
+        prometheus::opts!(
+            "trailing_stop_triggered_total",
+            "Number of trailing stop orders triggered (price hit dynamic SL), labelled by side"
+        ),
+        &["side"],
+    )
+    .expect("metric creation");
+    REGISTRY
+        .register(Box::new(m.clone()))
+        .expect("register trailing_stop_triggered_total");
+    m
+});
+
+// -----------------------------------------------------------------------
 // P1-2.2: Bracket orders
 // -----------------------------------------------------------------------
 

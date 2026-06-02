@@ -614,6 +614,32 @@ fn create_router(
         });
     }
 
+    // P1-2.3: Trailing stop poll loop — every 2s, fetch price via the in-process
+    // RedisCache which is already fed by Binance WS. This avoids:
+    //   1. Outbound HTTPS restriction to api.binance.com in this environment
+    //   2. Auth requirement on /api/v1/market/tickers (price loop runs in background)
+    {
+        let db_for_trailing = app_state.db.clone();
+        let redis_for_trailing = redis_cache.clone();
+        let _join = quant_trading_backend::services::trailing_stop::spawn_poll_loop(
+            db_for_trailing,
+            2, // poll every 2 seconds
+            move |symbol: &str| -> futures::future::BoxFuture<'static, Result<f64, String>> {
+                let redis = redis_for_trailing.clone();
+                let sym = symbol.to_string();
+                Box::pin(async move {
+                    // Both "BTCUSDT" and "BTC/USDT" forms accepted; WS writes "BTCUSDT" without slash
+                    let naked = sym.replace('/', "");
+                    match redis.get_ticker(&naked).await {
+                        Ok(Some(t)) => Ok(t.price),
+                        Ok(None) => Err(format!("price not found in Redis for {}", sym)),
+                        Err(e) => Err(format!("Redis get_ticker error for {}: {}", sym, e)),
+                    }
+                })
+            },
+        );
+    }
+
     app.merge(
         handlers::ai::router()
             .layer(axum::Extension(ai_services))

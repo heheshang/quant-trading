@@ -24,6 +24,10 @@ use crate::utils::error::AppError;
 // ─── Types ──────────────────────────────────────────────────────
 
 /// 创建止盈/止损请求
+/// Request payload for `create_alert`.
+/// 字段语义：
+/// - `position_id` 必须存在且属于当前 user（service 层二次校验）
+/// - `trailing_distance` 仅对 TrailingStop 类型有效，与 `trailing_stop_params.rs` 的 (0, 0.1) 一致
 #[derive(Debug, Clone)]
 pub struct CreateAlertRequest {
     pub position_id: Uuid,
@@ -37,6 +41,7 @@ pub struct CreateAlertRequest {
 }
 
 /// 修改止盈止损请求
+/// PATCH-style request: all fields are optional; only present fields are written.
 #[derive(Debug, Clone)]
 pub struct UpdateAlertRequest {
     pub trigger_price: Option<f64>,
@@ -47,6 +52,7 @@ pub struct UpdateAlertRequest {
 }
 
 /// 止盈止损检查结果（单个 alert）
+/// Result of evaluating one alert against current market prices.
 #[derive(Debug, Clone)]
 pub struct AlertCheckResult {
     pub alert_id: Uuid,
@@ -56,6 +62,7 @@ pub struct AlertCheckResult {
 }
 
 /// 批量检查结果
+/// Batch aggregation over many `AlertCheckResult`s.
 #[derive(Debug, Clone)]
 pub struct BatchAlertCheckResult {
     pub alerts: Vec<AlertCheckResult>,
@@ -64,6 +71,7 @@ pub struct BatchAlertCheckResult {
 }
 
 /// Alert 响应（带持仓信息）
+/// HTTP response shape for an alert (string-formatted numbers to avoid float JSON quirks).
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct AlertResponse {
     pub id: Uuid,
@@ -88,6 +96,9 @@ pub struct AlertResponse {
 ///
 /// 管理持仓的止盈/止损/追踪止损警戒规则。
 /// 提供创建、修改、取消、查询、触发检查等能力。
+///
+/// Manages TP/SL/TrailingStop rules for open positions.
+/// Provides CRUD over alerts plus a pure trigger-check function.
 pub struct PositionAlertService {
     db: Arc<DatabaseConnection>,
 }
@@ -104,6 +115,21 @@ impl PositionAlertService {
     /// 验证：
     /// 1. 持仓存在且属于当前用户
     /// 2. 同类型 alert 同一方向只能有一个（避免重复触发）
+    /// Create a TP/SL/TrailingStop alert for an existing position.
+    ///
+    /// 中文校验：
+    ///   1. 持仓存在且属于当前 user（防越权）
+    ///   2. 同 position_id + alert_type + Active 状态的 alert 已存在 → 拒绝（避免重复触发）
+    ///   3. TakeProfit 校验：short 持仓不支持（语义反转：short 的 TP 应为价格下跌）
+    ///   4. StopLoss 对 long/short 都支持
+    ///   5. 默认 TrailingStop 未激活（trailing_activated=false），价格首次创 high/low 后由 monitor 激活
+    ///
+    /// English validation:
+    ///   1. Position exists and is owned by `user_id`
+    ///   2. Duplicate detection: same position_id + alert_type + Active already → reject
+    ///   3. TakeProfit on Short positions is rejected (semantic mismatch)
+    ///   4. StopLoss is valid for both Long and Short
+    ///   5. TrailingStop starts deactivated; the monitor activates it on the first qualifying tick
     pub async fn create_alert(
         &self,
         user_id: Uuid,
@@ -195,6 +221,17 @@ impl PositionAlertService {
     }
 
     /// 修改止盈止损（价格/模式/距离）
+    /// Patch an active alert. Only `Active` alerts can be modified.
+    ///
+    /// 中文：
+    ///   - 终态（triggered / cancelled）的 alert 拒绝修改
+    ///   - PATCH 语义：仅 req 中 Some 的字段被写入
+    ///   - status 字段可显式置为非 Active（手动 disable，不算 cancel）
+    ///
+    /// English:
+    ///   - Terminal-status alerts (triggered / cancelled) refuse updates
+    ///   - PATCH semantics: only fields present in `req` are written
+    ///   - `status` may be set explicitly to non-Active (manual disable, not cancel)
     pub async fn update_alert(
         &self,
         user_id: Uuid,
@@ -243,6 +280,8 @@ impl PositionAlertService {
     }
 
     /// 取消止盈止损
+    /// Cancel an alert. Differs from `update_alert(status=cancelled)` by also
+    /// stamping `cancelled_at` for audit. Idempotent on already-cancelled alerts.
     pub async fn cancel_alert(&self, user_id: Uuid, alert_id: Uuid) -> Result<(), AppError> {
         let alert = AlertEntity::find()
             .filter(crate::db::position_alerts::Column::UserId.eq(user_id))
@@ -267,6 +306,7 @@ impl PositionAlertService {
     }
 
     /// 查询用户所有持仓的活跃止盈止损
+    /// List the user's `Active` alerts. Optional `symbol` narrows to one trading pair.
     pub async fn list_active_alerts(
         &self,
         user_id: Uuid,
@@ -289,6 +329,7 @@ impl PositionAlertService {
     }
 
     /// 查询指定持仓的所有 alert
+    /// List ALL alerts (any status) for one position. Used for history views.
     pub async fn list_alerts_by_position(
         &self,
         user_id: Uuid,
@@ -305,6 +346,12 @@ impl PositionAlertService {
     }
 
     /// 标记 alert 为已触发，并记录触发后的平仓订单ID
+    /// Mark an alert as triggered, recording the resulting close-order id.
+    ///
+    /// 中文：
+    ///   - 由 `position_alert_monitor` 在 close order 创建成功后调用
+    ///   - 不再做 user_id 二次过滤（内部调用，可信）
+    ///   - **保留行**（不删除），用于审计回溯
     pub async fn mark_triggered(&self, alert_id: Uuid, order_id: Uuid) -> Result<(), AppError> {
         let alert = AlertEntity::find_by_id(alert_id)
             .one(self.db.as_ref())
@@ -331,6 +378,20 @@ impl PositionAlertService {
     /// 检查单个 alert 是否触发（给定当前市场价格）
     ///
     /// 返回：(是否触发, 触发价格, 退出原因)
+    /// Pure trigger evaluation: returns `(triggered, trigger_price, exit_reason)`.
+    ///
+    /// 中文：
+    ///   - **纯函数**：无副作用，不修改 alert 状态（写操作在 `mark_triggered`）
+    ///   - 三个分支：TakeProfit / StopLoss / TrailingStop
+    ///   - TrailingStop 必须先 `trailing_activated=true` 才参与触发判定
+    ///     （`position_alert_monitor` 在价格创 high/low 后激活）
+    ///   - long/short 对称：long 用 high_since_open，short 用 low_since_open
+    ///
+    /// English:
+    ///   - **Pure function**: no side effects; persistence happens in `mark_triggered`
+    ///   - Three branches: TakeProfit / StopLoss / TrailingStop
+    ///   - TrailingStop only triggers once `trailing_activated=true` (set by the monitor on first qualifying tick)
+    ///   - Long uses `high_since_open`; short uses `low_since_open` (symmetric)
     pub fn check_alert_trigger(
         &self,
         alert: &AlertModel,
@@ -447,6 +508,12 @@ impl PositionAlertService {
     }
 
     /// 根据 alert 推断持仓方向（通过查询持仓）
+    /// Look up the position side for an alert (denormalized lookup).
+    ///
+    /// 中文：
+    ///   - 同步阻塞查询（`futures::executor::block_on`），仅供纯函数 `check_alert_trigger` 调用
+    ///   - 默认 Long 是兜底（持仓已不存在时不应走到这里，但需防止 panic）
+    ///   - 未来可加 LRU 缓存避免每 tick 一次 DB hit
     fn get_position_side_for_alert(&self, alert: &AlertModel) -> PositionSide {
         // 同步查询持仓方向（此方法在价格检查循环中调用）
         // 缓存层可优化，此处直接查 DB
@@ -466,6 +533,13 @@ impl PositionAlertService {
     /// 批量检查多个 alert（给定当前市场价格）
     ///
     /// 用于行情心跳中批量检查所有活跃 alert
+    /// Batch trigger check for all active alerts of `(user_id, symbol)`.
+    ///
+    /// 中文：
+    ///   - 由 `position_alert_monitor` 的 push 模型调用
+    ///   - 失败的 listing 仅 warn（不中断其他用户/symbol 的检查）
+    ///   - 持仓已不存在的 alert 静默跳过
+    ///   - 返回平铺的 `AlertCheckResult` 列表
     pub async fn check_alerts_batch(
         &self,
         user_id: Uuid,
@@ -520,6 +594,17 @@ impl PositionAlertService {
     /// 部分持仓止盈：计算触发后应平仓的数量
     ///
     /// 如果 position 还有剩余持仓（部分触发），则创建新的 alert 继续跟踪
+    /// Split a fired alert's quantity into (exited, remaining) for partial close.
+    ///
+    /// 中文：
+    ///   - **纯函数**：仅做数学，不写 DB
+    ///   - 剩余仓位 < 1e-12 视为全平（防浮点尾数）
+    ///   - 返回 (已平, 剩余) — caller 决定是否给剩余仓位建新 alert
+    ///
+    /// English:
+    ///   - **Pure function**: no DB writes
+    ///   - Residual qty < 1e-12 is treated as full close (epsilon guard)
+    ///   - Returns `(exited, remaining)` — caller decides whether to create a new alert
     pub fn calculate_partial_exit(
         &self,
         position: &Position,
@@ -542,6 +627,12 @@ impl PositionAlertService {
 // ─── To Response ─────────────────────────────────────────────────
 
 impl AlertResponse {
+    /// Build a JSON-safe response DTO from a SeaORM model.
+    ///
+    /// 中文：
+    ///   - 用 `format!("{:.8}", p)` 字符串化 f64 避免 JSON 浮点尾数
+    ///   - enum 字段用 serde 转 string 防止外部依赖 enum 字面量
+    ///   - 默认空串兜底（不返回 null）
     pub fn from_model(model: &AlertModel) -> Self {
         Self {
             id: model.id,
