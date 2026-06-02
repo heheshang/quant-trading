@@ -71,7 +71,7 @@ async fn main() {
         .allow_headers(Any);
 
     // Create matching engine
-    let matching_engine = Arc::new(MatchingEngine::new(db.clone(), 200, 0.001));
+    let matching_engine = MatchingEngine::new(db.clone(), 200, 0.001);
 
     // Create order rate limiter (P1-F4)
     let order_rate_limiter = Arc::new(OrderRateLimiter::new());

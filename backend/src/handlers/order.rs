@@ -43,6 +43,8 @@ pub struct CreateOrderRequest {
     pub stop_loss_trigger_mode: Option<String>,   // "market" | "limit", default "market"
     pub take_profit_trigger_mode: Option<String>, // "market" | "limit", default "market"
     pub trailing_distance: Option<String>, // 追踪止损距离（百分比字符串，如 "0.5" 表示 0.5%）
+    // ── P1-2.1: 高级订单参数 ─────────────────────────────
+    pub visible_quantity: Option<String>, // Iceberg: 每片显示量
 }
 
 #[derive(Debug, Deserialize)]
@@ -543,7 +545,7 @@ pub async fn create_order(
     let now = chrono::Utc::now();
     let order_id = Uuid::new_v4();
 
-    let order_model = crate::db::order::ActiveModel {
+    let mut order_model = crate::db::order::ActiveModel {
         id: Set(order_id),
         user_id: Set(user.user_id),
         strategy_id: Set(None),
@@ -564,10 +566,27 @@ pub async fn create_order(
         updated_at: Set(now),
         cancelled_at: Set(None),
         filled_at: Set(None),
-        // P1-2: advanced order type fields
+        // P1-2: advanced order type fields (overridden for Iceberg below)
         advanced_type: Set(None),
         advanced_params: Set(None),
     };
+
+    // P1-2.1: Iceberg parent must have advanced_type="iceberg" + advanced_params JSONB
+    if order_type == crate::db::order::OrderType::Iceberg {
+        let vq_str = req.visible_quantity.as_deref().ok_or_else(|| {
+            AppError::BadRequest("Iceberg order requires visible_quantity".to_string())
+        })?;
+        let vq: f64 = vq_str.parse().map_err(|_| {
+            AppError::BadRequest(format!("Invalid visible_quantity: {}", vq_str))
+        })?;
+        let params = crate::models::iceberg_params::IcebergParams::validate_new(vq, quantity)
+            .map_err(AppError::BadRequest)?;
+        order_model.advanced_type = Set(Some(crate::services::iceberg::advanced_type::ICEBERG.to_string()));
+        order_model.advanced_params = Set(Some(
+            serde_json::to_value(&params)
+                .map_err(|e| AppError::Internal(format!("serialize iceberg params: {}", e)))?,
+        ));
+    }
 
     let inserted = order_model.insert(&*db).await.map_err(|e| {
         tracing::error!("Failed to create order: {:?}", e);
@@ -631,6 +650,16 @@ pub async fn create_order(
                 // Order stays in pending status, will be picked up later
             }
         }
+    } else if order_type == crate::db::order::OrderType::Iceberg {
+        // P1-2.1: Iceberg order — split into child slices, only first goes to book
+        let parent = crate::db::order::Entity::find_by_id(order_id)
+            .one(&*db)
+            .await
+            .map_err(|e| AppError::Database(e.to_string()))?
+            .ok_or_else(|| {
+                AppError::Internal("Iceberg parent order not found after insert".to_string())
+            })?;
+        crate::services::iceberg::split_into_children(&db, &engine, &parent).await?;
     } else {
         // Limit order: insert into order book
         engine.insert_limit_order(crate::services::matching_engine::OrderEntry {
@@ -759,6 +788,17 @@ pub async fn cancel_order(
             "Order status is {:?}, cannot cancel",
             order.status
         )));
+    }
+
+    // P1-2.1: Iceberg parent cancel cascades to all child slices
+    if order.advanced_type.as_deref() == Some(crate::services::iceberg::advanced_type::ICEBERG) {
+        let cancelled_children =
+            crate::services::iceberg::cancel_iceberg_children(&db, &engine, order_id).await?;
+        tracing::info!(
+            order_id = %order_id,
+            cancelled_children,
+            "Iceberg parent cancelled, children cascaded"
+        );
     }
 
     // D3: 解冻保证金和持仓

@@ -11,6 +11,7 @@ pub mod bybit_rest;
 pub mod dashboard;
 pub mod exchange;
 pub mod gate_rest;
+pub mod iceberg;
 pub mod indicator;
 pub mod kline;
 pub mod kline_partition_manager;

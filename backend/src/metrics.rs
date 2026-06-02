@@ -99,6 +99,17 @@ pub static ORDERS_CANCELLED_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
     .expect("register orders_cancelled_total")
 });
 
+/// P1-2.1: Iceberg child order lifecycle, labelled by `action` (created|filled|cancelled).
+pub static ICEBERG_CHILD_ORDERS_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
+    register_int_counter_vec_with_registry!(
+        "iceberg_child_orders_total",
+        "Iceberg child order lifecycle events.",
+        &["action"],
+        REGISTRY
+    )
+    .expect("register iceberg_child_orders_total")
+});
+
 /// Open positions currently tracked, labelled by `(exchange, symbol)`.
 pub static POSITIONS_OPEN: LazyLock<IntGaugeVec> = LazyLock::new(|| {
     register_int_gauge_vec_with_registry!(

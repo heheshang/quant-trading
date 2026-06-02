@@ -168,7 +168,11 @@ pub struct MatchingEngine {
 }
 
 impl MatchingEngine {
-    pub fn new(db: Arc<DatabaseConnection>, delay_ms: u64, fee_rate: f64) -> Self {
+    /// P1-2.1: returns `Arc<Self>` so the spawn task can hold a clone while the
+    /// caller can also wrap the engine in another Arc for state sharing.
+    /// Breaking change vs P1-2 MVP: callers must now use `MatchingEngine::new(...)`
+    /// directly (no `Arc::new(MatchingEngine::new(...))` wrapper needed).
+    pub fn new(db: Arc<DatabaseConnection>, delay_ms: u64, fee_rate: f64) -> Arc<Self> {
         let (tx, rx) = mpsc::channel::<TradeRecord>(1024);
         let engine = Self {
             order_books: std::sync::Mutex::new(HashMap::new()),
@@ -179,9 +183,11 @@ impl MatchingEngine {
             fee_rate,
         };
 
-        // 启动后台批量写入 task
-        engine.spawn_trade_writer(rx);
-        engine
+        // P1-2.1: spawn_trade_writer takes &Arc<Self> and clones the Arc into
+        // the spawned task. Returning the Arc lets the caller share ownership.
+        let engine_arc = Arc::new(engine);
+        engine_arc.spawn_trade_writer(rx);
+        engine_arc
     }
 
     /// 启动时从 PG 重建订单簿 (pending / partial_filled 订单)
@@ -646,8 +652,11 @@ impl MatchingEngine {
     }
 
     /// 后台批量写入成交记录
-    fn spawn_trade_writer(&self, mut rx: mpsc::Receiver<TradeRecord>) {
+    pub fn spawn_trade_writer(self: &Arc<Self>, mut rx: mpsc::Receiver<TradeRecord>) {
         let db = self.db.clone();
+        // P1-2.1: caller already holds `self: &Arc<MatchingEngine>`, clone the Arc
+        // so the spawned task can call iceberg::append_next_child which expects Arc.
+        let engine = self.clone();
         tokio::spawn(async move {
             let mut buffer = Vec::with_capacity(64);
             loop {
@@ -662,7 +671,7 @@ impl MatchingEngine {
                 }
 
                 if !buffer.is_empty() {
-                    if let Err(e) = Self::flush_trades(&db, &buffer).await {
+                    if let Err(e) = Self::flush_trades(&db, &engine, &buffer).await {
                         error!("Failed to flush trade records: {:?}", e);
                     }
                     buffer.clear();
@@ -673,6 +682,7 @@ impl MatchingEngine {
 
     async fn flush_trades(
         db: &Arc<DatabaseConnection>,
+        engine: &Arc<MatchingEngine>,
         records: &[TradeRecord],
     ) -> Result<(), sea_orm::DbErr> {
         use crate::db::order::trades::ActiveModel as TradeActiveModel;
@@ -753,6 +763,22 @@ impl MatchingEngine {
                 }
 
                 active_model.update(db.as_ref()).await?;
+
+                // P1-2.1: Iceberg child fill triggers next slice replenishment
+                if order.advanced_type.as_deref()
+                    == Some(crate::services::iceberg::advanced_type::ICEBERG_CHILD)
+                {
+                    let result = crate::services::iceberg::append_next_child(
+                        db,
+                        engine,
+                        order.id,
+                        filled_qty,
+                    )
+                    .await;
+                    if let Err(e) = result {
+                        error!("Iceberg replenish failed for child {}: {:?}", order.id, e);
+                    }
+                }
             }
 
         Ok(())
