@@ -1,0 +1,259 @@
+# Prometheus alerting rules for the quant-trading backend.
+#
+# Point Prometheus at this directory via:
+#   rule_files:
+#     - "rules/*.yml"
+# in ops/prometheus/prometheus.yml (already wired).
+#
+# Alert severity conventions:
+#   - critical: page on-call, business-impacting (trading halt, data loss)
+#   - warning:  ticket during business hours, investigate next day
+#   - info:     dashboard signal, no action required
+#
+# Threshold values mirror the stat-panel thresholds in
+# ops/grafana/dashboards/quant-trading-ops.json (D2 in
+# docs/p0-grafana-dashboard/architecture/T3_Design.md) so the
+# dashboard and the alerts stay in lockstep.
+groups:
+  # ============================================================
+  # Risk controls — these gate live trading; trip = money at risk
+  # ============================================================
+  - name: risk_rules
+    interval: 30s
+    rules:
+      - alert: RiskRuleDailyLossTripped
+        expr: increase(risk_rules_tripped_total{rule="daily_loss"}[1m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          category: risk
+          component: trading
+        annotations:
+          summary: "Daily-loss limit tripped for at least one user"
+          description: |
+            The risk manager rejected at least one order in the last minute
+            because the user's daily P&L crossed the configured loss limit.
+            Check `risk_rules_tripped_total{rule="daily_loss"}` in Grafana
+            and the `risk_events` table for the user_id.
+          runbook_url: "https://wiki.internal/runbooks/risk-daily-loss"
+          dashboard: "https://grafana.internal/d/quant-trading-ops-v1"
+
+      - alert: RiskRuleMaxDrawdownTripped
+        expr: increase(risk_rules_tripped_total{rule="max_drawdown"}[1m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          category: risk
+          component: trading
+        annotations:
+          summary: "Max-drawdown limit tripped — emergency close may be firing"
+          description: |
+            The risk manager tripped the max-drawdown circuit breaker.
+            If `drawdown_auto_close` is enabled, the user's open positions
+            are being force-closed; verify fills settled in the `trades` table.
+          runbook_url: "https://wiki.internal/runbooks/risk-drawdown"
+
+      - alert: RiskRuleSingleTradeTripped
+        expr: increase(risk_rules_tripped_total{rule="single_trade"}[5m]) > 3
+        for: 0m
+        labels:
+          severity: warning
+          category: risk
+          component: trading
+        annotations:
+          summary: "Single-trade loss ratio tripped >3 times in 5 minutes"
+          description: |
+            Multiple orders rejected for excessive estimated single-trade
+            loss. Could indicate a mis-calibrated strategy or fat-finger input.
+            Inspect the `risk_events` table; common cause is a stale price
+            feed widening the slippage estimate.
+          runbook_url: "https://wiki.internal/runbooks/risk-single-trade"
+
+  # ============================================================
+  # Rate limiting — abuse detection (per scope)
+  # ============================================================
+  - name: rate_limit
+    interval: 30s
+    rules:
+      - alert: RateLimitGlobalSpike
+        expr: sum(rate(rate_limit_denied_total{scope="global"}[1m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+          category: abuse
+          component: api
+        annotations:
+          summary: "Global rate-limit denials > 5/s for 5 minutes"
+          description: |
+            The global limiter is shedding more than 5 requests per second
+            sustained. Either a legitimate surge (campaign, listing event)
+            or a misbehaving client. Check the upstream traffic source and
+            consider raising the global RPS budget via env vars.
+
+      - alert: RateLimitUserSpike
+        expr: sum by (scope) (rate(rate_limit_denied_total{scope="user"}[1m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+          category: abuse
+          component: api
+        annotations:
+          summary: "Per-user rate-limit denials > 2/s for 5 minutes"
+          description: |
+            A single user is being throttled. Could be a runaway client
+            (retry storm) or a token-credential compromise. Inspect
+            the access log for the offending JWT subject.
+
+      - alert: RateLimitSymbolSpike
+        expr: sum by (scope) (rate(rate_limit_denied_total{scope="symbol"}[1m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+          category: abuse
+          component: api
+        annotations:
+          summary: "Per-symbol rate-limit denials > 1/s for 5 minutes"
+          description: |
+            Order flow for one symbol is being throttled. Could indicate
+            a hot-token moment or a wash-trade detection trip. Check
+            `trades` and `orders` tables for the symbol.
+
+  # ============================================================
+  # HTTP health — the front door
+  # ============================================================
+  - name: http_health
+    interval: 30s
+    rules:
+      - alert: BackendDown
+        expr: up{job="quant-trading-backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: availability
+          component: api
+        annotations:
+          summary: "Backend instance unreachable by Prometheus scrape"
+          description: |
+            Prometheus has not been able to scrape /metrics from the
+            backend for 1 minute. Check the pod status, port binding
+            (8080), and JWT_SECRET in the env. The instance will
+            have already failed its k8s liveness probe by now.
+
+      - alert: HTTP5xxSpike
+        expr: |
+          (
+            sum(rate(http_requests_total{status=~"5.."}[2m]))
+            /
+            sum(rate(http_requests_total[2m]))
+          ) > 0.05
+          and
+          sum(rate(http_requests_total{status=~"5.."}[2m])) > 0.5
+        for: 2m
+        labels:
+          severity: warning
+          category: reliability
+          component: api
+        annotations:
+          summary: "HTTP 5xx ratio > 5% AND rate > 0.5/s for 2 minutes"
+          description: |
+            More than 5% of responses are 5xx AND the absolute rate is
+            > 0.5/s. Both clauses must hold to suppress noise during
+            cold-start. Inspect backend logs for the failing route.
+
+      - alert: HTTPLatencyP95High
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(http_request_duration_seconds_bucket[5m]))
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+          category: performance
+          component: api
+        annotations:
+          summary: "HTTP P95 latency > 2s for 5 minutes"
+          description: |
+            The 95th-percentile request duration is sustained above
+            2 seconds. Likely DB connection pool exhaustion or
+            slow third-party API. Check `pg_stat_activity` and
+            the depth-cache status.
+
+  # ============================================================
+  # WebSocket realtime health
+  # ============================================================
+  - name: websocket
+    interval: 30s
+    rules:
+      - alert: WSConnectionsExhaustion
+        expr: sum(ws_connections_active) > 800
+        for: 5m
+        labels:
+          severity: warning
+          category: capacity
+          component: ws
+        annotations:
+          summary: "Active WS connections > 800 for 5 minutes"
+          description: |
+            Approaching the configured WebSocket fanout ceiling.
+            Each connection adds CPU + memory for broadcast fanout;
+            at 1000 the process is expected to start shedding.
+            Scale the WS tier or check for stuck connections
+            (probably clients without a heartbeat).
+
+      - alert: WSBroadcastStall
+        expr: |
+          sum(rate(ws_messages_broadcast_total{kind="kline"}[10m])) == 0
+        for: 10m
+        labels:
+          severity: warning
+          category: data
+          component: ws
+        annotations:
+          summary: "No kline broadcasts in 10 minutes"
+          description: |
+            The kline writer is either silent (upstream WS disconnected)
+            or the broadcast hub has stalled. Frontend charts will
+            freeze. Check `services/exchange/binance/ws.rs` and
+            the `kline_persist_total` counter for upstream evidence.
+
+  # ============================================================
+  # AI prediction quality
+  # ============================================================
+  - name: ai_quality
+    interval: 1m
+    rules:
+      - alert: AIPredictionSkewed
+        expr: |
+          (
+            sum(ai_predictions_total{direction="long"})
+            /
+            clamp_min(sum(ai_predictions_total), 1)
+          ) > 0.8
+        for: 30m
+        labels:
+          severity: info
+          category: model
+          component: ai
+        annotations:
+          summary: "AI predictions skewed > 80% long for 30 minutes"
+          description: |
+            More than 80% of recent predictions are LONG, sustained for
+            30 minutes. Possible causes: stale signal features, model
+            drift, or a one-sided market regime. Compare against the
+            realised P&L to decide whether to retrain.
+            Alert is INFO — no action required, just attention.
+
+      - alert: AIPredictionStalled
+        expr: rate(ai_predictions_total[15m]) == 0
+        for: 15m
+        labels:
+          severity: warning
+          category: model
+          component: ai
+        annotations:
+          summary: "No AI predictions in 15 minutes"
+          description: |
+            The /api/v1/ai/predictions endpoint has not produced any
+            predictions for 15 minutes. Check the Python AI service
+            (port 8002) and the DeepSeek API quota.
