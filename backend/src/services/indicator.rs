@@ -8,7 +8,10 @@
 //!   D = SMA(K, M2)
 //!   J = 3*K - 2*D
 
-use crate::models::schemas::{BollingerBar, KdjBar, KdjSignal, MaBar, MacdBar, RsiBar};
+use crate::models::schemas::{
+    BollingerBar, FibLevel, FibResponse, HurstBar, KdjBar, KdjSignal, MaBar, MacdBar, ObvBar,
+    PivotBar, PivotLevels, RsiBar,
+};
 use crate::utils::error::AppError;
 
 /// Input for KDJ calculation — single kline bar
@@ -18,6 +21,32 @@ pub struct KlineInput {
     pub high: f64,
     pub low: f64,
     pub close: f64,
+}
+
+/// Extended kline input that includes volume (used by OBV)
+#[derive(Debug, Clone)]
+pub struct KlineWithVolume {
+    pub open_time: i64,
+    pub high: f64,
+    pub low: f64,
+    pub close: f64,
+    pub volume: f64,
+}
+
+/// Zip a `KlineInput` series with a parallel volume series to build
+/// `KlineWithVolume` entries. Lengths must match — caller is responsible.
+pub fn kline_with_volume(inputs: &[KlineInput], volumes: &[f64]) -> Vec<KlineWithVolume> {
+    inputs
+        .iter()
+        .zip(volumes.iter())
+        .map(|(k, &v)| KlineWithVolume {
+            open_time: k.open_time,
+            high: k.high,
+            low: k.low,
+            close: k.close,
+            volume: v,
+        })
+        .collect()
 }
 
 /// KDJ Calculator
@@ -539,6 +568,283 @@ pub fn compute_macd(
     results
 }
 
+// =============================================================================
+// OBV (On-Balance Volume) — 能量潮指标
+// =============================================================================
+//
+// 算法:
+//   OBV_0 = 0
+//   当 close[i] > close[i-1]:  OBV[i] = OBV[i-1] + volume[i]
+//   当 close[i] < close[i-1]:  OBV[i] = OBV[i-1] - volume[i]
+//   当 close[i] == close[i-1]: OBV[i] = OBV[i-1]
+//
+// 输出与输入同长度 (第 0 根 OBV=0，从第 1 根起按规则累加)。
+
+/// Compute OBV (On-Balance Volume) — cumulative volume flow based on close direction.
+///
+/// Returns one `ObvBar` per input kline. The first bar is anchored at 0.
+pub fn compute_obv(klines: &[KlineWithVolume]) -> Vec<ObvBar> {
+    if klines.is_empty() {
+        return vec![];
+    }
+    let mut results = Vec::with_capacity(klines.len());
+    let mut obv = 0.0_f64;
+    // First bar anchors at 0
+    results.push(ObvBar {
+        open_time: klines[0].open_time,
+        obv,
+    });
+    for window in klines.windows(2) {
+        let prev = &window[0];
+        let curr = &window[1];
+        if curr.close > prev.close {
+            obv += curr.volume;
+        } else if curr.close < prev.close {
+            obv -= curr.volume;
+        }
+        // equal close: no change
+        results.push(ObvBar {
+            open_time: curr.open_time,
+            obv,
+        });
+    }
+    results
+}
+
+// =============================================================================
+// Pivot Points — 经典枢轴点 (Floor / Classical)
+// =============================================================================
+//
+// 基于前一根 K 线的 H/L/C 计算一组支撑/阻力位:
+//
+//   P  = (H + L + C) / 3
+//   R1 = 2*P - L
+//   S1 = 2*P - H
+//   R2 = P + (H - L)
+//   S2 = P - (H - L)
+//
+// 输出按 kline 序列: pivots[i] 基于 (high[i-1], low[i-1], close[i-1]) 计算。
+// 因此 pivots.len() == max(0, klines.len() - 1)。
+
+/// Compute classic floor pivot points based on the **previous** kline's HLC.
+///
+/// Returns one `PivotBar` per kline starting from the 2nd. `pivot_levels` is
+/// derived from `(high[i-1], low[i-1], close[i-1])`.
+pub fn compute_pivot_points(klines: &[KlineInput]) -> Vec<PivotBar> {
+    if klines.len() < 2 {
+        return vec![];
+    }
+    let mut results = Vec::with_capacity(klines.len() - 1);
+    for window in klines.windows(2) {
+        let prev = &window[0];
+        let curr = &window[1];
+        let h = prev.high;
+        let l = prev.low;
+        let c = prev.close;
+        let p = (h + l + c) / 3.0;
+        let r1 = 2.0 * p - l;
+        let s1 = 2.0 * p - h;
+        let r2 = p + (h - l);
+        let s2 = p - (h - l);
+        results.push(PivotBar {
+            open_time: curr.open_time,
+            pivot: PivotLevels {
+                p,
+                r1,
+                s1,
+                r2,
+                s2,
+            },
+        });
+    }
+    results
+}
+
+// =============================================================================
+// Fibonacci Retracement — 斐波那契回撤
+// =============================================================================
+//
+// 在 [low, high] 区间内，按经典比例 (0% / 23.6% / 38.2% / 50% / 61.8% / 78.6% / 100%)
+// 给出 7 个价格位:
+//
+//   level_0   = high
+//   level_236 = high - 0.236 * range
+//   level_382 = high - 0.382 * range
+//   level_500 = high - 0.500 * range
+//   level_618 = high - 0.618 * range
+//   level_786 = high - 0.786 * range
+//   level_100 = low
+
+/// Standard Fibonacci retracement ratios (label, fraction from high to low).
+pub const FIB_LEVELS: &[(f64, &str)] = &[
+    (0.0, "0%"),
+    (0.236, "23.6%"),
+    (0.382, "38.2%"),
+    (0.5, "50%"),
+    (0.618, "61.8%"),
+    (0.786, "78.6%"),
+    (1.0, "100%"),
+];
+
+/// Compute Fibonacci retracement price levels between `high` and `low`.
+///
+/// If `high < low` the two are swapped so the function still produces an
+/// ascending sequence (0% < 100%). If `high == low` all levels collapse to
+/// that single price.
+pub fn compute_fibonacci(high: f64, low: f64) -> FibResponse {
+    let (hi, lo) = if high >= low {
+        (high, low)
+    } else {
+        (low, high)
+    };
+    let range = hi - lo;
+    let levels: Vec<FibLevel> = FIB_LEVELS
+        .iter()
+        .map(|(frac, label)| FibLevel {
+            label: (*label).to_string(),
+            ratio: *frac,
+            price: hi - *frac * range,
+        })
+        .collect();
+    FibResponse {
+        high: hi,
+        low: lo,
+        range,
+        levels,
+    }
+}
+
+// =============================================================================
+// Hurst Exponent — 趋势强度 (0..1)
+// =============================================================================
+//
+//   H = 0.5: 随机游走 (无趋势, 无均值回归)
+//   H > 0.5: 趋势性 (持续性) — 价格倾向于沿当前方向运动
+//   H < 0.5: 均值回归 (逆趋势) — 价格倾向于回归均值
+//
+// 算法: R/S 分析 (Rescaled Range Analysis)
+//   1) 对收益率序列 r[i] = log(p[i+1] / p[i]) 划分成长度 n 的子区间
+//      (n = 4, 8, 16, ..., floor(N/2))
+//   2) 每个区间: 累积离均差 → 极差 R → 标准差 S → R/S
+//   3) 对 n, log(n) vs avg(R/S) 做线性回归, 斜率就是 Hurst exponent H
+
+/// Compute the Hurst exponent via R/S (Rescaled Range) analysis on a log-return
+/// series derived from `prices`. Returns `None` if the input is too short
+/// (need at least 32 points for stable R/S) or degenerate (zero-variance
+/// sub-windows). The exponent is typically in `(0, 1)`; values outside that
+/// range are still returned (numerical edge) but should be treated as
+/// "indeterminate" downstream.
+pub fn compute_hurst(prices: &[f64]) -> Option<HurstBar> {
+    if prices.len() < 32 {
+        return None;
+    }
+    // 1) log returns
+    let returns: Vec<f64> = prices
+        .windows(2)
+        .map(|w| (w[1] / w[0]).ln())
+        .collect();
+    if returns.is_empty() {
+        return None;
+    }
+    let n_returns = returns.len();
+
+    // 2) candidate sub-window sizes: 4, 8, 16, ..., largest = n_returns / 2
+    //    Need at least 8 sub-windows per size for stable R/S.
+    let max_n = (n_returns / 2).max(8);
+    let min_n = 4_usize;
+    let mut sizes: Vec<usize> = vec![];
+    let mut s = min_n;
+    while s <= max_n {
+        sizes.push(s);
+        // saturating_mul so we don't overflow on absurd inputs
+        s = s.saturating_mul(2);
+    }
+    if sizes.len() < 2 {
+        return None;
+    }
+
+    let mut log_n: Vec<f64> = Vec::with_capacity(sizes.len());
+    let mut log_rs: Vec<f64> = Vec::with_capacity(sizes.len());
+    for &n in &sizes {
+        let n_intervals = n_returns / n;
+        if n_intervals < 8 {
+            continue;
+        }
+        let mut rs_values: Vec<f64> = Vec::with_capacity(n_intervals);
+        for k in 0..n_intervals {
+            let window = &returns[k * n..(k + 1) * n];
+            let mean = window.iter().sum::<f64>() / n as f64;
+            let mut cum = 0.0_f64;
+            let mut max_cum = f64::NEG_INFINITY;
+            let mut min_cum = f64::INFINITY;
+            for &r in window {
+                cum += r - mean;
+                if cum > max_cum {
+                    max_cum = cum;
+                }
+                if cum < min_cum {
+                    min_cum = cum;
+                }
+            }
+            let range = max_cum - min_cum;
+            // Sample std-dev (n points)
+            let var = window.iter().map(|&r| (r - mean).powi(2)).sum::<f64>() / n as f64;
+            let std = var.sqrt();
+            if std < f64::EPSILON {
+                continue; // skip flat sub-windows
+            }
+            rs_values.push(range / std);
+        }
+        if rs_values.is_empty() {
+            continue;
+        }
+        let mean_rs = rs_values.iter().sum::<f64>() / rs_values.len() as f64;
+        if mean_rs <= 0.0 || !mean_rs.is_finite() {
+            continue;
+        }
+        log_n.push((n as f64).ln());
+        log_rs.push(mean_rs.ln());
+    }
+
+    if log_n.len() < 2 {
+        return None;
+    }
+
+    // 4) Linear regression log(R/S) = H * log(n) + c
+    let (h, _c) = linear_regression_slope(&log_n, &log_rs)?;
+    Some(HurstBar {
+        h,
+        sample_size: prices.len() as u64,
+        window_sizes: log_n.len() as u32,
+    })
+}
+
+/// Simple OLS slope for two equal-length slices.
+/// Returns (slope, intercept) or None if the input is degenerate.
+fn linear_regression_slope(x: &[f64], y: &[f64]) -> Option<(f64, f64)> {
+    debug_assert_eq!(x.len(), y.len());
+    let n = x.len() as f64;
+    if n < 2.0 {
+        return None;
+    }
+    let mean_x = x.iter().sum::<f64>() / n;
+    let mean_y = y.iter().sum::<f64>() / n;
+    let mut num = 0.0_f64;
+    let mut den = 0.0_f64;
+    for i in 0..x.len() {
+        let dx = x[i] - mean_x;
+        let dy = y[i] - mean_y;
+        num += dx * dy;
+        den += dx * dx;
+    }
+    if den.abs() < f64::EPSILON {
+        return None;
+    }
+    let slope = num / den;
+    let intercept = mean_y - slope * mean_x;
+    Some((slope, intercept))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -624,5 +930,119 @@ mod tests {
         assert!(validate_kdj_params(9, 0, 3).is_err());
         assert!(validate_kdj_params(9, 3, 0).is_err());
         assert!(validate_kdj_params(101, 3, 3).is_err());
+    }
+
+    // =========================================================================
+    // P3-1 — 4 new indicator tests
+    // =========================================================================
+
+    #[test]
+    fn test_obv_basic() {
+        // 5-bar ascending-then-descending series with known volumes.
+        // Expected OBV (anchor at 0):
+        //   i=0:  0   (anchor)
+        //   i=1:  0   (10 == 10, no change)
+        //   i=2:  +30 = 30  (12 > 10)
+        //   i=3:  +20 = 50  (14 > 12)
+        //   i=4:  -25 = 25  (10 < 14)
+        let kw = vec![
+            KlineWithVolume { open_time: 1, high: 11.0, low: 9.0, close: 10.0, volume: 100.0 },
+            KlineWithVolume { open_time: 2, high: 11.0, low: 9.0, close: 10.0, volume: 50.0 },
+            KlineWithVolume { open_time: 3, high: 13.0, low: 11.0, close: 12.0, volume: 30.0 },
+            KlineWithVolume { open_time: 4, high: 15.0, low: 13.0, close: 14.0, volume: 20.0 },
+            KlineWithVolume { open_time: 5, high: 11.0, low: 9.0, close: 10.0, volume: 25.0 },
+        ];
+        let result = compute_obv(&kw);
+        assert_eq!(result.len(), 5);
+        assert_eq!(result[0].obv, 0.0);
+        assert_eq!(result[1].obv, 0.0); // equal close
+        assert_eq!(result[2].obv, 30.0);
+        assert_eq!(result[3].obv, 50.0);
+        assert_eq!(result[4].obv, 25.0);
+    }
+
+    #[test]
+    fn test_pivot_points_basic() {
+        // Single bar, need at least 2 for any pivot to be computable.
+        let k1 = make_klines(&[(10.0, 5.0, 8.0)]);
+        assert!(compute_pivot_points(&k1).is_empty());
+
+        // 2 bars: pivot on the *previous* bar's HLC.
+        // make_klines takes (high, low, close), so first bar = (10, 5, 7)
+        //   P  = (10 + 5 + 7) / 3 = 22/3
+        //   R1 = 2*22/3 - 5      = 29/3
+        //   S1 = 2*22/3 - 10     = 14/3
+        //   R2 = 22/3 + (10-5)   = 37/3
+        //   S2 = 22/3 - (10-5)   =  7/3
+        let k2 = make_klines(&[(10.0, 5.0, 7.0), (12.0, 6.0, 10.0)]);
+        let pivots = compute_pivot_points(&k2);
+        assert_eq!(pivots.len(), 1);
+        let p = &pivots[0].pivot;
+        assert!((p.p - 22.0 / 3.0).abs() < 1e-9);
+        assert!((p.r1 - 29.0 / 3.0).abs() < 1e-9);
+        assert!((p.s1 - 14.0 / 3.0).abs() < 1e-9);
+        assert!((p.r2 - 37.0 / 3.0).abs() < 1e-9);
+        assert!((p.s2 - 7.0 / 3.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_fibonacci_basic() {
+        // high=110, low=100, range=10
+        //   0%   = 110
+        //   23.6%= 110 - 2.36 = 107.64
+        //   50%  = 110 - 5    = 105
+        //   100% = 100
+        let fib = compute_fibonacci(110.0, 100.0);
+        assert!((fib.high - 110.0).abs() < 1e-9);
+        assert!((fib.low - 100.0).abs() < 1e-9);
+        assert!((fib.range - 10.0).abs() < 1e-9);
+        assert_eq!(fib.levels.len(), 7);
+        assert!((fib.levels[0].price - 110.0).abs() < 1e-9);
+        assert!((fib.levels[2].price - 110.0 + 0.382 * 10.0).abs() < 1e-9);
+        assert!((fib.levels[6].price - 100.0).abs() < 1e-9);
+
+        // high < low — should swap and still produce ascending levels
+        let swapped = compute_fibonacci(100.0, 110.0);
+        assert!((swapped.high - 110.0).abs() < 1e-9);
+        assert!((swapped.low - 100.0).abs() < 1e-9);
+        assert!(swapped.levels[0].price > swapped.levels[6].price);
+
+        // equal — collapses to one price
+        let flat = compute_fibonacci(50.0, 50.0);
+        assert_eq!(flat.range, 0.0);
+        for lvl in &flat.levels {
+            assert_eq!(lvl.price, 50.0);
+        }
+    }
+
+    #[test]
+    fn test_hurst_basic() {
+        // 1) Trending series (linear ramp) should give H > 0.5 (persistent)
+        let trending: Vec<f64> = (0..200).map(|i| 100.0 + i as f64).collect();
+        let h_trend = compute_hurst(&trending).expect("hurst on trending should not be None");
+        assert!(
+            h_trend.h > 0.5,
+            "expected H > 0.5 for a trending series, got {}",
+            h_trend.h
+        );
+
+        // 2) Mean-reverting series (alternating around mean) should give H < 0.5
+        let mean_rev: Vec<f64> = (0..200)
+            .map(|i| if i % 2 == 0 { 100.0 } else { 102.0 })
+            .collect();
+        let h_mr = compute_hurst(&mean_rev).expect("hurst on mean-reverting should not be None");
+        assert!(
+            h_mr.h < 0.5,
+            "expected H < 0.5 for mean-reverting series, got {}",
+            h_mr.h
+        );
+
+        // 3) Too short → None
+        let short = vec![1.0; 10];
+        assert!(compute_hurst(&short).is_none());
+
+        // 4) Constant series → None (degenerate, all returns = 0)
+        let constant = vec![100.0; 200];
+        assert!(compute_hurst(&constant).is_none());
     }
 }

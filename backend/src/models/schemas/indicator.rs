@@ -1,13 +1,12 @@
-//! 技术指标 DTO（KDJ/MA/MACD/RSI/Bollinger）
+//! 技术指标 DTO（KDJ/MA/MACD/RSI/Bollinger/EMA/ATR/Stochastic/OBV/Pivot/Fib/Hurst）
 
 use serde::{Deserialize, Serialize};
 
 // ============ KDJ Indicator ============
 
 /// KDJ signal type
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
-#[derive(Default)]
 pub enum KdjSignal {
     GoldenCross,
     DeathCross,
@@ -90,9 +89,9 @@ pub struct MaQueryParams {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MacdBar {
     pub open_time: i64,
-    pub macd: f64,      // MACD line value
-    pub signal: f64,    // Signal line value
-    pub histogram: f64, // MACD - Signal
+    pub macd: f64,
+    pub signal: f64,
+    pub histogram: f64,
 }
 
 /// MACD API response
@@ -263,4 +262,123 @@ pub struct StochasticQueryParams {
     pub k_period: Option<usize>,
     pub d_period: Option<usize>,
     pub smooth_k: Option<usize>,
+}
+
+// ─── OBV (On-Balance Volume) ──────────────────────────────────────────────
+
+/// Single OBV bar result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ObvBar {
+    pub open_time: i64,
+    pub obv: f64,
+}
+
+/// OBV API response
+#[derive(Debug, Clone, Serialize)]
+pub struct ObvResponse {
+    pub data: Vec<ObvBar>,
+    pub symbol: String,
+    pub interval: String,
+}
+
+/// OBV query parameters
+#[derive(Debug, Deserialize)]
+pub struct ObvQueryParams {
+    pub symbol: Option<String>,
+    pub interval: Option<String>,
+    pub start_time: Option<i64>,
+    pub end_time: Option<i64>,
+}
+
+// ─── Pivot Points ───────────────────────────────────────────────────────
+
+/// Floor / classical pivot levels (P, R1, S1, R2, S2)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PivotLevels {
+    pub p: f64,
+    pub r1: f64,
+    pub s1: f64,
+    pub r2: f64,
+    pub s2: f64,
+}
+
+/// Single pivot bar
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PivotBar {
+    pub open_time: i64,
+    pub pivot: PivotLevels,
+}
+
+/// Pivot Points API response
+#[derive(Debug, Clone, Serialize)]
+pub struct PivotResponse {
+    pub data: Vec<PivotBar>,
+    pub symbol: String,
+    pub interval: String,
+}
+
+/// Pivot query parameters
+#[derive(Debug, Deserialize)]
+pub struct PivotQueryParams {
+    pub symbol: Option<String>,
+    pub interval: Option<String>,
+    pub start_time: Option<i64>,
+    pub end_time: Option<i64>,
+}
+
+// ─── Fibonacci Retracement ─────────────────────────────────────────────
+
+/// Single Fibonacci price level
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FibLevel {
+    pub label: String,
+    pub ratio: f64,
+    pub price: f64,
+}
+
+/// Fibonacci retracement response
+#[derive(Debug, Clone, Serialize)]
+pub struct FibResponse {
+    pub high: f64,
+    pub low: f64,
+    pub range: f64,
+    pub levels: Vec<FibLevel>,
+}
+
+/// Fibonacci query parameters
+#[derive(Debug, Deserialize)]
+pub struct FibQueryParams {
+    pub high: f64,
+    pub low: f64,
+}
+
+// ─── Hurst Exponent ────────────────────────────────────────────────────
+
+/// Hurst exponent result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HurstBar {
+    pub h: f64,
+    pub sample_size: u64,
+    pub window_sizes: u32,
+}
+
+/// Hurst API response
+#[derive(Debug, Clone, Serialize)]
+pub struct HurstResponse {
+    pub h: f64,
+    pub sample_size: u64,
+    pub window_sizes: u32,
+    pub symbol: String,
+    pub interval: String,
+    /// `h > 0.5` trending, `h < 0.5` mean-reverting, `h ≈ 0.5` random walk.
+    pub interpretation: String,
+}
+
+/// Hurst query parameters
+#[derive(Debug, Deserialize)]
+pub struct HurstQueryParams {
+    pub symbol: Option<String>,
+    pub interval: Option<String>,
+    pub start_time: Option<i64>,
+    pub end_time: Option<i64>,
 }

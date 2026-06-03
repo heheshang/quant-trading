@@ -266,6 +266,70 @@ pub static AI_PREDICTIONS_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
 });
 
 // ---------------------------------------------------------------------------
+// P3-2: Message Queue (RabbitMQ / lapin)
+// ---------------------------------------------------------------------------
+
+/// Total successful `MqClient::publish` calls, labelled by `kind` (`ai_prediction`
+///   / `notification` / `risk_log`).
+pub static MQ_PUBLISH_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
+    register_int_counter_vec_with_registry!(
+        "mq_publish_total",
+        "Total successful publishes to the message queue, labelled by job kind.",
+        &["kind"],
+        REGISTRY
+    )
+    .expect("register mq_publish_total")
+});
+
+/// Total `MqClient::publish` calls that ended in error (broker nack, channel
+///   error, pool exhaustion). 业务侧常用来判断 broker 健康度 + 同步兜底是否被触发。
+pub static MQ_PUBLISH_FAILED_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
+    register_int_counter_vec_with_registry!(
+        "mq_publish_failed_total",
+        "Total failed publishes (broker nack, channel error, pool exhausted).",
+        &["kind"],
+        REGISTRY
+    )
+    .expect("register mq_publish_failed_total")
+});
+
+/// Total messages processed by workers, labelled by `(queue, outcome)` where
+///   outcome is one of `ack` / `retry` / `drop`. Useful for "retry storm" alarm.
+pub static MQ_CONSUME_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
+    register_int_counter_vec_with_registry!(
+        "mq_consume_total",
+        "Total messages processed by consumers, labelled by queue and outcome.",
+        &["queue", "outcome"],
+        REGISTRY
+    )
+    .expect("register mq_consume_total")
+});
+
+/// Current queue depth (gauge), labelled by `queue`. Refreshed by
+///   `workers::refresh_queue_depth` every 30s; `-1` if probe failed.
+pub static MQ_QUEUE_DEPTH: LazyLock<IntGaugeVec> = LazyLock::new(|| {
+    register_int_gauge_vec_with_registry!(
+        "mq_queue_depth",
+        "Current message count per queue (gauge, refreshed every 30s).",
+        &["queue"],
+        REGISTRY
+    )
+    .expect("register mq_queue_depth")
+});
+
+/// Health gauge for the broker connection: `1` = healthy, `0` = unhealthy.
+///   Set by the publisher pool status probe and the per-worker reconnect loop.
+pub static MQ_CONNECTION_HEALTH: LazyLock<IntGaugeVec> = LazyLock::new(|| {
+    register_int_gauge_vec_with_registry!(
+        "mq_connection_health",
+        "Broker connection health (1 = healthy, 0 = unhealthy), labelled by role (publisher/consumer).",
+        &["role"],
+        REGISTRY
+    )
+    .expect("register mq_connection_health")
+});
+
+// ---------------------------------------------------------------------------
 // Process / build
 // ---------------------------------------------------------------------------
 
@@ -350,6 +414,20 @@ mod tests {
             .inc();
         KLINE_PERSIST_TOTAL.with_label_values(&["1m"]).inc();
         AI_PREDICTIONS_TOTAL.with_label_values(&["BTCUSDT"]).inc();
+        // P3-2: touch MQ metrics so registration is exercised in test runs.
+        MQ_PUBLISH_TOTAL.with_label_values(&["ai_prediction"]).inc();
+        MQ_PUBLISH_FAILED_TOTAL
+            .with_label_values(&["notification"])
+            .inc();
+        MQ_CONSUME_TOTAL
+            .with_label_values(&["ai_predictions", "ack"])
+            .inc();
+        MQ_QUEUE_DEPTH
+            .with_label_values(&["notifications"])
+            .set(42);
+        MQ_CONNECTION_HEALTH
+            .with_label_values(&["publisher"])
+            .set(1);
         init_build_info();
     }
 

@@ -2,13 +2,15 @@ use crate::middleware::auth::AuthenticatedUser;
 use crate::models::kline_entity::Entity as KlinePhase4;
 use crate::models::schemas::{
     AtrQueryParams, AtrResponse, BollingerQueryParams, BollingerResponse, EmaQueryParams,
-    EmaResponse, KdjParams, KdjQueryParams, KdjResponse, MaQueryParams, MaResponse,
-    MacdQueryParams, MacdResponse, RsiQueryParams, RsiResponse, StochasticQueryParams,
-    StochasticResponse,
+    EmaResponse, FibQueryParams, FibResponse, HurstQueryParams, HurstResponse, KdjParams,
+    KdjQueryParams, KdjResponse, MaQueryParams, MaResponse, MacdQueryParams, MacdResponse,
+    ObvQueryParams, ObvResponse, PivotQueryParams, PivotResponse, RsiQueryParams, RsiResponse,
+    StochasticQueryParams, StochasticResponse,
 };
 use crate::services::indicator::{
-    KlineInput, compute_atr, compute_bollinger, compute_ema, compute_kdj, compute_ma, compute_macd,
-    compute_rsi, compute_stochastic, validate_kdj_params,
+    KlineInput, KlineWithVolume, compute_atr, compute_bollinger, compute_ema, compute_fibonacci,
+    compute_hurst, compute_kdj, compute_ma, compute_macd, compute_obv, compute_pivot_points,
+    compute_rsi, compute_stochastic, kline_with_volume, validate_kdj_params,
 };
 use crate::utils::error::AppError;
 use crate::utils::response::ApiResponse;
@@ -589,5 +591,222 @@ pub async fn get_stochastic(
         },
         symbol: symbol.clone(),
         interval: interval.clone(),
+    })))
+}
+
+// =============================================================================
+// P3-1 — OBV / Pivot Points / Fibonacci Retracement / Hurst Exponent handlers
+// =============================================================================
+
+/// Helper: query klines from klines_phase4, return Vec<KlineInput>.
+/// Used by all P3-1 handlers so the time-range / symbol / interval filter
+/// logic is in one place.
+async fn query_kline_inputs(
+    db: &DatabaseConnection,
+    symbol: &str,
+    interval: &str,
+    start_time: Option<i64>,
+    end_time: Option<i64>,
+) -> Result<Vec<KlineInput>, AppError> {
+    use crate::models::kline_entity::Column as Phase4Col;
+    let mut query = KlinePhase4::find()
+        .filter(Phase4Col::Symbol.eq(symbol))
+        .filter(Phase4Col::Interval.eq(interval))
+        .order_by_asc(Phase4Col::OpenTime);
+    if let Some(start) = start_time {
+        let start_dt =
+            chrono::DateTime::from_timestamp(start / 1000, 0).unwrap_or_else(chrono::Utc::now);
+        query = query.filter(Phase4Col::OpenTime.gte(start_dt));
+    }
+    if let Some(end) = end_time {
+        let end_dt =
+            chrono::DateTime::from_timestamp(end / 1000, 0).unwrap_or_else(chrono::Utc::now);
+        query = query.filter(Phase4Col::OpenTime.lte(end_dt));
+    }
+    let klines = query.all(db).await?;
+    Ok(klines
+        .iter()
+        .map(|k| KlineInput {
+            open_time: k.open_time.timestamp_millis(),
+            high: k.high.to_f64().unwrap_or(0.0),
+            low: k.low.to_f64().unwrap_or(0.0),
+            close: k.close.to_f64().unwrap_or(0.0),
+        })
+        .collect())
+}
+
+/// GET /api/v1/kline/obv
+pub async fn get_obv(
+    _user: AuthenticatedUser,
+    State(db): State<Arc<DatabaseConnection>>,
+    Query(params): Query<ObvQueryParams>,
+) -> Result<Json<ApiResponse<ObvResponse>>, AppError> {
+    let symbol = params
+        .symbol
+        .as_ref()
+        .ok_or_else(|| AppError::Validation("symbol is required".into()))?;
+    let interval = params
+        .interval
+        .as_ref()
+        .ok_or_else(|| AppError::Validation("interval is required".into()))?;
+
+    use crate::models::kline_entity::Column as Phase4Col;
+    let mut query = KlinePhase4::find()
+        .filter(Phase4Col::Symbol.eq(symbol))
+        .filter(Phase4Col::Interval.eq(interval))
+        .order_by_asc(Phase4Col::OpenTime);
+    if let Some(start) = params.start_time {
+        let start_dt =
+            chrono::DateTime::from_timestamp(start / 1000, 0).unwrap_or_else(chrono::Utc::now);
+        query = query.filter(Phase4Col::OpenTime.gte(start_dt));
+    }
+    if let Some(end) = params.end_time {
+        let end_dt =
+            chrono::DateTime::from_timestamp(end / 1000, 0).unwrap_or_else(chrono::Utc::now);
+        query = query.filter(Phase4Col::OpenTime.lte(end_dt));
+    }
+    let klines = query.all(db.as_ref()).await?;
+    if klines.is_empty() {
+        return Ok(Json(ApiResponse::success(ObvResponse {
+            data: vec![],
+            symbol: symbol.clone(),
+            interval: interval.clone(),
+        })));
+    }
+    let inputs: Vec<KlineInput> = klines
+        .iter()
+        .map(|k| KlineInput {
+            open_time: k.open_time.timestamp_millis(),
+            high: k.high.to_f64().unwrap_or(0.0),
+            low: k.low.to_f64().unwrap_or(0.0),
+            close: k.close.to_f64().unwrap_or(0.0),
+        })
+        .collect();
+    let volumes: Vec<f64> = klines
+        .iter()
+        .map(|k| k.volume.to_f64().unwrap_or(0.0))
+        .collect();
+    let kw: Vec<KlineWithVolume> = kline_with_volume(&inputs, &volumes);
+    let obv_bars = compute_obv(&kw);
+
+    Ok(Json(ApiResponse::success(ObvResponse {
+        data: obv_bars,
+        symbol: symbol.clone(),
+        interval: interval.clone(),
+    })))
+}
+
+/// GET /api/v1/kline/pivot
+pub async fn get_pivot(
+    _user: AuthenticatedUser,
+    State(db): State<Arc<DatabaseConnection>>,
+    Query(params): Query<PivotQueryParams>,
+) -> Result<Json<ApiResponse<PivotResponse>>, AppError> {
+    let symbol = params
+        .symbol
+        .as_ref()
+        .ok_or_else(|| AppError::Validation("symbol is required".into()))?;
+    let interval = params
+        .interval
+        .as_ref()
+        .ok_or_else(|| AppError::Validation("interval is required".into()))?;
+
+    let inputs = query_kline_inputs(
+        db.as_ref(),
+        symbol,
+        interval,
+        params.start_time,
+        params.end_time,
+    )
+    .await?;
+    if inputs.is_empty() {
+        return Ok(Json(ApiResponse::success(PivotResponse {
+            data: vec![],
+            symbol: symbol.clone(),
+            interval: interval.clone(),
+        })));
+    }
+    let pivots = compute_pivot_points(&inputs);
+
+    Ok(Json(ApiResponse::success(PivotResponse {
+        data: pivots,
+        symbol: symbol.clone(),
+        interval: interval.clone(),
+    })))
+}
+
+/// GET /api/v1/kline/fib?high=...&low=...
+pub async fn get_fib(
+    _user: AuthenticatedUser,
+    Query(params): Query<FibQueryParams>,
+) -> Result<Json<ApiResponse<FibResponse>>, AppError> {
+    if !params.high.is_finite() || !params.low.is_finite() {
+        return Err(AppError::Validation(
+            "high and low must be finite numbers".into(),
+        ));
+    }
+    let resp = compute_fibonacci(params.high, params.low);
+    Ok(Json(ApiResponse::success(resp)))
+}
+
+/// GET /api/v1/kline/hurst
+pub async fn get_hurst(
+    _user: AuthenticatedUser,
+    State(db): State<Arc<DatabaseConnection>>,
+    Query(params): Query<HurstQueryParams>,
+) -> Result<Json<ApiResponse<HurstResponse>>, AppError> {
+    let symbol = params
+        .symbol
+        .as_ref()
+        .ok_or_else(|| AppError::Validation("symbol is required".into()))?;
+    let interval = params
+        .interval
+        .as_ref()
+        .ok_or_else(|| AppError::Validation("interval is required".into()))?;
+
+    use crate::models::kline_entity::Column as Phase4Col;
+    let mut query = KlinePhase4::find()
+        .filter(Phase4Col::Symbol.eq(symbol))
+        .filter(Phase4Col::Interval.eq(interval))
+        .order_by_asc(Phase4Col::OpenTime);
+    if let Some(start) = params.start_time {
+        let start_dt =
+            chrono::DateTime::from_timestamp(start / 1000, 0).unwrap_or_else(chrono::Utc::now);
+        query = query.filter(Phase4Col::OpenTime.gte(start_dt));
+    }
+    if let Some(end) = params.end_time {
+        let end_dt =
+            chrono::DateTime::from_timestamp(end / 1000, 0).unwrap_or_else(chrono::Utc::now);
+        query = query.filter(Phase4Col::OpenTime.lte(end_dt));
+    }
+    let klines = query.all(db.as_ref()).await?;
+    if klines.is_empty() {
+        return Err(AppError::Validation(
+            "no klines in range; need at least 32 for Hurst".into(),
+        ));
+    }
+    let prices: Vec<f64> = klines
+        .iter()
+        .map(|k| k.close.to_f64().unwrap_or(0.0))
+        .collect();
+    let result = compute_hurst(&prices).ok_or_else(|| {
+        AppError::Validation(
+            "Hurst not computable: need >= 32 non-degenerate price points".into(),
+        )
+    })?;
+    let interpretation = if result.h > 0.55 {
+        "trending (persistent)"
+    } else if result.h < 0.45 {
+        "mean-reverting (anti-persistent)"
+    } else {
+        "random walk"
+    };
+    Ok(Json(ApiResponse::success(HurstResponse {
+        h: result.h,
+        sample_size: result.sample_size,
+        window_sizes: result.window_sizes,
+        symbol: symbol.clone(),
+        interval: interval.clone(),
+        interpretation: interpretation.to_string(),
     })))
 }
