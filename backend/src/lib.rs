@@ -3,11 +3,14 @@ pub mod db;
 pub mod handlers;
 pub mod metrics;
 pub mod middleware;
+pub mod mq;
 pub mod models;
+pub mod observability;
 pub mod services;
 pub mod state;
 pub mod strategies;
 pub mod utils;
+pub mod workers;
 
 pub use models::{backtest, schemas};
 

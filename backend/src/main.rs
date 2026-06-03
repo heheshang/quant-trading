@@ -27,20 +27,18 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
-use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() {
     // Load .env file
     dotenvy::dotenv().ok();
 
-    // Initialize tracing
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&CONFIG.log_level)),
-        )
-        .json()
-        .init();
+    // P0-运维: initialise OpenTelemetry tracing + JSON log layer.
+    // Returns a guard whose Drop impl flushes pending spans to the
+    // OTLP exporter (Jaeger :4317 by default). Hold it for the
+    // entire process lifetime.
+    let _tracing_guard =
+        quant_trading_backend::observability::init_tracing();
 
     tracing::info!("Starting quant-trading backend...");
 
@@ -368,6 +366,10 @@ fn create_router(
             "/kline/stochastic",
             get(handlers::indicator::get_stochastic),
         )
+        .route("/kline/obv", get(handlers::indicator::get_obv))
+        .route("/kline/pivot", get(handlers::indicator::get_pivot))
+        .route("/kline/fib", get(handlers::indicator::get_fib))
+        .route("/kline/hurst", get(handlers::indicator::get_hurst))
         .layer(middleware::from_fn(
             quant_trading_backend::middleware::auth::auth_middleware,
         ));
@@ -556,6 +558,35 @@ fn create_router(
         ))
         .with_state(app_state.db.clone());
 
+    // P3-A: Admin IP whitelist routes (authenticated + admin role check + IP
+    // gate). The IP gate is layered AFTER auth so we have an
+    // AuthenticatedUser to scope the allow-list to. We do NOT apply the IP
+    // gate to the existing admin_api_key_routes — that's a deliberate
+    // staging decision: existing admins need to add their IP entries via
+    // a manual SQL insert or env-bypass first, then enable the gate. P3-B
+    // (DB seeding script) will document this path.
+    let admin_ip_routes = Router::new()
+        .route(
+            "/ip-whitelist",
+            get(handlers::admin_ip_whitelist::list_ip_whitelist),
+        )
+        .route(
+            "/ip-whitelist",
+            post(handlers::admin_ip_whitelist::add_ip_whitelist),
+        )
+        .route(
+            "/ip-whitelist/{id}",
+            delete(handlers::admin_ip_whitelist::delete_ip_whitelist),
+        )
+        .layer(middleware::from_fn_with_state(
+            app_state.db.clone(),
+            quant_trading_backend::middleware::admin_ip_check::admin_ip_check,
+        ))
+        .layer(middleware::from_fn(
+            quant_trading_backend::middleware::auth::auth_middleware,
+        ))
+        .with_state(app_state.db.clone());
+
     // Exchange routes (authenticated, with signed Binance client)
     let exchange_routes = Router::new()
         .route("/exchange/ping", get(handlers::exchange::exchange_ping))
@@ -650,6 +681,7 @@ fn create_router(
         .nest("/api/v1", okx_exchange_routes)
         .nest("/api/v1", api_key_routes)
         .nest("/api/v1/admin", admin_api_key_routes)
+        .nest("/api/v1/admin", admin_ip_routes)
         .nest("/api/v1", review_routes);
 
     // P2-1: Telegram notification routes (authenticated).

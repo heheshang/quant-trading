@@ -10,11 +10,26 @@
 //!    response, so the client can correlate its call with the server
 //!    log line.
 //! 3. Wraps the inner future in a `tracing::info_span!` carrying the
-//!    `request_id` field, so every `tracing::info!` / `warn!` /
-//!    `error!` emitted while handling the request — including
-//!    `tower_http::trace::TraceLayer` output — picks the field up
+//!    `request_id` and `trace_id` fields, so every `tracing::info!` /
+//!    `warn!` / `error!` emitted while handling the request — including
+//!    `tower_http::trace::TraceLayer` output — picks the fields up
 //!    automatically when the JSON formatter flattens the span into
 //!    the log event.
+//!
+//! ## OpenTelemetry integration
+//!
+//! The `trace_id` is read from the **current OpenTelemetry span**
+//! (W3C tracecontext, 32 lowercase-hex chars). For inbound requests
+//! the upstream `tracing_opentelemetry::OpenTelemetrySpanExt` layer
+//! extracts the `traceparent` header (set by an upstream gateway / the
+//! frontend's axios interceptor in a future patch) and starts a span
+//! whose trace_id matches the caller's. For outbound calls the same
+//! extension is used to inject — see
+//! `http_client_inject_traceparent` helper (future).
+//!
+//! When no OTel span is active (e.g. tests, or when OTel is
+//! disabled), `trace_id` falls back to `"none"`. The `request_id` is
+//! always present. JSON log readers can pivot on either key.
 //!
 //! ## Layering
 //!
@@ -38,12 +53,21 @@ use axum::extract::Request;
 use axum::http::{HeaderName, HeaderValue};
 use axum::middleware::Next;
 use axum::response::Response;
+use opentelemetry::trace::TraceContextExt as _;
 use tracing::Instrument;
+use tracing_opentelemetry::OpenTelemetrySpanExt as _;
 use uuid::Uuid;
 
 /// HTTP header used both for ingestion (client → server) and
 /// response echo (server → client).
 pub const X_REQUEST_ID: &str = "x-request-id";
+
+/// W3C `traceparent` header — set by an upstream service / load
+/// balancer to propagate the trace id. The OpenTelemetry layer
+/// reads this and creates a span with the same trace id, which
+/// we then surface on every log line and propagate to outbound
+/// HTTP calls.
+pub const TRACEPARENT: &str = "traceparent";
 
 /// Newtype wrapper around the request ID string.
 ///
@@ -112,6 +136,19 @@ fn sanitize_incoming(value: &HeaderValue) -> Option<String> {
     Some(s.to_owned())
 }
 
+/// Read the W3C trace id (32 lowercase hex chars) from the current
+/// OpenTelemetry span, or "none" if no span is active. Cheap (no
+/// allocations beyond the returned String).
+fn current_trace_id() -> String {
+    let span = tracing::Span::current();
+    let cx = span.context();
+    let span_ref = cx.span();
+    let sc = span_ref.span_context();
+    sc.is_valid()
+        .then(|| sc.trace_id().to_string())
+        .unwrap_or_else(|| "none".to_string())
+}
+
 /// Core request-id middleware. Use [`request_id_layer`] from
 /// `main.rs` — that helper wraps this in `axum::middleware::from_fn`
 /// and exposes the conventional `tower::Layer` shape.
@@ -130,11 +167,18 @@ pub async fn request_id_middleware(mut req: Request, next: Next) -> Response {
     //    inherit. `http.request` keeps us close to the convention
     //    that `tower_http::trace::TraceLayer` already uses, so log
     //    readers see a single, well-known span name.
+    //
+    //    `trace_id` is captured here (not via a closure) so the
+    //    value is fixed at span entry — even if the inner future
+    //    spawns child tasks with their own spans, the parent
+    //    `http_request` span carries the same trace id.
     let method = req.method().clone();
     let uri = req.uri().clone();
+    let trace_id = current_trace_id();
     let span = tracing::info_span!(
         "http_request",
         request_id = %request_id,
+        trace_id = %trace_id,
         method = %method,
         path = %uri.path(),
     );
