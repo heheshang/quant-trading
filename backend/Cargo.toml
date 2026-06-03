@@ -100,12 +100,44 @@ dashmap = "6"
 clap = { version = "4", features = ["derive"] }
 url = "2"
 
+# IP / CIDR parsing for the admin IP whitelist (P3-A).
+# `ipnetwork` supports IPv4 + IPv6 single hosts and CIDR blocks.
+ipnetwork = { version = "0.20", features = ["serde"] }
+
+# 2FA / TOTP (P3-B) — RFC 6238 TOTP secret generation + code verification.
+# Feature `qr` enables built-in QR PNG generation via `qrcodegen-image`,
+# but we use the separate `qrcode` crate to produce the otpauth:// PNG
+# the front-end renders in LoginView. Both deps kept to keep the
+# generation path independent and testable.
+totp-rs = { version = "5", features = ["otpauth", "qr", "rand", "gen_secret", "serde"] }
+qrcode = { version = "0.14", default-features = false, features = ["image"] }
+# `image` is used by `services::totp` to encode the QR PNG (GrayImage →
+# PngEncoder). It's already a transitive dep via qrcode + totp-rs, but
+# we declare it explicitly so the import paths in `totp.rs` are stable.
+image = { version = "0.25", default-features = false, features = ["png"] }
+
 # Email
 lettre = "0.11"
 native-tls = "0.2"
 
 # Metrics / Prometheus exposition
 prometheus = "0.13"
+
+# OpenAPI client generation (P3-3).
+# utoipa derives the OpenAPI 3.1 spec from `#[derive(ToSchema)]` on the
+# request/response DTOs and `#[utoipa::path]` on the handler functions.
+# `utoipa-axum` integrates with axum 0.8 routers; `utoipa-swagger-ui`
+# serves the Swagger UI page from the generated `ApiDoc`.
+##utoipa = { version = "5", features = ["axum_extras", "chrono", "uuid"] }
+##utoipa-axum = "0.2"
+##utoipa-swagger-ui = { version = "9", features = ["axum"] }
+
+# Message Queue — RabbitMQ (lapin)
+# P3-2: 引入 MQ 解耦 AI 预测 / 通知 / 风控日志三条高频调用链
+#   lapin = AMQP 0-9-1 客户端（官方维护）
+#   deadpool-lapin = lapin Connection 池（多 worker 共用一个连接池，避免每请求握手）
+lapin = "2.5"
+deadpool-lapin = "0.12"
 
 [[bin]]
 name = "stress-test"
