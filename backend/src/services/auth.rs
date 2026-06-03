@@ -147,6 +147,12 @@ pub async fn register(
         role_id: Set(role.id),
         // P2-1: Telegram chat_id is set later via /api/v1/notifications/telegram/bind.
         telegram_chat_id: Set(None),
+        // P3-B: 2FA TOTP fields default to "not enabled". The user can run
+        // /api/v1/auth/2fa/setup later to enroll. We set `totp_secret: None`
+        // (so we don't hold a half-baked secret) and `backup_codes: None`.
+        totp_secret: Set(None),
+        totp_enabled: Set(false),
+        backup_codes: Set(None),
         last_login_at: Set(None),
         created_at: Set(now),
         updated_at: Set(now),
@@ -429,6 +435,9 @@ mod tests {
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
             telegram_chat_id: None,
+            totp_secret: None,
+            totp_enabled: false,
+            backup_codes: None,
         }
     }
 

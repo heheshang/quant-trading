@@ -14,6 +14,7 @@ pub mod exchange;
 pub mod gate_rest;
 pub mod iceberg;
 pub mod bracket;
+pub mod ip_cidr;
 pub mod trailing_stop;
 pub mod indicator;
 pub mod kline;
@@ -34,6 +35,6 @@ pub mod risk_manager;
 pub mod strategy;
 pub mod strategy_state_manager;
 pub mod ticker_snapshot_writer;
+pub mod totp;
 pub mod trigger_order;
-
 pub use alert_notification_service::AlertNotificationService;

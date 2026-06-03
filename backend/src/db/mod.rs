@@ -1,4 +1,5 @@
 pub mod ab_experiment_logs;
+pub mod admin_ip_whitelist;
 pub mod ai_signals;
 pub mod arbitrage_entities;
 pub mod atr_stop_loss;
@@ -79,10 +80,35 @@ pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), sea_orm::DbEr
     );
     db.execute(stmt).await?;
 
+    // P3-B: 2FA TOTP columns on `users`.
+    // These ALTER statements are idempotent (IF NOT EXISTS) so they survive
+    // re-running `run_migrations` against an already-migrated database.
+    // The columns are NOT NULL with a DEFAULT, matching the SeaORM model
+    // (`totp_enabled: bool`, others optional).
+    for ddl in [
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret VARCHAR(64)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_enabled BOOLEAN NOT NULL DEFAULT FALSE",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS backup_codes JSONB",
+    ] {
+        db.execute(sea_orm::Statement::from_string(
+            backend,
+            ddl.to_string(),
+        ))
+        .await?;
+    }
+
     // Create user_sessions table
     let stmt = backend.build(
         schema
             .create_table_from_entity(user_session::Entity)
+            .if_not_exists(),
+    );
+    db.execute(stmt).await?;
+
+    // P3-A: admin_ip_whitelist (per-user CIDR allow-list for admin routes)
+    let stmt = backend.build(
+        schema
+            .create_table_from_entity(admin_ip_whitelist::Entity)
             .if_not_exists(),
     );
     db.execute(stmt).await?;
