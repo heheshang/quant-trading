@@ -27,6 +27,7 @@ pub mod trigger_order;
 pub mod user;
 pub mod user_session;
 pub mod user_strategies;
+pub mod withdrawal_confirmation;
 
 use sea_orm::PaginatorTrait;
 use sea_orm::{
@@ -681,6 +682,32 @@ pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), sea_orm::DbEr
         // 5) 与 P0-3 request_id 跨链关联（部分索引：跳过 NULL）
         "CREATE INDEX IF NOT EXISTS idx_audit_logs_request_id \
          ON audit_logs (request_id) WHERE request_id IS NOT NULL",
+    ] {
+        db.execute(sea_orm::Statement::from_string(
+            backend,
+            ddl.to_string(),
+        ))
+        .await?;
+    }
+
+    // P3-6: withdrawal_confirmations 表（提现两步确认 — 6 位 code + 邮件/Telegram 推送）
+    let stmt = backend.build(
+        schema
+            .create_table_from_entity(withdrawal_confirmation::Entity)
+            .if_not_exists(),
+    );
+    db.execute(stmt).await?;
+
+    // 两条查询索引。status 是 VARCHAR(16)（不是 PG enum），所以
+    // (status, expires_at) 是一个普通 btree 复合索引。
+    for ddl in [
+        // 1) 「这个用户的提现历史」 — GET /api/v1/withdrawals 的排序路径
+        "CREATE INDEX IF NOT EXISTS idx_withdrawal_confirmations_user_id_created_at \
+         ON withdrawal_confirmations (user_id, created_at DESC)",
+        // 2) 「过期扫描」 — `expire_overdue` worker 每分钟扫一次，
+        //    找 status='Pending' AND expires_at <= now() 的行
+        "CREATE INDEX IF NOT EXISTS idx_withdrawal_confirmations_status_expires_at \
+         ON withdrawal_confirmations (status, expires_at)",
     ] {
         db.execute(sea_orm::Statement::from_string(
             backend,

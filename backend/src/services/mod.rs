@@ -39,4 +39,5 @@ pub mod strategy_state_manager;
 pub mod ticker_snapshot_writer;
 pub mod totp;
 pub mod trigger_order;
+pub mod withdrawal;
 pub use alert_notification_service::AlertNotificationService;
