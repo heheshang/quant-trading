@@ -128,9 +128,9 @@ prometheus = "0.13"
 # request/response DTOs and `#[utoipa::path]` on the handler functions.
 # `utoipa-axum` integrates with axum 0.8 routers; `utoipa-swagger-ui`
 # serves the Swagger UI page from the generated `ApiDoc`.
-##utoipa = { version = "5", features = ["axum_extras", "chrono", "uuid"] }
-##utoipa-axum = "0.2"
-##utoipa-swagger-ui = { version = "9", features = ["axum"] }
+utoipa = { version = "5", features = ["axum_extras", "chrono", "uuid", "macros"] }
+utoipa-axum = "0.2"
+utoipa-swagger-ui = { version = "9", features = ["axum"] }
 
 # Message Queue — RabbitMQ (lapin)
 # P3-2: 引入 MQ 解耦 AI 预测 / 通知 / 风控日志三条高频调用链
