@@ -22,10 +22,14 @@ services:
       - FEE_RATE=0.001
       - TRADE_MODE=paper
       - AI_MODEL_SERVICE_URL=http://ai-service:8001
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-quant}:${RABBITMQ_PASSWORD:-quant_mq_2024}@rabbitmq:5672/%2f
+      - MQ_ENABLED=${MQ_ENABLED:-true}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     networks:
       - quant-network
@@ -107,6 +111,28 @@ services:
       retries: 5
       start_period: 10s
 
+  # ─── RabbitMQ (Message Queue, P3-2) ────
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: quant-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"   # AMQP
+      - "15672:15672" # Management UI
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-quant}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-quant_mq_2024}
+    networks:
+      - quant-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
   # ─── Redis ────
   redis:
     image: redis:7-alpine
@@ -141,3 +167,5 @@ volumes:
     name: quant-postgres-data
   redis-data:
     name: quant-redis-data
+  rabbitmq-data:
+    name: quant-rabbitmq-data
