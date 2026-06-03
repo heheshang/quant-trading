@@ -145,6 +145,8 @@ pub async fn register(
         avatar_url: Set(None),
         is_active: Set(true),
         role_id: Set(role.id),
+        // P2-1: Telegram chat_id is set later via /api/v1/notifications/telegram/bind.
+        telegram_chat_id: Set(None),
         last_login_at: Set(None),
         created_at: Set(now),
         updated_at: Set(now),
@@ -426,6 +428,7 @@ mod tests {
             last_login_at: None,
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
+            telegram_chat_id: None,
         }
     }
 

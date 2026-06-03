@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//home/ssk/workspace/quant-trading/**)",
+      "Bash(du -sh node_modules target)"
+    ]
+  }
+}

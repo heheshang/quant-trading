@@ -49,11 +49,12 @@
           @indicator-toggle="onIndicatorToggle"
           @drawing-select="onDrawingSelect"
         />
-        <KlineChart
+        <MultiTimeframeChart
           v-if="klineData.length > 0"
-          :data="klineData"
-          :symbol="selectedSymbol"
-          :interval="chartInterval"
+          ref="mtfChartRef"
+          :main-data="klineData"
+          :main-symbol="selectedSymbol"
+          :main-interval="chartInterval"
           :dark-mode="true"
           :ma-data="maData"
           :ema-data="emaData"
@@ -64,6 +65,8 @@
           :atr-data="atrData"
           :stoch-data="stochData"
           :visible-sub-charts="visibleSubCharts"
+          :initial-sub-interval="subInterval"
+          @sub-interval-change="onSubIntervalChange"
         />
         <div v-else class="chart-placeholder">
           <el-icon :size="48" color="var(--color-text-tertiary, #64748B)"><TrendCharts /></el-icon>
@@ -159,8 +162,8 @@ import OrderForm from '@/components/trade/OrderForm.vue'
 import OrderList from '@/components/trade/OrderList.vue'
 import PositionPanel from '@/components/order/PositionPanel.vue'
 import TradeRecordTab from '@/components/order/TradeRecordTab.vue'
-import KlineChart from '@/components/charts/KlineChart.vue'
 import KlineToolbar from '@/components/charts/KlineToolbar.vue'
+import MultiTimeframeChart from '@/components/charts/MultiTimeframeChart.vue'
 import type { SymbolConfig, PaperAccount, CreateOrderRequest, Trade, Position } from '@/types/order'
 import type { KlineBar, MaLine } from '@/components/charts/KlineChart.vue'
 import type { MacdBar, KdjBar, RsiBar, BollingerBar, EmaBar, AtrBar, StochasticBar } from '@/types/indicator'
@@ -180,7 +183,9 @@ const activeOrderCount = ref(0)
 
 // Kline chart state
 const klineData = ref<KlineBar[]>([])
-const chartInterval = ref('1h')
+// P2-3: default main chart to 1m so the dual-chart layout (1m main + 1h sub
+// by default) is visible immediately.  User can switch via KlineToolbar.
+const chartInterval = ref('1m')
 const maData = ref<MaLine[]>([])
 const macdData = ref<MacdBar[]>([])
 const kdjData = ref<KdjBar[]>([])
@@ -191,6 +196,12 @@ const atrData = ref<{ open_time: number; atr: number }[]>([])
 const stochData = ref<{ open_time: number; k: number; d: number }[]>([])
 const priceDirection = ref<'up' | 'down' | ''>('')
 const visibleSubCharts = ref<string[]>(['macd', 'kdj'])
+
+// Multi-timeframe sub chart (P2-3) — main chart owns navigation, sub chart
+// follows via the `kline-visible-range-change` window event.  See
+// MultiTimeframeChart.vue for the listener side.
+const subInterval = ref<'1h' | '4h' | '1d'>('1h')
+const mtfChartRef = ref<InstanceType<typeof MultiTimeframeChart> | null>(null)
 
 // Tab state
 const activeTab = ref<'current' | 'history' | 'positions' | 'trades'>('current')
@@ -488,6 +499,23 @@ function onDrawingSelect(_tool: string | null) {
   // Drawing tools - can be extended later
 }
 
+/**
+ * Sub chart interval picker callback.  `MultiTimeframeChart` already refetches
+ * its own data on this event; we mirror the value into our local ref so the
+ * WS subscribe loop (in `tradingStore.$subscribe`) can match the right bars.
+ */
+function onSubIntervalChange(interval: '1h' | '4h' | '1d') {
+  subInterval.value = interval
+}
+
+/**
+ * Forward a live kline update from the trading store to the sub chart when
+ * the WS message's interval matches the sub chart's current selection.
+ */
+function pushSubBar(bar: KlineBar) {
+  mtfChartRef.value?.addSubBar(bar)
+}
+
 function onOrderSubmit(_order: CreateOrderRequest) {
   // Refresh order list and account after submission
   orderListRef.value?.fetchOrders()
@@ -547,6 +575,10 @@ onMounted(async () => {
   // Sync ticker when store updates
   tradingStore.$subscribe(() => {
     syncTickerFromStore()
+    // Forward live kline updates to the sub chart when its interval matches
+    if (tradingStore.lastKline && tradingStore.lastKlineInterval === subInterval.value) {
+      pushSubBar(tradingStore.lastKline)
+    }
   })
   // Listen for trade execution events to refresh order list
   window.addEventListener('trade-executed', onTradeExecuted)

@@ -118,14 +118,89 @@ async fn main() {
     ws_hub.start();
 
     // F6: Initialize RiskManager and StrategyStateManager (断线暂停监控)
-    let risk_manager = Arc::new(RiskManager::new(db.clone()));
-    let state_manager = Arc::new(StrategyStateManager::new(
-        ws_hub.clone(),
-        risk_manager.clone(),
-    ));
-    state_manager.start();
+    let risk_manager_inner = RiskManager::new(db.clone());
 
-    // Build application
+    // Build the AppState early so the P2-1 notifier setup can read its
+    // `telegram_chat_ids` cache when wiring the per-user chat_id resolver.
+    // (The first `app_state` carries a no-notifier RiskManager; we replace
+    // it after the notifier is wired up. Functionally identical for downstream
+    // because `risk_manager` is the same Arc handle at that point.)
+    let app_state = AppState::new(
+        db.clone(),
+        (*redis_cache).clone(),
+        (*binance_rest).clone(),
+        (*ws_hub).clone(),
+        risk_manager_inner.clone(),
+    );
+
+    // P2-1: Build the multi-channel alert notification service.
+    // Channels added (in order, all no-op if env unconfigured):
+    //   - EmailChannel (SMTP_HOST/PORT/USER/PASSWORD/FROM, ALERT_EMAIL_TO)
+    //   - WeChatChannel (WECHAT_WEBHOOK_URL)
+    //   - TelegramChannel (TELEGRAM_BOT_TOKEN) — uses a per-user chat_id
+    //     resolver that reads `app_state.telegram_chat_ids` (populated by
+    //     `bind_chat_id`).
+    // All channels implement the `NotificationChannel` trait and the
+    // service handles deduplication + fan-out.
+    let alert_notifier = Arc::new(
+        quant_trading_backend::services::alert_notification_service::AlertNotificationService::new(),
+    );
+
+    // Register the email channel. It is a no-op when SMTP_HOST/PORT/USER/PASSWORD
+    // are not all set (see `EmailChannel::send` — returns Ok(()) silently).
+    alert_notifier
+        .add_channel(
+            quant_trading_backend::services::notification::EmailChannel::from_env(),
+        )
+        .await;
+    if std::env::var("SMTP_HOST").is_ok() {
+        tracing::info!("Alert channel registered: email (SMTP configured)");
+    }
+
+    // Register the WeChat channel. No-op when WECHAT_WEBHOOK_URL is missing.
+    alert_notifier
+        .add_channel(
+            quant_trading_backend::services::notification::WeChatChannel::from_env(),
+        )
+        .await;
+    if std::env::var("WECHAT_WEBHOOK_URL").is_ok() {
+        tracing::info!("Alert channel registered: wechat (webhook URL configured)");
+    }
+
+    // P2-1: Register the Telegram channel with a per-user chat_id resolver.
+    // The resolver is sync (`Fn(String) -> Option<String>`) and reads from
+    // the in-memory `TelegramChatIdCache` populated by `bind_chat_id`. This
+    // avoids a per-send DB hit while still letting the per-user flow work.
+    let chat_cache = app_state.telegram_chat_ids.clone();
+    let chat_id_resolver: quant_trading_backend::services::notification::telegram::ChatIdResolver =
+        std::sync::Arc::new(move |user_id: String| {
+            // Parse user_id (UUID) and look up in the cache. None = not bound
+            // → TelegramChannel::send will skip.
+            match uuid::Uuid::parse_str(&user_id) {
+                Ok(uid) => chat_cache.get_blocking(&uid),
+                Err(_) => None,
+            }
+        });
+    let telegram_channel =
+        quant_trading_backend::services::notification::TelegramChannel::from_env()
+            .with_resolver(chat_id_resolver);
+    if std::env::var("TELEGRAM_BOT_TOKEN").is_ok() {
+        tracing::info!("Alert channel registered: telegram");
+    }
+    alert_notifier.add_channel(telegram_channel).await;
+
+    // Inject the notifier into RiskManager so risk events fan out to all channels.
+    // 中文：先建一个"裸" RiskManager，调 with_notifier 注入，再 wrap 成 Arc 传给
+    //   下游。这样保留 builder-style 的链式 API（see `with_notifier: mut self -> Self`）。
+    // English: Build a bare RiskManager, call `with_notifier` to inject, then
+    //   wrap in Arc for downstream consumers. Preserves the builder-style API
+    //   (`with_notifier: mut self -> Self`).
+    let risk_manager = Arc::new(risk_manager_inner.with_notifier(alert_notifier.clone()));
+
+    // Re-build app_state now that risk_manager carries the notifier.
+    // (app_state's `risk_manager: Arc<RiskManager>` clone happens lazily,
+    // but risk_manager is the same Arc — no functional change. We rebuild
+    // for explicitness.)
     let app_state = AppState::new(
         db.clone(),
         (*redis_cache).clone(),
@@ -133,6 +208,12 @@ async fn main() {
         (*ws_hub).clone(),
         (*risk_manager).clone(),
     );
+
+    let state_manager = Arc::new(StrategyStateManager::new(
+        ws_hub.clone(),
+        risk_manager.clone(),
+    ));
+    state_manager.start();
     let app = create_router(app_state,
         cors,
         matching_engine,
@@ -147,6 +228,7 @@ async fn main() {
         okx_signed_client,
         key_store,
         risk_manager.clone(),
+        alert_notifier.clone(),
     );
 
     // Start server
@@ -176,6 +258,9 @@ fn create_router(
     okx_signed_client: Arc<SignedOkxClient>,
     key_store: Arc<ApiKeyStore>,
     risk_manager: Arc<RiskManager>,
+    alert_notifier: Arc<
+        quant_trading_backend::services::alert_notification_service::AlertNotificationService,
+    >,
 ) -> Router {
     #[allow(unused_assignments)]
     let mut app = Router::new();
@@ -567,6 +652,23 @@ fn create_router(
         .nest("/api/v1/admin", admin_api_key_routes)
         .nest("/api/v1", review_routes);
 
+    // P2-1: Telegram notification routes (authenticated).
+    // 中文：bind/test 都需要 `DbPool` 状态 + `TelegramChatIdCache` 与
+    //   `AlertNotificationService` Extension；auth_middleware 在 router 之前套上。
+    //   `telegram_chat_ids` 缓存还通过 Extension 注入到全局 app，让
+    //   PositionAlertMonitor / 其他服务按需读取。
+    // English: bind/test need `DbPool` state + `TelegramChatIdCache` and
+    //   `AlertNotificationService` Extension; auth_middleware is applied
+    //   before the router. The chat_id cache is also surfaced as a global
+    //   Extension so PositionAlertMonitor and other services can read it.
+    let telegram_chat_cache = app_state.telegram_chat_ids.clone();
+    let telegram_routes = handlers::telegram::router()
+        .layer(Extension(alert_notifier.clone()))
+        .layer(Extension(telegram_chat_cache.clone()))
+        .layer(middleware::from_fn(
+            quant_trading_backend::middleware::auth::auth_middleware,
+        ));
+
     // P3-F3 AI Quant services — injected via Extension into AI handlers
     let ai_services = Arc::new(handlers::ai::AiServices {
         model_client: quant_trading_backend::services::ai::ModelClient::new(
@@ -648,6 +750,11 @@ fn create_router(
             )),
     )
     .merge(public_routes)
+    // P2-1: Telegram notification routes — already layered with auth middleware
+    // + Extension(alert_notifier) + Extension(telegram_chat_cache) at the top
+    // of `create_router`. State type `Arc<DatabaseConnection>` matches the
+    // global state (`app_state.db.clone()` set at the end of `create_router`).
+    .merge(telegram_routes)
     .layer(cors)
     // P0-2: HTTP metrics middleware (P0-1 metric definitions)
     // Placed inside CORS but outside TraceLayer so:

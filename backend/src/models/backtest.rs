@@ -198,8 +198,8 @@ pub struct EquityPoint {
 
 /// Comprehensive backtest performance metrics.
 ///
-/// Covers return, risk-adjusted ratios (Sharpe/Sortino/Calmar),
-/// drawdown, win rate, profit factor, and cost metrics.
+/// Covers return, risk-adjusted ratios (Sharpe/Sortino/Calmar/Alpha/Beta/Information),
+/// drawdown, win rate, profit factor, expectancy, Kelly fraction, turnover, and cost metrics.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BacktestMetrics {
     pub total_return_pct: f64,
@@ -216,6 +216,35 @@ pub struct BacktestMetrics {
     pub avg_trade_pct: f64,
     pub total_fees: f64,
     pub total_slippage: f64,
+    // ===== P2-2: 8 new metrics =====
+    /// Jensen's alpha: (strategy_return - beta * benchmark_return) annualized.
+    /// Measures risk-adjusted excess return vs BTC benchmark. `0.0` when benchmark
+    /// data is unavailable.
+    pub alpha: f64,
+    /// Beta: covariance(strategy_returns, btc_returns) / variance(btc_returns).
+    /// Sensitivity to BTC market movements. `0.0` when benchmark data is unavailable.
+    pub beta: f64,
+    /// Information Ratio: (strategy_return - benchmark_return) / tracking_error.
+    /// Risk-adjusted active return vs benchmark. `0.0` when benchmark data is unavailable.
+    pub information_ratio: f64,
+    /// Kelly fraction in percent: W - (1 - W) / R, where W = win_rate and R = win/loss ratio.
+    /// Theoretical optimal position size for maximizing log-growth. Clamped to [-100, 100].
+    /// `0.0` when no trades.
+    pub kelly_pct: f64,
+    /// Expectancy per trade: (win_rate * avg_win) - (loss_rate * avg_loss) in percent.
+    /// Expected PnL per trade; positive means profitable in the long run.
+    /// `0.0` when no trades.
+    pub expectancy: f64,
+    /// Portfolio turnover: sum(abs(trade_value)) / average_equity / period_days.
+    /// Measures trading activity. `0.0` when no trades or zero average equity.
+    pub turnover: f64,
+    /// Estimated average slippage per trade in USDT (already accumulated in
+    /// trades, exposed separately for cost analysis). Mirrors the average of
+    /// `TradeRecord::slippage` over the trade set; `0.0` when no trades.
+    pub slippage_estimation: f64,
+    /// Number of days to recover from the maximum drawdown trough to a new equity
+    /// peak after the trough. `0` when no drawdown or already recovered.
+    pub drawdown_recovery_days: i64,
 }
 
 // ============ Validation ============

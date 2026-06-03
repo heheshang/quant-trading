@@ -1,3 +1,36 @@
+## [Unreleased]
+
+### 新增
+
+- **多周期 K 线联动 (P2-3)**
+  - 新增 `frontend/src/components/charts/MultiTimeframeChart.vue`：
+    主图（用户选择周期）+ 副图（1h/4h/1d 切换）的上下叠放布局，副图
+    X 轴自动跟随主图 pan/zoom
+  - X 轴同步通过 `window` 自定义事件 `kline-visible-range-change`
+    解耦，`KlineChart.vue` 在 `initChart` 内部 dispatch，
+    `MultiTimeframeChart.vue` 监听并 `setVisibleRange`
+  - `MultiTimeframeChart` 暴露 `addSubBar(bar)`，父组件可在 WS 推送
+    匹配当前副图周期时透传实盘 bar
+  - `frontend/src/views/trade/TradingView.vue` 接入：
+    用 `MultiTimeframeChart` 替换原来的 `KlineChart`，
+    默认主图 1m / 副图 1h，所有指标（MA/EMA/MACD/KDJ/RSI/Bollinger/ATR/Stoch）
+    仍由主图内部 `KlineChart` 承载
+  - 单元测试 `frontend/src/__tests__/components/MultiTimeframeChart.test.ts`：
+    7 个 case（双图渲染、副图周期切换、双 X 轴同步、addSubBar 路径）
+  - E2E `e2e-tests/market_data.spec.ts`：新增 test 07 验证
+    `GET /api/v1/kline/query` 在 `1m` 和 `1h` 两个周期都能返回 200/404
+    （不出现 500），证明多周期读取路径完整
+
+### 修复
+
+- `frontend/src/components/charts/MultiTimeframeChart.vue`：
+  `subVolumeSeries` 的 `scaleMargins` 误放到了 series options 上（应放
+  在 price scale options），导致 `vue-tsc` 类型检查失败
+- `frontend/src/components/charts/KlineChart.vue`：
+  原 `initChart` 缺少 `subscribeVisibleTimeRangeChange`，
+  导致 `MultiTimeframeChart` 的副图 X 轴同步代码永远收不到事件
+  （修复后多周期联动才真正生效）
+
 ## [0.8.0] — 2026-05-21
 
 ### 新增

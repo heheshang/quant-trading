@@ -4,9 +4,11 @@
 //! 定义告警通知消息结构和通知渠道 trait
 
 pub mod email;
+pub mod telegram;
 pub mod wechat;
 
 pub use email::EmailChannel;
+pub use telegram::TelegramChannel;
 pub use wechat::WeChatChannel;
 
 use chrono::{DateTime, Utc};

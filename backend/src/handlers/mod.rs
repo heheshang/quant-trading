@@ -18,6 +18,7 @@ pub mod position_alert;
 pub mod review;
 pub mod risk;
 pub mod strategy;
+pub mod telegram;
 pub mod trigger_order;
 pub mod users;
 pub mod ws;

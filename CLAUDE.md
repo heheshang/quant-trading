@@ -98,6 +98,47 @@ docker compose up -d
 
 后端支持 Binance、OKX、Gate.io、Bybit 四个交易所的 REST API 行情获取，详见 `backend/src/services/exchange/`。
 
+### 多周期 K线联动 (P2-3)
+
+`frontend/src/components/charts/MultiTimeframeChart.vue` 实现主图 + 副图
+的 X 轴联动布局：
+
+- **主图**：由父组件传入 `mainData` / `mainInterval`，通常是 1m/5m 等较
+  短周期
+- **副图**：1h / 4h / 1d 三选一，组件内部自行调用
+  `GET /api/v1/kline/query?symbol=...&interval=...` 拉数据
+- **X 轴同步**：主图 `KlineChart` 在 `chart.timeScale().subscribeVisibleTimeRangeChange`
+  里 dispatch `window` 自定义事件 `kline-visible-range-change`；副图
+  在 `MultiTimeframeChart` 的 `onVisibleRangeEvent` 监听并调用
+  `setVisibleRange({ from, to })` 跟随。组件透出 `addSubBar(bar)` 让父
+  组件把 WS 推来的当前 sub 周期 K 线推入副图
+
+使用方式（见 `frontend/src/views/trade/TradingView.vue`）：
+
+```vue
+<MultiTimeframeChart
+  ref="mtfChartRef"
+  :main-data="klineData"
+  :main-symbol="selectedSymbol"
+  :main-interval="chartInterval"
+  :initial-sub-interval="subInterval"
+  @sub-interval-change="onSubIntervalChange"
+/>
+```
+
+副图 K 线更新路径（WS 推送 → store → 副图）：
+
+```ts
+tradingStore.$subscribe(() => {
+  if (tradingStore.lastKline && tradingStore.lastKlineInterval === subInterval.value) {
+    mtfChartRef.value?.addSubBar(tradingStore.lastKline)
+  }
+})
+```
+
+指示器（MA/EMA/MACD/KDJ 等）走的是主图内部 `KlineChart` 的 props，不
+需要在 `MultiTimeframeChart` 上重复声明。
+
 ## 代码规范
 
 ### 提交流程

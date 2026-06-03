@@ -360,6 +360,18 @@ function initChart() {
     setData(props.data)
   }
 
+  // Visible-range broadcast — MultiTimeframeChart subscribes to this to sync
+  // the sub chart's X-axis with the main chart.  See MultiTimeframeChart.vue's
+  // `onVisibleRangeEvent` listener.
+  chart.timeScale().subscribeVisibleTimeRangeChange((range) => {
+    if (!range) return
+    window.dispatchEvent(
+      new CustomEvent('kline-visible-range-change', {
+        detail: { from: range.from as number, to: range.to as number },
+      }),
+    )
+  })
+
   // Crosshair OHLCV display
   chart.subscribeCrosshairMove((param) => {
     if (!param.time || !param.seriesData.size) {

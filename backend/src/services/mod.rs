@@ -5,6 +5,7 @@ pub mod atr_stop_loss;
 pub mod auth;
 pub mod backtest;
 pub mod backtest_engine;
+pub mod backtest_metrics;
 pub mod binance_rest;
 pub mod binance_signer;
 pub mod bybit_rest;

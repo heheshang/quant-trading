@@ -13,6 +13,10 @@ pub struct Model {
     pub avatar_url: Option<String>,
     pub is_active: bool,
     pub role_id: Uuid,
+    /// P2-1: Telegram chat_id bound by the user. NULL = not bound → TelegramChannel
+    /// skips the user. Non-empty = bound → used as `chat_id` in `sendMessage`.
+    /// Telegram chat_id is a 64-bit int; VARCHAR(32) gives ASCII slack.
+    pub telegram_chat_id: Option<String>,
     pub last_login_at: Option<DateTimeUtc>,
     pub created_at: DateTimeUtc,
     pub updated_at: DateTimeUtc,

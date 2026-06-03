@@ -104,11 +104,32 @@ pub struct AccountSnapshot {
 #[derive(Clone)]
 pub struct RiskManager {
     db: Arc<DatabaseConnection>,
+    /// P2-1: 可选的通知服务 — risk event 触发后通过它下发告警。
+    /// P2-1: optional notifier — when set, risk events fan out via this service.
+    /// 中文：使用 `Option` 是因为 RiskManager 在测试和早期启动阶段可能未注入；
+    ///   `None` 时 fall back 到原本的 `tracing::warn!` 行为（不破坏既有调用方）。
+    /// English: `Option` so the existing constructors (`RiskManager::new(db)`)
+    ///   keep working — pre-existing callers don't need to be updated. `None`
+    ///   falls back to the legacy `tracing::warn!` path.
+    notifier: Option<Arc<crate::services::alert_notification_service::AlertNotificationService>>,
 }
 
 impl RiskManager {
     pub fn new(db: Arc<DatabaseConnection>) -> Self {
-        Self { db }
+        Self {
+            db,
+            notifier: None,
+        }
+    }
+
+    /// 注入通知服务（启动期调用一次）
+    /// Inject the notifier (called once at startup).
+    pub fn with_notifier(
+        mut self,
+        notifier: Arc<crate::services::alert_notification_service::AlertNotificationService>,
+    ) -> Self {
+        self.notifier = Some(notifier);
+        self
     }
 
     /// 获取账户快照（权益 + 当日盈亏 + 历史峰值）
@@ -394,15 +415,43 @@ impl RiskManager {
         })
     }
 
-    /// 发送告警（微信 Webhook 占位）
+    /// 发送告警（多渠道：Telegram / Email / 企业微信）
+    /// Send an alert (multi-channel: Telegram / Email / WeChat).
+    ///
+    /// 中文：notifier 注入时走 `AlertNotificationService::send_alert` 多播（带收敛）。
+    ///   未注入时退回到 `tracing::warn!`，保持向后兼容。
+    /// English: When the notifier is injected, fans out via
+    ///   `AlertNotificationService::send_alert` (with dedup). Falls back to
+    ///   `tracing::warn!` when not injected (backward-compatible).
     async fn send_alert(&self, user_id: Uuid, code: &str, message: &str) -> Result<(), AppError> {
-        tracing::warn!(
-            "[RISK ALERT] user={} code={} msg={}",
-            user_id,
-            code,
-            message
-        );
-        // TODO: 调用微信 Webhook / 邮件服务
+        let user_id_str = user_id.to_string();
+        if let Some(notifier) = &self.notifier {
+            let mut n = crate::services::notification::AlertNotification::new(
+                format!("风控触发: {}", code),
+                message.to_string(),
+                code.to_string(),
+                severity_for_code(code),
+                None,
+            );
+            n = n.with_metadata("user_id", &user_id_str);
+            n = n.with_metadata("rule_code", code);
+            // send_alert 内部有收敛（5 分钟窗口），重复告警会自动合并
+            // send_alert has built-in dedup (5-min window) — repeated alerts collapse.
+            if let Err(e) = notifier.send_alert(n).await {
+                // 多渠道失败仅 log，不影响风控主流程
+                // Multi-channel failure only logs — must not break the risk main path.
+                tracing::error!("Notifier fan-out failed: {}", e);
+            }
+        } else {
+            // 无 notifier 时的兼容路径（仅 log）
+            // Compatibility path when notifier is not injected (log only).
+            tracing::warn!(
+                "[RISK ALERT] user={} code={} msg={}",
+                user_id,
+                code,
+                message
+            );
+        }
         Ok(())
     }
 
@@ -637,5 +686,23 @@ mod tests {
         let daily_loss = Decimal::new(-1005, 0);
         let limit = Decimal::new(1000, 0);
         assert!(daily_loss <= -limit);
+    }
+}
+
+/// Map a risk-event code to a notification severity string.
+///
+/// P2-1 notifier integration: the alert notification service accepts a free-form
+/// severity string ("info" / "warning" / "critical"). We classify risk events
+/// based on the code prefix used by [`RiskManager::send_alert`].
+fn severity_for_code(code: &str) -> String {
+    if code.starts_with("EMERGENCY_") || code.starts_with("LIQUIDATION_") {
+        "critical".to_string()
+    } else if code.starts_with("DAILY_LOSS")
+        || code.starts_with("POSITION_CONCENTRATION")
+        || code.starts_with("LOSS_COOLDOWN")
+    {
+        "warning".to_string()
+    } else {
+        "info".to_string()
     }
 }

@@ -1,0 +1,1601 @@
+{
+  "config": {
+    "configFile": "/home/ssk/workspace/quant-trading/playwright.config.ts",
+    "rootDir": "/home/ssk/workspace/quant-trading/e2e-tests",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {},
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/home/ssk/workspace/quant-trading/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/home/ssk/workspace/quant-trading/e2e-tests",
+        "testIgnore": [],
+        "testMatch": [
+          "/.*\\.spec\\.ts$/"
+        ],
+        "timeout": 60000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "html",
+        {
+          "outputFolder": "e2e-report",
+          "open": "never"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "e2e-report/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.60.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "ai_prediction.spec.ts",
+      "file": "ai_prediction.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "ai-prediction — models / predict / history",
+          "file": "ai_prediction.spec.ts",
+          "line": 14,
+          "column": 6,
+          "specs": [
+            {
+              "title": "01 — list AI models (Rust)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "401efad028a8b0e47ae9-3669b1fa9ca140552b0e",
+              "file": "ai_prediction.spec.ts",
+              "line": 20,
+              "column": 7
+            },
+            {
+              "title": "02 — get prediction for symbol (Rust)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "401efad028a8b0e47ae9-31affa6a2539fe1b6c6f",
+              "file": "ai_prediction.spec.ts",
+              "line": 26,
+              "column": 7
+            },
+            {
+              "title": "03 — direct Python /models",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "401efad028a8b0e47ae9-88cd716c15c6c7d4a447",
+              "file": "ai_prediction.spec.ts",
+              "line": 32,
+              "column": 7
+            },
+            {
+              "title": "04 — direct Python /predict",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "401efad028a8b0e47ae9-c2886c940865d0c607e0",
+              "file": "ai_prediction.spec.ts",
+              "line": 38,
+              "column": 7
+            },
+            {
+              "title": "05 — direct Python /health",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "401efad028a8b0e47ae9-565375837dad46d7e497",
+              "file": "ai_prediction.spec.ts",
+              "line": 48,
+              "column": 7
+            },
+            {
+              "title": "06 — AI prediction graceful when no klines",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "401efad028a8b0e47ae9-f4d91c973c6468fcfdbe",
+              "file": "ai_prediction.spec.ts",
+              "line": 54,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "auth_full.spec.ts",
+      "file": "auth_full.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "auth-full — lifecycle / refresh / isolation",
+          "file": "auth_full.spec.ts",
+          "line": 36,
+          "column": 6,
+          "specs": [
+            {
+              "title": "01 — register alice",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "c6f936cb3e16a6189fc0-01db54a4281148cc4e8c",
+              "file": "auth_full.spec.ts",
+              "line": 38,
+              "column": 7
+            },
+            {
+              "title": "02 — register bob",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "c6f936cb3e16a6189fc0-97bcacee8ddcffdf77a4",
+              "file": "auth_full.spec.ts",
+              "line": 50,
+              "column": 7
+            },
+            {
+              "title": "03 — login alice (separate session)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "c6f936cb3e16a6189fc0-043f98ca04d1d1136f0b",
+              "file": "auth_full.spec.ts",
+              "line": 60,
+              "column": 7
+            },
+            {
+              "title": "04 — get alice profile (using token)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "c6f936cb3e16a6189fc0-af76e9603c9702fe3bbe",
+              "file": "auth_full.spec.ts",
+              "line": 70,
+              "column": 7
+            },
+            {
+              "title": "05 — update alice profile (display_name)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "c6f936cb3e16a6189fc0-85f34753addf4d1f9183",
+              "file": "auth_full.spec.ts",
+              "line": 79,
+              "column": 7
+            },
+            {
+              "title": "06 — change alice password",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "c6f936cb3e16a6189fc0-55fe7c9808e98da77227",
+              "file": "auth_full.spec.ts",
+              "line": 86,
+              "column": 7
+            },
+            {
+              "title": "07 — refresh token",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "c6f936cb3e16a6189fc0-7554da7c2fde69580410",
+              "file": "auth_full.spec.ts",
+              "line": 94,
+              "column": 7
+            },
+            {
+              "title": "08 — bob cannot access alice (token isolation)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "c6f936cb3e16a6189fc0-a688015965c88e107035",
+              "file": "auth_full.spec.ts",
+              "line": 105,
+              "column": 7
+            },
+            {
+              "title": "09 — logout alice (token revocation)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "c6f936cb3e16a6189fc0-701d3a8be55155ae262e",
+              "file": "auth_full.spec.ts",
+              "line": 113,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "auth.spec.ts",
+      "file": "auth.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "quant-trading E2E (legacy)",
+          "file": "auth.spec.ts",
+          "line": 21,
+          "column": 6,
+          "specs": [
+            {
+              "title": "01 — register",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-bf17312a850d13c9b5db",
+              "file": "auth.spec.ts",
+              "line": 23,
+              "column": 7
+            },
+            {
+              "title": "02 — login",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-97cb732553eb25292e1b",
+              "file": "auth.spec.ts",
+              "line": 35,
+              "column": 7
+            },
+            {
+              "title": "03 — me / profile",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-b1809ef4e3f4e26ff591",
+              "file": "auth.spec.ts",
+              "line": 44,
+              "column": 7
+            },
+            {
+              "title": "14 — backend health endpoint",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-93927674e1c56e3f7066",
+              "file": "auth.spec.ts",
+              "line": 50,
+              "column": 7
+            },
+            {
+              "title": "15 — WebSocket upgrade (should upgrade, not 404)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-c2d9043ee5aa87b1a6ef",
+              "file": "auth.spec.ts",
+              "line": 55,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "backtest.spec.ts",
+      "file": "backtest.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "backtest — run / progress / result",
+          "file": "backtest.spec.ts",
+          "line": 13,
+          "column": 6,
+          "specs": [
+            {
+              "title": "01 — create backtest",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "27eb4c5c0e24357be391-027fb83a6ffd7671e6d7",
+              "file": "backtest.spec.ts",
+              "line": 19,
+              "column": 7
+            },
+            {
+              "title": "02 — query backtest by id (404 ok if unknown)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "27eb4c5c0e24357be391-45366682554a5b6c8f2e",
+              "file": "backtest.spec.ts",
+              "line": 32,
+              "column": 7
+            },
+            {
+              "title": "03 — poll backtest to completion",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "27eb4c5c0e24357be391-885036d0645a2caa9f77",
+              "file": "backtest.spec.ts",
+              "line": 37,
+              "column": 7
+            },
+            {
+              "title": "04 — list backtests",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "27eb4c5c0e24357be391-f99faed1938bc30192c9",
+              "file": "backtest.spec.ts",
+              "line": 65,
+              "column": 7
+            },
+            {
+              "title": "05 — AI backtest endpoint reachable",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "27eb4c5c0e24357be391-a07884507506c4b200c9",
+              "file": "backtest.spec.ts",
+              "line": 70,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "export.spec.ts",
+      "file": "export.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "export — CSV / JSON / kline",
+          "file": "export.spec.ts",
+          "line": 24,
+          "column": 6,
+          "specs": [
+            {
+              "title": "01 — export orders (CSV)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "0667f272bb733ff6f62f-fe57ef1f8236d55b9d77",
+              "file": "export.spec.ts",
+              "line": 30,
+              "column": 7
+            },
+            {
+              "title": "02 — export trades (CSV)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "0667f272bb733ff6f62f-6c14304d992e53b2e647",
+              "file": "export.spec.ts",
+              "line": 39,
+              "column": 7
+            },
+            {
+              "title": "03 — export account (JSON)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "0667f272bb733ff6f62f-cf475576b0140e559ad8",
+              "file": "export.spec.ts",
+              "line": 47,
+              "column": 7
+            },
+            {
+              "title": "04 — kline export (CSV)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "0667f272bb733ff6f62f-1acfd54296e86c6b7d02",
+              "file": "export.spec.ts",
+              "line": 56,
+              "column": 7
+            },
+            {
+              "title": "05 — orders export with date range",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "0667f272bb733ff6f62f-f6a29ee3965622409402",
+              "file": "export.spec.ts",
+              "line": 61,
+              "column": 7
+            },
+            {
+              "title": "06 — kline export with size limit",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "0667f272bb733ff6f62f-1393aa49634ee61f6635",
+              "file": "export.spec.ts",
+              "line": 66,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "market_data.spec.ts",
+      "file": "market_data.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "market-data — klines / tickers / WS",
+          "file": "market_data.spec.ts",
+          "line": 15,
+          "column": 6,
+          "specs": [
+            {
+              "title": "01 — fetch klines for symbol/interval",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "8b31e3205ca111142346-8d801e0cf81267d81ab8",
+              "file": "market_data.spec.ts",
+              "line": 21,
+              "column": 7
+            },
+            {
+              "title": "02 — fetch single ticker",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "8b31e3205ca111142346-5d8464b688d839ac25be",
+              "file": "market_data.spec.ts",
+              "line": 27,
+              "column": 7
+            },
+            {
+              "title": "03 — fetch all tickers",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "8b31e3205ca111142346-823421d33bd07dc7bf66",
+              "file": "market_data.spec.ts",
+              "line": 32,
+              "column": 7
+            },
+            {
+              "title": "04 — fetch order book depth",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "8b31e3205ca111142346-5dbbbf190ce4bc8570ae",
+              "file": "market_data.spec.ts",
+              "line": 37,
+              "column": 7
+            },
+            {
+              "title": "05 — WS upgrade handshake",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "8b31e3205ca111142346-4e76e27d77b40aca4df5",
+              "file": "market_data.spec.ts",
+              "line": 42,
+              "column": 7
+            },
+            {
+              "title": "06 — indicator endpoint reachable (e.g. RSI)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "8b31e3205ca111142346-016f320533a2c3743e2a",
+              "file": "market_data.spec.ts",
+              "line": 49,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "order.spec.ts",
+      "file": "order.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "order — lifecycle",
+          "file": "order.spec.ts",
+          "line": 13,
+          "column": 6,
+          "specs": [
+            {
+              "title": "01 — list orders (returns paginated envelope)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "85d1357294a106dff78a-37a417e6c5c16fc56942",
+              "file": "order.spec.ts",
+              "line": 19,
+              "column": 7
+            },
+            {
+              "title": "02 — place market order (sim or live)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "85d1357294a106dff78a-f2e9cbdff40338a91b76",
+              "file": "order.spec.ts",
+              "line": 26,
+              "column": 7
+            },
+            {
+              "title": "03 — query single order (may 404 if not placed yet)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "85d1357294a106dff78a-0c49dcd5acd376f7ea40",
+              "file": "order.spec.ts",
+              "line": 40,
+              "column": 7
+            },
+            {
+              "title": "04 — cancel order (idempotent, accepts 200/404)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "85d1357294a106dff78a-5ffefdfad58c59fa2310",
+              "file": "order.spec.ts",
+              "line": 46,
+              "column": 7
+            },
+            {
+              "title": "05 — list trades",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "85d1357294a106dff78a-6a3c6ff6182a479bdb04",
+              "file": "order.spec.ts",
+              "line": 51,
+              "column": 7
+            },
+            {
+              "title": "06 — list positions",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "85d1357294a106dff78a-d9b30bc6fd4253b74fdd",
+              "file": "order.spec.ts",
+              "line": 56,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "portfolio.spec.ts",
+      "file": "portfolio.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "portfolio — summary / positions / equity",
+          "file": "portfolio.spec.ts",
+          "line": 13,
+          "column": 6,
+          "specs": [
+            {
+              "title": "01 — get portfolio summary",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "34cb4603fa9a5b79d30c-4a93484e8d7a87f65676",
+              "file": "portfolio.spec.ts",
+              "line": 19,
+              "column": 7
+            },
+            {
+              "title": "02 — list positions",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "34cb4603fa9a5b79d30c-b93322e096d0fadb982e",
+              "file": "portfolio.spec.ts",
+              "line": 25,
+              "column": 7
+            },
+            {
+              "title": "03 — get equity curve",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "34cb4603fa9a5b79d30c-f90002fa84675de9bf9b",
+              "file": "portfolio.spec.ts",
+              "line": 30,
+              "column": 7
+            },
+            {
+              "title": "04 — get performance (multi-strategy)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "34cb4603fa9a5b79d30c-9bcb625163265c7e9e95",
+              "file": "portfolio.spec.ts",
+              "line": 36,
+              "column": 7
+            },
+            {
+              "title": "05 — paginated positions (page=1,size=5)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "34cb4603fa9a5b79d30c-d2a42754c1da44d3105a",
+              "file": "portfolio.spec.ts",
+              "line": 41,
+              "column": 7
+            },
+            {
+              "title": "06 — equity curve with custom range",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "34cb4603fa9a5b79d30c-614ee40d7a2ca457c7a1",
+              "file": "portfolio.spec.ts",
+              "line": 46,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "risk.spec.ts",
+      "file": "risk.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "risk — rules / pause / resume / logs / check",
+          "file": "risk.spec.ts",
+          "line": 15,
+          "column": 6,
+          "specs": [
+            {
+              "title": "01 — get current risk rules",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "9bb9156c88243709cb4d-2ce31e46e69695ecb600",
+              "file": "risk.spec.ts",
+              "line": 21,
+              "column": 7
+            },
+            {
+              "title": "02 — list risk logs",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "9bb9156c88243709cb4d-bce7fce0426e2ced09ac",
+              "file": "risk.spec.ts",
+              "line": 27,
+              "column": 7
+            },
+            {
+              "title": "03 — pause trading",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "9bb9156c88243709cb4d-af266d1a673c1e13c78d",
+              "file": "risk.spec.ts",
+              "line": 32,
+              "column": 7
+            },
+            {
+              "title": "04 — resume trading",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "9bb9156c88243709cb4d-0aa98db4e319bfb18b6c",
+              "file": "risk.spec.ts",
+              "line": 37,
+              "column": 7
+            },
+            {
+              "title": "05 — manual risk check",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "9bb9156c88243709cb4d-6c22df66c9e145b74f9f",
+              "file": "risk.spec.ts",
+              "line": 42,
+              "column": 7
+            },
+            {
+              "title": "06 — update risk rules (PUT)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "9bb9156c88243709cb4d-1f69087564801cf52043",
+              "file": "risk.spec.ts",
+              "line": 52,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "strategy.spec.ts",
+      "file": "strategy.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "strategy — CRUD / lifecycle",
+          "file": "strategy.spec.ts",
+          "line": 32,
+          "column": 6,
+          "specs": [
+            {
+              "title": "01 — create strategy",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "15e486682162e039917c-90c047d2586248c900e5",
+              "file": "strategy.spec.ts",
+              "line": 38,
+              "column": 7
+            },
+            {
+              "title": "02 — list strategies",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "15e486682162e039917c-9b6fd5673397e735ade2",
+              "file": "strategy.spec.ts",
+              "line": 50,
+              "column": 7
+            },
+            {
+              "title": "03 — get one strategy (404 ok if not created yet)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "15e486682162e039917c-444ae4ac1a0f56b59472",
+              "file": "strategy.spec.ts",
+              "line": 56,
+              "column": 7
+            },
+            {
+              "title": "04 — start a strategy (202 ok if implemented async)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "15e486682162e039917c-b69f8c3cd72c819b6d52",
+              "file": "strategy.spec.ts",
+              "line": 62,
+              "column": 7
+            },
+            {
+              "title": "05 — stop a strategy",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "15e486682162e039917c-71ff1ccf83655068d545",
+              "file": "strategy.spec.ts",
+              "line": 69,
+              "column": 7
+            },
+            {
+              "title": "06 — update strategy (partial PATCH/PUT)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "15e486682162e039917c-3dbe816edacdd9029741",
+              "file": "strategy.spec.ts",
+              "line": 75,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "trigger_order.spec.ts",
+      "file": "trigger_order.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "trigger-order — stop / OCO / TWAP",
+          "file": "trigger_order.spec.ts",
+          "line": 21,
+          "column": 6,
+          "specs": [
+            {
+              "title": "01 — create stop-loss",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "f7786fdca54808b3507d-9a7e8707688c1966e795",
+              "file": "trigger_order.spec.ts",
+              "line": 27,
+              "column": 7
+            },
+            {
+              "title": "02 — create take-profit",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "f7786fdca54808b3507d-7df1ce5a2d0ef0ad4423",
+              "file": "trigger_order.spec.ts",
+              "line": 36,
+              "column": 7
+            },
+            {
+              "title": "03 — create OCO (one-cancels-other)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "f7786fdca54808b3507d-203a6abc9b8f8c65728b",
+              "file": "trigger_order.spec.ts",
+              "line": 45,
+              "column": 7
+            },
+            {
+              "title": "04 — list trigger orders",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "f7786fdca54808b3507d-868faa57d7bf38487ab5",
+              "file": "trigger_order.spec.ts",
+              "line": 55,
+              "column": 7
+            },
+            {
+              "title": "05 — get one trigger order (404 ok if none yet)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "f7786fdca54808b3507d-5cf871ef5bbf4e7ab008",
+              "file": "trigger_order.spec.ts",
+              "line": 60,
+              "column": 7
+            },
+            {
+              "title": "06 — cancel a trigger order (404 ok if absent)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "f7786fdca54808b3507d-9d29ee4d192adfda716e",
+              "file": "trigger_order.spec.ts",
+              "line": 65,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-06-02T14:57:04.343Z",
+    "duration": 119.25300000000016,
+    "expected": 0,
+    "skipped": 67,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

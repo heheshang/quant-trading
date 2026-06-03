@@ -15,6 +15,7 @@ use crate::models::backtest::{
     Account, BacktestConfig, BacktestMetrics, Direction, EquityPoint, Kline, LimitType, Position,
     Signal, TradeRecord,
 };
+use crate::services::backtest_metrics as metrics_calc;
 use crate::services::strategy::StrategyTemplate;
 use serde_json::Value;
 
@@ -36,6 +37,10 @@ pub struct BacktestEngine {
     peak_equity: f64, // running peak for drawdown calculation (Bug#7)
     /// Previous bar's close price, used to compute price limits.
     prev_close: f64,
+    /// BTC benchmark equity curve (close prices over the same time range as
+    /// the strategy klines). Used for alpha/beta/information_ratio.
+    /// Empty when benchmark data is unavailable (e.g. synthetic-only runs).
+    benchmark_equity: Vec<EquityPoint>,
     // Control
     progress: Arc<AtomicU32>,
     cancel_token: CancellationToken,
@@ -58,6 +63,31 @@ impl BacktestEngine {
         progress: Arc<AtomicU32>,
         cancel_token: CancellationToken,
     ) -> Self {
+        Self::with_benchmark(
+            config,
+            klines,
+            strategy,
+            strategy_params,
+            progress,
+            cancel_token,
+            Vec::new(),
+        )
+    }
+
+    /// Create a new engine with a BTC benchmark series for alpha/beta/IR.
+    ///
+    /// `benchmark_equity` is a list of `(time_ms, close_price)` for BTC over
+    /// the same time range as the strategy klines. Pass `Vec::new()` when
+    /// benchmark data is unavailable; alpha/beta/IR will be `0.0`.
+    pub fn with_benchmark(
+        config: BacktestConfig,
+        klines: Vec<Kline>,
+        strategy: Box<dyn StrategyTemplate>,
+        strategy_params: Value,
+        progress: Arc<AtomicU32>,
+        cancel_token: CancellationToken,
+        benchmark_equity: Vec<EquityPoint>,
+    ) -> Self {
         let initial_capital = config.initial_capital;
         let kline_count = klines.len().max(1);
         Self {
@@ -75,6 +105,7 @@ impl BacktestEngine {
             equity_points: Vec::with_capacity(kline_count),
             peak_equity: initial_capital, // Bug#7: track running peak
             prev_close: 0.0,
+            benchmark_equity,
             progress,
             cancel_token,
         }
@@ -609,6 +640,70 @@ impl BacktestEngine {
         let total_fees: f64 = self.trades.iter().map(|t| t.fee).sum();
         let total_slippage: f64 = self.trades.iter().map(|t| t.slippage).sum();
 
+        // ============ P2-2: 8 new metrics ============
+
+        // Strategy daily returns (decimal) from equity curve
+        let strategy_returns = metrics_calc::period_returns(
+            &self
+                .equity_points
+                .iter()
+                .map(|e| e.equity)
+                .collect::<Vec<_>>(),
+        );
+
+        // Benchmark daily returns (decimal) from BTC equity curve
+        let benchmark_returns = metrics_calc::period_returns(
+            &self
+                .benchmark_equity
+                .iter()
+                .map(|e| e.equity)
+                .collect::<Vec<_>>(),
+        );
+
+        // Align strategy and benchmark by timestamp when both are non-empty.
+        // We use the timestamp of the strategy equity points as the alignment key.
+        let (s_aligned, b_aligned) = if self.benchmark_equity.len() >= 2
+            && self.equity_points.len() >= 2
+        {
+            let strat_indexed: Vec<(i64, f64)> = self
+                .equity_points
+                .iter()
+                .zip(strategy_returns.iter().chain(std::iter::repeat(&0.0)))
+                .map(|(ep, r)| (ep.time, *r))
+                .collect();
+            let bench_indexed: Vec<(i64, f64)> = self
+                .benchmark_equity
+                .iter()
+                .zip(benchmark_returns.iter().chain(std::iter::repeat(&0.0)))
+                .map(|(ep, r)| (ep.time, *r))
+                .collect();
+            metrics_calc::align_returns_by_time(&strat_indexed, &bench_indexed)
+        } else {
+            (Vec::new(), Vec::new())
+        };
+
+        // Use 365 as periods_per_year for daily-aligned metrics (engine runs at
+        // varying intervals — 1h, 4h, 1d — so this is an approximation; for 1d
+        // backtests it is exact).
+        let periods_per_year = 365.0;
+
+        let (alpha, beta) = if s_aligned.len() >= 2 && b_aligned.len() >= 2 {
+            metrics_calc::alpha_beta(&s_aligned, &b_aligned, periods_per_year)
+        } else {
+            (0.0, 0.0)
+        };
+        let information_ratio = if s_aligned.len() >= 2 && b_aligned.len() >= 2 {
+            metrics_calc::information_ratio(&s_aligned, &b_aligned, periods_per_year)
+        } else {
+            0.0
+        };
+
+        let kelly_pct = metrics_calc::kelly_pct(win_rate, avg_win_pct, avg_loss_pct);
+        let expectancy = metrics_calc::expectancy(win_rate, avg_win_pct, avg_loss_pct);
+        let turnover = metrics_calc::turnover(&self.trades, &self.equity_points);
+        let slippage_estimation = metrics_calc::slippage_estimation(&self.trades);
+        let drawdown_recovery_days = metrics_calc::drawdown_recovery_days(&self.equity_points);
+
         BacktestMetrics {
             total_return_pct: total_return * 100.0,
             annualized_return_pct: annualized_return * 100.0,
@@ -624,6 +719,14 @@ impl BacktestEngine {
             avg_trade_pct,
             total_fees,
             total_slippage,
+            alpha,
+            beta,
+            information_ratio,
+            kelly_pct,
+            expectancy,
+            turnover,
+            slippage_estimation,
+            drawdown_recovery_days,
         }
     }
 }
