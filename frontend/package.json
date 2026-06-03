@@ -11,7 +11,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "typecheck": "npx vue-tsc --noEmit -p tsconfig.app.json",
-    "lint": "eslint . --ext .vue,.ts"
+    "lint": "eslint . --ext .vue,.ts",
+    "gen:api": "bash scripts/gen-types.sh"
   },
   "dependencies": {
     "vue": "^3.5.34"
@@ -37,6 +38,8 @@
     "globals": "^17.6.0",
     "jsdom": "^26.0.0",
     "lightweight-charts": "^4.2.1",
+    "openapi-fetch": "^0.13.5",
+    "openapi-typescript": "^7.4.4",
     "pinia": "^2.2.6",
     "sass": "^1.83.4",
     "typescript": "~6.0.2",

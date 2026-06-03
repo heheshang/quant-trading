@@ -33,6 +33,21 @@ async fn main() {
     // Load .env file
     dotenvy::dotenv().ok();
 
+    // 运维-2: initialise Sentry (error aggregation) **before** tracing.
+    //   - `SENTRY_DSN` 缺失时返回 Ok(None)，后续代码无 Sentry 开销。
+    //   - 启用后 `sentry::init` 会装一个全局 Hub；
+    //     `init_tracing` 会探测 `sentry::is_enabled()` 把 sentry-tracing
+    //     layer 一起装到 Registry，覆盖 tracing::error!/warn! 事件。
+    //   - guard 持有 sentry::Client，Drop 时 flush 客户端并释放资源。
+    // 调用顺序：必须在 `init_tracing()` 之前。
+    let _sentry_guard = match quant_trading_backend::observability::sentry::init_sentry() {
+        Ok(guard) => guard,
+        Err(e) => {
+            eprintln!("Sentry init failed: {e}. Continuing without Sentry.");
+            None
+        }
+    };
+
     // P0-运维: initialise OpenTelemetry tracing + JSON log layer.
     // Returns a guard whose Drop impl flushes pending spans to the
     // OTLP exporter (Jaeger :4317 by default). Hold it for the
@@ -635,13 +650,18 @@ fn create_router(
 
     // Public routes — registered as direct path to avoid /api/v1 nesting shadowing
     // Both /ws and /api/v1/ws registered (nginx regex proxy_pass preserves full path)
+    // Also /api/v1/openapi.json and /swagger-ui — public metadata, no auth.
     let public_routes = Router::new()
         .route("/health", get(handlers::health::liveness))
         .route("/api/v1/health/ready", get(handlers::health::readiness))
-        .with_state(app_state.clone())
+        .route(
+            "/api/v1/openapi.json",
+            get(handlers::openapi::openapi_json),
+        )
         .route("/ws", get(handlers::ws::ws_handler))
         .route("/api/v1/ws", get(handlers::ws::ws_handler))
         .route("/metrics", get(handlers::metrics_handler::metrics))
+        .with_state(app_state.clone())
         .layer(Extension(ws_hub.clone()));
 
     // P3-4: 审计日志查询端点（admin only）。
@@ -797,6 +817,10 @@ fn create_router(
             )),
     )
     .merge(public_routes)
+    // P3-3: Swagger UI at /swagger-ui. Public metadata, no auth.
+    // The .url("/api/v1/openapi.json", ...) form is set inside
+    // `swagger_ui_router()` so the UI auto-fetches the live spec.
+    .merge(handlers::openapi::swagger_ui_router())
     // P2-1: Telegram notification routes — already layered with auth middleware
     // + Extension(alert_notifier) + Extension(telegram_chat_cache) at the top
     // of `create_router`. State type `Arc<DatabaseConnection>` matches the
