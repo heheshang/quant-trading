@@ -109,4 +109,3 @@ pub struct ParameterDef {
     pub max: Option<serde_json::Value>,
     pub options: Option<Vec<String>>,
 }
-

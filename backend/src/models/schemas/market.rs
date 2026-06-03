@@ -146,4 +146,3 @@ pub struct KlineExportParams {
 pub struct WsQueryParams {
     pub token: String,
 }
-

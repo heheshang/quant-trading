@@ -22,6 +22,12 @@ pub struct Config {
     pub server_port: u16,
     pub cors_allowed_origins: Vec<String>,
     pub log_level: String,
+    /// P3-2: RabbitMQ AMQP URL. 当 `MQ_ENABLED=false` 时 MQ 路径整体短路。
+    ///   Format: `amqp://user:pass@host:port/vhost` (vhost 默认 `/` → `%2f`).
+    pub rabbitmq_url: String,
+    /// P3-2: MQ 总开关。`false` 时 publisher/worker 全部走同步兜底，
+    ///   行为与 P3-2 之前一致。
+    pub mq_enabled: bool,
 }
 
 impl Config {
@@ -59,6 +65,14 @@ impl Config {
                 .map(|s| s.trim().to_string())
                 .collect(),
             log_level: env::var("LOG_LEVEL").unwrap_or_else(|_| "info".into()),
+            // P3-2: RabbitMQ 配置。MQ_ENABLED=false 时整体走同步兜底。
+            //   缺省 URL 在 docker-compose 中是 amqp://quant:quant_mq_2024@rabbitmq:5672/%2f
+            //   本地裸跑（无 docker）则回落 amqp://guest:***@127.0.0.1:5672/%2f (RabbitMQ 默认账号)
+            rabbitmq_url: env::var("RABBITMQ_URL")
+                .unwrap_or_else(|_| "amqp://guest:***@127.0.0.1:5672/%2f".to_string()),
+            mq_enabled: env::var("MQ_ENABLED")
+                .map(|v| !matches!(v.to_lowercase().as_str(), "false" | "0" | "no" | "off"))
+                .unwrap_or(true),
         };
 
         // Reject known weak/default JWT secrets at startup (non-test only).

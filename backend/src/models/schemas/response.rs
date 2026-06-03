@@ -83,6 +83,9 @@ pub struct KlineSymbolOverview {
 #[derive(Debug, Serialize)]
 pub struct KlineLatestResponse(pub Option<KlineResponse>);
 
+// NOTE: `KlineSymbolListResponse` wraps a `Vec<crate::services::kline::KlineSymbolOverview>`,
+// an out-of-tree service type. The `KlineSymbolOverview` in `services::kline`
+// also needs `ToSchema` for the OpenAPI spec to fully describe this response.
 #[derive(Debug, Serialize)]
 pub struct KlineSymbolListResponse(pub Vec<crate::services::kline::KlineSymbolOverview>);
 
@@ -232,4 +235,3 @@ mod tests {
         assert_eq!(json["size"], 20);
     }
 }
-
