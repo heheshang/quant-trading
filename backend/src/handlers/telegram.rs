@@ -12,7 +12,7 @@
 use axum::{
     Extension, Json, Router,
     extract::State,
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::post,
 };
@@ -22,9 +22,11 @@ use std::sync::Arc;
 #[cfg(test)]
 use uuid::Uuid;
 
+use crate::db::audit_log::{actions, target_types};
 use crate::db::user::{ActiveModel as UserActive, Column as UserCol, Entity as UserEntity};
 use crate::middleware::auth::AuthenticatedUser;
 use crate::services::alert_notification_service::AlertNotificationService;
+use crate::services::audit_log;
 use crate::services::notification::AlertNotification;
 use crate::state::TelegramChatIdCache;
 use crate::utils::error::AppError;
@@ -94,6 +96,7 @@ pub async fn bind_chat_id(
     State(db): State<Arc<DatabaseConnection>>,
     Extension(chat_cache): Extension<Arc<TelegramChatIdCache>>,
     user: AuthenticatedUser,
+    headers: HeaderMap,
     Json(req): Json<BindRequest>,
 ) -> Result<Response, AppError> {
     let chat_id = req.chat_id.trim().to_string();
@@ -117,6 +120,10 @@ pub async fn bind_chat_id(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("user {} not found", user.user_id)))?;
 
+    // P3-4: 拿 before 状态（是否已绑 / 旧 chat_id 长度）
+    let was_bound = user_model.telegram_chat_id.is_some();
+    let old_chat_id_len = user_model.telegram_chat_id.as_ref().map(|s| s.len());
+
     let mut active: UserActive = user_model.into();
     active.telegram_chat_id = Set(Some(chat_id.clone()));
     active.updated_at = Set(chrono::Utc::now());
@@ -125,6 +132,28 @@ pub async fn bind_chat_id(
     // 写缓存：让 TelegramChannel 解析器在 send() 时能命中。
     // Write cache: the TelegramChannel resolver can hit on the next send().
     chat_cache.set(user.user_id, chat_id.clone()).await;
+
+    // P3-4: 写审计 —— 通知渠道绑定是敏感操作 (攻击者若拿到 token 可劫持告警)。
+    // 仅记 user_id / new chat_id 长度 / 是否首次绑定 —— 不写明文 chat_id (PII 防御)。
+    let (ip, ua, req_id) = audit_log::extract_audit_context(&headers, "0.0.0.0");
+    let event = audit_log::AuditEvent {
+        user_id: Some(user.user_id),
+        action: actions::TELEGRAM_BOUND.to_string(),
+        target_type: target_types::TELEGRAM.to_string(),
+        target_id: user.user_id.to_string(),
+        before: Some(serde_json::json!({
+            "was_bound": was_bound,
+            "old_chat_id_len": old_chat_id_len,
+        })),
+        after: Some(serde_json::json!({
+            "new_chat_id_len": chat_id.len(),
+            "bound": true,
+        })),
+        ip_address: ip,
+        user_agent: ua,
+        request_id: req_id,
+    };
+    audit_log::record(&db, event).await;
 
     Ok((
         StatusCode::OK,

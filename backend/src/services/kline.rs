@@ -926,7 +926,7 @@ pub async fn get_latest_kline(
 
 // ============ Symbols List ============
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct KlineSymbolOverview {
     pub symbol: String,
     pub interval: String,

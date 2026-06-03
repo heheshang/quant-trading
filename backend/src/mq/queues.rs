@@ -4,6 +4,9 @@
 //!   - `ai_predictions`   — AI 预测任务。durable, x-max-priority=10
 //!   - `notifications`    — 多渠道告警通知。durable, 普通优先级
 //!   - `risk_logs`        — 风控日志批量入库。durable, 高吞吐
+//!   - `audit_logs`       — P3-4 审计日志批量入库。durable, 普通优先级。
+//!                         与 risk_logs 同模型：handler 同步直写 DB 不现实（会拖慢
+//!                         关键路径），所以先 enqueue，由 consumer 批量 flush。
 //!
 //! 设计原则：
 //!   1. 所有 queue 名 / 参数集中在 `QUEUE_DECLARATIONS` 数组，publisher/consumer 都从这里读。
@@ -25,6 +28,10 @@ pub const QUEUE_NOTIFICATIONS: &str = "notifications";
 /// 风控日志批量入库队列 — 高吞吐，无优先级
 pub const QUEUE_RISK_LOGS: &str = "risk_logs";
 
+/// 审计日志批量入库队列 — P3-4。durable, 普通优先级，consumer
+///   端按 50 条/批或 1s tick flush 进 `audit_logs` 表。
+pub const QUEUE_AUDIT_LOGS: &str = "audit_logs";
+
 /// 业务侧抽象的 job 类型 — 上游 publish 用这个枚举，mq 内部映射到 routing_key。
 ///
 /// 为什么不是直接传 `&str` routing_key：
@@ -40,6 +47,8 @@ pub enum JobKind {
     Notification,
     /// 风控日志批量入库
     RiskLog,
+    /// P3-4 审计日志批量入库
+    AuditLog,
 }
 
 impl JobKind {
@@ -49,6 +58,7 @@ impl JobKind {
             JobKind::AiPrediction => QUEUE_AI_PREDICTIONS,
             JobKind::Notification => QUEUE_NOTIFICATIONS,
             JobKind::RiskLog => QUEUE_RISK_LOGS,
+            JobKind::AuditLog => QUEUE_AUDIT_LOGS,
         }
     }
 
@@ -58,6 +68,7 @@ impl JobKind {
             JobKind::AiPrediction => "ai_prediction",
             JobKind::Notification => "notification",
             JobKind::RiskLog => "risk_log",
+            JobKind::AuditLog => "audit_log",
         }
     }
 
@@ -67,6 +78,7 @@ impl JobKind {
             QUEUE_AI_PREDICTIONS => Some(JobKind::AiPrediction),
             QUEUE_NOTIFICATIONS => Some(JobKind::Notification),
             QUEUE_RISK_LOGS => Some(JobKind::RiskLog),
+            QUEUE_AUDIT_LOGS => Some(JobKind::AuditLog),
             _ => None,
         }
     }
@@ -132,6 +144,13 @@ pub const QUEUE_DECLARATIONS: &[QueueDeclaration] = &[
     QueueDeclaration {
         name: QUEUE_RISK_LOGS,
         kind: JobKind::RiskLog,
+        durable: true,
+        max_priority: None,
+        dead_letter_exchange: None,
+    },
+    QueueDeclaration {
+        name: QUEUE_AUDIT_LOGS,
+        kind: JobKind::AuditLog,
         durable: true,
         max_priority: None,
         dead_letter_exchange: None,
