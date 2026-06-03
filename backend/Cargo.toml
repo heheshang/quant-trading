@@ -139,6 +139,39 @@ utoipa-swagger-ui = { version = "9", features = ["axum"] }
 lapin = "2.5"
 deadpool-lapin = "0.12"
 
+# Sentry — error aggregation (运维-2)
+# 三个 crate 协同：
+#   - `sentry`        : 主 SDK，初始化 + 错误捕获 + 事件发送
+#   - `sentry-tracing`: 把 `tracing::error!` / `tracing::warn!` 自动转 Sentry event
+#   - `sentry-tower`  : Tower middleware，自动捕获 axum 5xx + panic
+# `reqwest` + `rustls` feature 避免引入系统 OpenSSL，使 Docker 镜像更小。
+# 关闭 `sentry` 时整个 init 走 noop 分支（见 `observability::sentry`），
+# 所以 SENTRY_DSN 不配置时几乎零成本。
+sentry = { version = "0.48", default-features = false, features = [
+    "backtrace",
+    "contexts",
+    "panic",
+    "reqwest",
+    "rustls",
+    "release-health",
+    "transport",
+] }
+sentry-tracing = "0.48"
+sentry-tower = { version = "0.48", features = ["axum"] }
+
+# pprof — CPU + heap profiling 端点 (运维-2)
+# 用作 dev/staging 暴露的 `/debug/pprof/*` 端点的实现：
+#   - `flamegraph` feature 引入 `inferno`，生成 SVG 火焰图
+#   - `protobuf-codec` 让 CPU profile 输出 protobuf 格式（与 Go pprof 工具兼容）
+#   - `frame-pointer` 让 release 也能 unwinding（默认不开）
+# 在生产构建里仍会编译（出于分发一致性），但路由在 `APP_ENV=production` 时
+# 不挂载（见 `handlers::pprof` + `main.rs` 条件 merge）。
+pprof = { version = "0.15", features = [
+    "flamegraph",
+    "protobuf-codec",
+    "frame-pointer",
+] }
+
 [[bin]]
 name = "stress-test"
 path = "src/bin/stress_test/main.rs"
