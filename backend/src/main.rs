@@ -644,6 +644,21 @@ fn create_router(
         .route("/metrics", get(handlers::metrics_handler::metrics))
         .layer(Extension(ws_hub.clone()));
 
+    // P3-4: 审计日志查询端点（admin only）。
+    //   - `auth_middleware`  注入 `AuthenticatedUser` 到 extensions
+    //   - `require_admin_middleware` 校验 role == "admin"
+    //   - `with_state(db)` 给 list_audit_logs / get_audit_log 传 DbPool
+    //   - `nest("/api/v1/admin", ...)` 让路径是 `/api/v1/admin/audit-logs`
+    //     —— 与 admin_api_key_routes / admin_ip_routes 的命名风格一致。
+    let audit_log_routes = handlers::audit_log::router()
+        .layer(middleware::from_fn(
+            quant_trading_backend::middleware::admin_only::require_admin_middleware,
+        ))
+        .layer(middleware::from_fn(
+            quant_trading_backend::middleware::auth::auth_middleware,
+        ))
+        .with_state(app_state.db.clone());
+
     app = Router::new()
         .nest("/api/v1/auth", auth_routes)
         .nest("/api/v1/auth", auth_protected)

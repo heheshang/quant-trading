@@ -1,11 +1,12 @@
 //! 技术指标 DTO（KDJ/MA/MACD/RSI/Bollinger/EMA/ATR/Stochastic/OBV/Pivot/Fib/Hurst）
 
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 // ============ KDJ Indicator ============
 
 /// KDJ signal type
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum KdjSignal {
     GoldenCross,
@@ -17,7 +18,7 @@ pub enum KdjSignal {
 }
 
 /// Single KDJ bar result
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct KdjBar {
     pub open_time: i64,
     pub k: f64,
@@ -27,7 +28,7 @@ pub struct KdjBar {
 }
 
 /// KDJ calculation parameters
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct KdjParams {
     pub n: usize,
     pub m1: usize,
@@ -35,7 +36,7 @@ pub struct KdjParams {
 }
 
 /// KDJ API response
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct KdjResponse {
     pub data: Vec<KdjBar>,
     pub params: KdjParams,
@@ -44,7 +45,7 @@ pub struct KdjResponse {
 }
 
 /// KDJ query parameters (incoming from HTTP)
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct KdjQueryParams {
     pub symbol: Option<String>,
     pub interval: Option<String>,
@@ -58,14 +59,14 @@ pub struct KdjQueryParams {
 // ─── MA (Moving Average) ────────────────────────────────────────────────────
 
 /// Single MA line result
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct MaBar {
     pub open_time: i64,
     pub ma: f64,
 }
 
 /// MA API response
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct MaResponse {
     pub data: Vec<MaBar>,
     pub period: usize,
@@ -74,7 +75,7 @@ pub struct MaResponse {
 }
 
 /// MA query parameters
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct MaQueryParams {
     pub symbol: Option<String>,
     pub interval: Option<String>,
@@ -86,7 +87,7 @@ pub struct MaQueryParams {
 // ─── MACD ─────────────────────────────────────────────────────────────────────
 
 /// Single MACD bar result
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct MacdBar {
     pub open_time: i64,
     pub macd: f64,
@@ -95,7 +96,7 @@ pub struct MacdBar {
 }
 
 /// MACD API response
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct MacdResponse {
     pub data: Vec<MacdBar>,
     pub params: MacdParams,
@@ -104,7 +105,7 @@ pub struct MacdResponse {
 }
 
 /// MACD calculation parameters
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct MacdParams {
     pub fast_period: usize,
     pub slow_period: usize,
@@ -112,7 +113,7 @@ pub struct MacdParams {
 }
 
 /// MACD query parameters
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct MacdQueryParams {
     pub symbol: Option<String>,
     pub interval: Option<String>,
@@ -126,14 +127,14 @@ pub struct MacdQueryParams {
 // ─── RSI ─────────────────────────────────────────────────────────────────────
 
 /// Single RSI bar result
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct RsiBar {
     pub open_time: i64,
     pub rsi: f64,
 }
 
 /// RSI API response
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct RsiResponse {
     pub data: Vec<RsiBar>,
     pub period: usize,
@@ -142,7 +143,7 @@ pub struct RsiResponse {
 }
 
 /// RSI query parameters
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct RsiQueryParams {
     pub symbol: Option<String>,
     pub interval: Option<String>,
@@ -154,7 +155,7 @@ pub struct RsiQueryParams {
 // ─── Bollinger Bands ────────────────────────────────────────────────────────
 
 /// Single Bollinger Bands bar result
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct BollingerBar {
     pub open_time: i64,
     pub upper: f64,
@@ -163,7 +164,7 @@ pub struct BollingerBar {
 }
 
 /// Bollinger Bands API response
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct BollingerResponse {
     pub data: Vec<BollingerBar>,
     pub params: BollingerParams,
@@ -172,14 +173,14 @@ pub struct BollingerResponse {
 }
 
 /// Bollinger Bands parameters
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct BollingerParams {
     pub period: usize,
     pub std_dev: f64,
 }
 
 /// Bollinger Bands query parameters
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct BollingerQueryParams {
     pub symbol: Option<String>,
     pub interval: Option<String>,
@@ -190,7 +191,7 @@ pub struct BollingerQueryParams {
 }
 
 /// EMA bar response
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct EmaResponse {
     pub data: Vec<MaBar>,
     pub period: usize,
@@ -199,7 +200,7 @@ pub struct EmaResponse {
 }
 
 /// EMA query parameters
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct EmaQueryParams {
     pub symbol: Option<String>,
     pub interval: Option<String>,
@@ -209,7 +210,7 @@ pub struct EmaQueryParams {
 }
 
 /// ATR bar response
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct AtrResponse {
     pub data: Vec<RsiBar>,
     pub period: usize,
@@ -218,7 +219,7 @@ pub struct AtrResponse {
 }
 
 /// ATR query parameters
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct AtrQueryParams {
     pub symbol: Option<String>,
     pub interval: Option<String>,
@@ -228,7 +229,7 @@ pub struct AtrQueryParams {
 }
 
 /// Stochastic bar
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct StochasticBar {
     pub open_time: i64,
     pub k: f64,
@@ -236,7 +237,7 @@ pub struct StochasticBar {
 }
 
 /// Stochastic params
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct StochasticParams {
     pub k_period: usize,
     pub d_period: usize,
@@ -244,7 +245,7 @@ pub struct StochasticParams {
 }
 
 /// Stochastic API response
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct StochasticResponse {
     pub data: Vec<StochasticBar>,
     pub params: StochasticParams,
@@ -253,7 +254,7 @@ pub struct StochasticResponse {
 }
 
 /// Stochastic query parameters
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct StochasticQueryParams {
     pub symbol: Option<String>,
     pub interval: Option<String>,
@@ -267,14 +268,14 @@ pub struct StochasticQueryParams {
 // ─── OBV (On-Balance Volume) ──────────────────────────────────────────────
 
 /// Single OBV bar result
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ObvBar {
     pub open_time: i64,
     pub obv: f64,
 }
 
 /// OBV API response
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct ObvResponse {
     pub data: Vec<ObvBar>,
     pub symbol: String,
@@ -282,7 +283,7 @@ pub struct ObvResponse {
 }
 
 /// OBV query parameters
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct ObvQueryParams {
     pub symbol: Option<String>,
     pub interval: Option<String>,
@@ -293,7 +294,7 @@ pub struct ObvQueryParams {
 // ─── Pivot Points ───────────────────────────────────────────────────────
 
 /// Floor / classical pivot levels (P, R1, S1, R2, S2)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct PivotLevels {
     pub p: f64,
     pub r1: f64,
@@ -303,14 +304,14 @@ pub struct PivotLevels {
 }
 
 /// Single pivot bar
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct PivotBar {
     pub open_time: i64,
     pub pivot: PivotLevels,
 }
 
 /// Pivot Points API response
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct PivotResponse {
     pub data: Vec<PivotBar>,
     pub symbol: String,
@@ -318,7 +319,7 @@ pub struct PivotResponse {
 }
 
 /// Pivot query parameters
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct PivotQueryParams {
     pub symbol: Option<String>,
     pub interval: Option<String>,
@@ -329,7 +330,7 @@ pub struct PivotQueryParams {
 // ─── Fibonacci Retracement ─────────────────────────────────────────────
 
 /// Single Fibonacci price level
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct FibLevel {
     pub label: String,
     pub ratio: f64,
@@ -337,7 +338,7 @@ pub struct FibLevel {
 }
 
 /// Fibonacci retracement response
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct FibResponse {
     pub high: f64,
     pub low: f64,
@@ -346,7 +347,7 @@ pub struct FibResponse {
 }
 
 /// Fibonacci query parameters
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct FibQueryParams {
     pub high: f64,
     pub low: f64,
@@ -355,7 +356,7 @@ pub struct FibQueryParams {
 // ─── Hurst Exponent ────────────────────────────────────────────────────
 
 /// Hurst exponent result
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct HurstBar {
     pub h: f64,
     pub sample_size: u64,
@@ -363,7 +364,7 @@ pub struct HurstBar {
 }
 
 /// Hurst API response
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct HurstResponse {
     pub h: f64,
     pub sample_size: u64,
@@ -375,7 +376,7 @@ pub struct HurstResponse {
 }
 
 /// Hurst query parameters
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct HurstQueryParams {
     pub symbol: Option<String>,
     pub interval: Option<String>,

@@ -2,11 +2,12 @@
 // 添加到 models/schemas.rs 末尾
 
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 // ---- Exchange ----
 
 /// Supported exchange enum
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Exchange {
     #[default]
@@ -19,7 +20,7 @@ pub enum Exchange {
 
 // ---- Ticker ----
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct TickerResponse {
     pub symbol: String,
     pub price: f64,
@@ -39,7 +40,7 @@ const SYMBOL_SUFFIX: &str = "USDT";
 const SYMBOL_MIN_LEN: usize = 2; // e.g., "osusdt" (actually 2-10 letters)
 const SYMBOL_MAX_LEN: usize = 10;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct TickerQueryParams {
     pub symbol: Option<String>,
     pub exchange: Option<Exchange>,
@@ -86,21 +87,21 @@ impl TickerQueryParams {
 
 // ---- Depth ----
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct DepthLevel {
     pub price: f64,
     pub quantity: f64,
     pub total: f64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct DepthResponse {
     pub bids: Vec<DepthLevel>,
     pub asks: Vec<DepthLevel>,
     pub timestamp: i64,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct DepthQueryParams {
     pub symbol: String,
     pub levels: Option<i32>,
@@ -112,7 +113,7 @@ pub struct DepthQueryParams {
 /// Maximum allowed time range for ticker history queries (90 days in milliseconds)
 const MAX_TICKER_HISTORY_RANGE_MS: i64 = 90 * 24 * 60 * 60 * 1000;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct TickerHistoryQueryParams {
     pub symbol: String,
     pub start: i64,
@@ -141,7 +142,7 @@ impl TickerHistoryQueryParams {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct TickerSnapshotResponse {
     pub symbol: String,
     pub price: f64,
@@ -155,14 +156,14 @@ pub struct TickerSnapshotResponse {
     pub timestamp: i64,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct TickerHistoryMeta {
     pub total: u64,
     pub page: u64,
     pub page_size: u64,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct TickerHistoryResponse {
     pub items: Vec<TickerSnapshotResponse>,
     pub meta: TickerHistoryMeta,
@@ -170,12 +171,12 @@ pub struct TickerHistoryResponse {
 
 // ---- Watchlist (P1) ----
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct WatchlistUpdateRequest {
     pub symbols: Vec<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct WatchlistResponse {
     pub symbols: Vec<String>,
     pub count: usize,
@@ -222,7 +223,7 @@ pub enum WsOutMessage {
     Error { code: i32, message: String },
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct WsInMessage {
     pub action: String,
     #[serde(default)]

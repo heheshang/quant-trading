@@ -1,5 +1,6 @@
 pub mod ab_experiment_logs;
 pub mod admin_ip_whitelist;
+pub mod audit_log;
 pub mod ai_signals;
 pub mod arbitrage_entities;
 pub mod atr_stop_loss;
@@ -7,6 +8,7 @@ pub mod backtest;
 pub mod backtest_results;
 pub mod dashboard;
 pub mod exchange_api_keys;
+pub mod feature_flag;
 pub mod kline;
 pub mod kline_backup;
 pub mod model_versions;
@@ -636,6 +638,57 @@ pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), sea_orm::DbEr
     ))
     .await?;
 
+    // P3-5: feature_flags 表（功能开关）
+    let stmt = backend.build(
+        schema
+            .create_table_from_entity(feature_flag::Entity)
+            .if_not_exists(),
+    );
+    db.execute(stmt).await?;
+
+    db.execute(sea_orm::Statement::from_string(
+        backend,
+        "CREATE INDEX IF NOT EXISTS idx_feature_flags_enabled ON feature_flags (enabled)".to_string(),
+    ))
+    .await?;
+
+    // Seed default feature flags (idempotent: only inserts if the table is empty)
+    seed_default_feature_flags(db).await?;
+
+    // P3-4: audit_logs 表（审计日志 — 用户敏感操作不可篡改记录）
+    let stmt = backend.build(
+        schema
+            .create_table_from_entity(audit_log::Entity)
+            .if_not_exists(),
+    );
+    db.execute(stmt).await?;
+
+    // 五个查询索引（与本任务清单对应）。
+    // 注意：所有 IF NOT EXISTS → 重复 run_migrations 不会报错；新部署会自动建出。
+    for ddl in [
+        // 1) 按 user 时间线（个人审计页）
+        "CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id_created_at \
+         ON audit_logs (user_id, created_at DESC)",
+        // 2) 按 action 类型（"所有 user.role.changed"）
+        "CREATE INDEX IF NOT EXISTS idx_audit_logs_action_created_at \
+         ON audit_logs (action, created_at DESC)",
+        // 3) 按 target 反查（"这个 api_key 的全生命周期"）
+        "CREATE INDEX IF NOT EXISTS idx_audit_logs_target_type_target_id \
+         ON audit_logs (target_type, target_id)",
+        // 4) 全局时间范围 / 分页
+        "CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at \
+         ON audit_logs (created_at DESC)",
+        // 5) 与 P0-3 request_id 跨链关联（部分索引：跳过 NULL）
+        "CREATE INDEX IF NOT EXISTS idx_audit_logs_request_id \
+         ON audit_logs (request_id) WHERE request_id IS NOT NULL",
+    ] {
+        db.execute(sea_orm::Statement::from_string(
+            backend,
+            ddl.to_string(),
+        ))
+        .await?;
+    }
+
     info!("Database migrations completed");
 
     Ok(())
@@ -675,6 +728,76 @@ async fn seed_default_roles(db: &DatabaseConnection) -> Result<(), sea_orm::DbEr
 
         info!("Default roles seeded");
     }
+
+    Ok(())
+}
+
+/// P3-5: Seed the five default feature flags.
+///
+/// Idempotent: if `feature_flags` already has any rows we leave them alone,
+/// matching the pattern used by `seed_default_roles`. When the table is
+/// empty we insert one row per `feature_flag::defaults::ALL` key with
+/// `enabled = false` (i.e. opt-in). Whitelist / percentage are empty /
+/// zero — admins opt flags in via the admin UI.
+async fn seed_default_feature_flags(db: &DatabaseConnection) -> Result<(), sea_orm::DbErr> {
+    use sea_orm::EntityTrait;
+    use sea_orm::PaginatorTrait;
+
+    let count = feature_flag::Entity::find().count(db).await?;
+    if count > 0 {
+        return Ok(());
+    }
+
+    info!("Seeding default feature flags...");
+    let now = chrono::Utc::now();
+    let empty_array = serde_json::json!([]);
+    let empty_object = serde_json::json!({});
+
+    let entries: Vec<(&str, &str)> = vec![
+        (
+            feature_flag::defaults::NEW_MARKET_DATA_API,
+            "新版市场数据 API（替代 WS-only 路径）",
+        ),
+        (
+            feature_flag::defaults::AI_V2_PREDICTIONS,
+            "AI V2 预测模型（基于扩展特征集训练）",
+        ),
+        (
+            feature_flag::defaults::GRID_STRATEGY,
+            "网格交易策略",
+        ),
+        (
+            feature_flag::defaults::KAFKA_EXPERIMENT,
+            "Kafka 事件总线实验",
+        ),
+        (
+            feature_flag::defaults::ICEBERG_ORDER,
+            "Iceberg 冰山订单（父单拆子单）",
+        ),
+    ];
+
+    for (key, desc) in entries {
+        let am = feature_flag::ActiveModel {
+            key: sea_orm::Set(key.to_string()),
+            description: sea_orm::Set(desc.to_string()),
+            enabled: sea_orm::Set(false),
+            user_whitelist: sea_orm::Set(serde_json::Value::Array(
+                empty_array.as_array().cloned().unwrap_or_default(),
+            )
+            .into()),
+            percentage_rollout: sea_orm::Set(0),
+            metadata: sea_orm::Set(empty_object.clone().into()),
+            created_at: sea_orm::Set(now),
+            updated_at: sea_orm::Set(now),
+            updated_by: sea_orm::Set(None),
+        };
+        feature_flag::Entity::insert(am).exec(db).await?;
+    }
+
+    info!(
+        "Default feature flags seeded ({} rows)",
+        feature_flag::defaults::ALL.len()
+    );
 
     Ok(())
 }

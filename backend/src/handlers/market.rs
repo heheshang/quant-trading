@@ -1,5 +1,5 @@
 use crate::middleware::auth::AuthenticatedUser;
-use crate::models::market_schemas::TickerHistoryResponse;
+use crate::models::market_schemas::{Exchange, TickerHistoryResponse};
 use crate::models::schemas::{
     DepthQueryParams, DepthResponse, KlineQueryParams, KlineQueryResponse,
     TickerHistoryQueryParams, TickerQueryParams, TickerResponse,
@@ -32,6 +32,21 @@ pub const ROLE_NAME_TRADER: &str = "trader";
 
 /// GET /api/v1/market/tickers — 获取所有交易对 Ticker
 #[allow(clippy::too_many_arguments)]
+#[utoipa::path(
+    get,
+    path = "/api/v1/market/tickers",
+    tag = "market",
+    operation_id = "market_list_tickers",
+    security(("bearer_auth" = [])),
+    params(
+        ("symbol" = Option<String>, Query, description = "Optional symbol filter (e.g. BTCUSDT)"),
+        ("exchange" = Option<Exchange>, Query, description = "Exchange to query (default: binance)"),
+    ),
+    responses(
+        (status = 200, description = "List of tickers", body = Vec<TickerResponse>),
+        (status = 401, description = "Unauthenticated"),
+    )
+)]
 pub async fn get_tickers(
     _user: AuthenticatedUser,
     State(db): State<Arc<DatabaseConnection>>,
@@ -50,6 +65,23 @@ pub async fn get_tickers(
 
 /// GET /api/v1/market/ticker — 获取单个交易对 Ticker
 #[allow(clippy::too_many_arguments)]
+#[utoipa::path(
+    get,
+    path = "/api/v1/market/ticker",
+    tag = "market",
+    operation_id = "market_get_ticker",
+    security(("bearer_auth" = [])),
+    params(
+        ("symbol" = Option<String>, Query, description = "Trading symbol (e.g. BTCUSDT)"),
+        ("exchange" = Option<Exchange>, Query, description = "Exchange to query (default: binance)"),
+    ),
+    responses(
+        (status = 200, description = "Ticker for the requested symbol", body = TickerResponse),
+        (status = 400, description = "Invalid symbol format"),
+        (status = 401, description = "Unauthenticated"),
+        (status = 404, description = "Symbol not found"),
+    )
+)]
 pub async fn get_ticker(
     _user: AuthenticatedUser,
     State(db): State<Arc<DatabaseConnection>>,
@@ -76,6 +108,24 @@ pub async fn get_ticker(
 }
 /// GET /api/v1/market/depth — 获取深度数据
 #[allow(clippy::too_many_arguments)]
+#[utoipa::path(
+    get,
+    path = "/api/v1/market/depth",
+    tag = "market",
+    operation_id = "market_get_depth",
+    security(("bearer_auth" = [])),
+    params(
+        ("symbol" = String, Query, description = "Trading symbol (e.g. BTCUSDT)"),
+        ("levels" = Option<i32>, Query, description = "Depth levels (5, 10, 20, 50) — default 10; 50 requires pro-trader/admin"),
+        ("exchange" = Option<Exchange>, Query, description = "Exchange to query (default: binance)"),
+    ),
+    responses(
+        (status = 200, description = "Order book depth", body = DepthResponse),
+        (status = 400, description = "Invalid `levels` value"),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Role not permitted for the requested depth"),
+    )
+)]
 pub async fn get_depth(
     user: AuthenticatedUser,
     State(db): State<Arc<DatabaseConnection>>,

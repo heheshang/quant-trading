@@ -2,11 +2,12 @@
 pub use crate::models::market_schemas::*;
 
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 use uuid::Uuid;
 
 // ============ Auth Request/Response ============
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct RegisterRequest {
     pub username: String,
     pub email: String,
@@ -14,19 +15,19 @@ pub struct RegisterRequest {
     pub display_name: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct LoginRequest {
     pub username: Option<String>,
     pub email: Option<String>,
     pub password: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct RefreshTokenRequest {
     pub refresh_token: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct AuthResponse {
     pub user: UserResponse,
     pub access_token: String,
@@ -34,7 +35,7 @@ pub struct AuthResponse {
     pub expires_in: u64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct TokenResponse {
     pub access_token: String,
     pub refresh_token: String,
@@ -43,7 +44,7 @@ pub struct TokenResponse {
 
 // ============ User ============
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct UserResponse {
     pub id: Uuid,
     pub username: String,
@@ -56,7 +57,7 @@ pub struct UserResponse {
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct UpdateUserRequest {
     pub display_name: Option<String>,
     pub email: Option<String>,
@@ -64,13 +65,13 @@ pub struct UpdateUserRequest {
     pub is_active: Option<bool>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct ChangePasswordRequest {
     pub old_password: String,
     pub new_password: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct AdminUpdateUserRequest {
     pub display_name: Option<String>,
     pub email: Option<String>,
@@ -81,7 +82,7 @@ pub struct AdminUpdateUserRequest {
 
 // ============ Role ============
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct RoleResponse {
     pub id: Uuid,
     pub name: String,
@@ -91,14 +92,14 @@ pub struct RoleResponse {
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateRoleRequest {
     pub name: String,
     pub display_name: String,
     pub description: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct UpdateRoleRequest {
     pub display_name: Option<String>,
     pub description: Option<String>,
@@ -106,7 +107,7 @@ pub struct UpdateRoleRequest {
 
 // ============ Permission ============
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct PermissionResponse {
     pub id: Uuid,
     pub name: String,
@@ -116,7 +117,7 @@ pub struct PermissionResponse {
     pub action: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct CreatePermissionRequest {
     pub name: String,
     pub display_name: String,
@@ -127,12 +128,22 @@ pub struct CreatePermissionRequest {
 
 // ============ Pagination ============
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct PaginationParams {
     pub page: Option<u64>,
     pub size: Option<u64>,
 }
 
+// `PaginatedResponse<T>` is generic; the OpenAPI spec emits it as a schema
+// with no typed `items`. We intentionally skip `ToSchema` here because utoipa's
+// derive macro for generics requires the `T: utoipa::ToSchema` bound, which we
+// don't want to impose project-wide. The two response wrappers that use it
+// (`UserListResponse`, `StrategyListResponse`) are typed as the `response.rs`
+// newtype; their `ToSchema` impls reference `PaginatedResponse<T>` and would
+// fail to compile. The follow-up task t_<batch-A> covers adding the bound +
+// composed schema. For now, those two endpoints will appear in the OpenAPI
+// spec but their response body will be marked as `object` (untyped), which is
+// still usable from `openapi-fetch` with manual `as any` casts on the FE.
 #[derive(Debug, Serialize)]
 pub struct PaginatedResponse<T: Serialize> {
     pub items: Vec<T>,

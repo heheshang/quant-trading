@@ -5,7 +5,7 @@
 use axum::{
     Extension, Json,
     extract::{Path, Query, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -13,8 +13,10 @@ use std::sync::Arc;
 use sea_orm::DatabaseConnection;
 use uuid::Uuid;
 
+use crate::db::audit_log::{actions, target_types};
 use crate::middleware::auth::AuthenticatedUser;
 use crate::models::schemas::{PaginatedResponse, PaginationParams};
+use crate::services::audit_log;
 use crate::services::exchange::api_keys::ApiKeyStore;
 use crate::services::exchange::signed_client::SignedBinanceClient;
 use crate::utils::error::AppError;
@@ -120,6 +122,7 @@ pub async fn create_api_key(
     user: AuthenticatedUser,
     State(_db): State<Arc<DatabaseConnection>>,
     Extension(key_store): Extension<Arc<ApiKeyStore>>,
+    headers: HeaderMap,
     Json(body): Json<CreateApiKeyRequest>,
 ) -> Result<(StatusCode, Json<ApiResponse<ApiKeyResponse>>), AppError> {
     if body.exchange.is_empty() {
@@ -152,6 +155,26 @@ pub async fn create_api_key(
         "API key created"
     );
 
+    // P3-4: 写审计 —— 不脱敏的 exchange / permissions，方便事后回查。
+    // 永远不写 api_key / secret 原文 / 密文。
+    let (ip, ua, req_id) = audit_log::extract_audit_context(&headers, "0.0.0.0");
+    let event = audit_log::AuditEvent {
+        user_id: Some(user.user_id),
+        action: actions::API_KEY_CREATED.to_string(),
+        target_type: target_types::API_KEY.to_string(),
+        target_id: key.id.to_string(),
+        before: None,
+        after: Some(serde_json::json!({
+            "exchange": body.exchange,
+            "permissions": permissions,
+            "is_active": true,
+        })),
+        ip_address: ip,
+        user_agent: ua,
+        request_id: req_id,
+    };
+    audit_log::record(&_db, event).await;
+
     Ok((StatusCode::CREATED, Json(ApiResponse::success(resp))))
 }
 
@@ -180,8 +203,15 @@ pub async fn update_api_key(
     State(_db): State<Arc<DatabaseConnection>>,
     Extension(key_store): Extension<Arc<ApiKeyStore>>,
     Path(id): Path<Uuid>,
+    headers: HeaderMap,
     Json(body): Json<UpdateApiKeyRequest>,
 ) -> Result<Json<ApiResponse<ApiKeyResponse>>, AppError> {
+    // P3-4: 取 before 状态用于审计 diff（updated 类事件要写 {before, after}）。
+    let before_state = key_store
+        .find_by_id_and_user(id, user.user_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("API key not found".into()))?;
+
     let updated = key_store
         .update_by_id(
             id,
@@ -197,6 +227,29 @@ pub async fn update_api_key(
         "API key updated"
     );
 
+    // P3-4: 写审计 diff
+    let (ip, ua, req_id) = audit_log::extract_audit_context(&headers, "0.0.0.0");
+    let event = audit_log::AuditEvent {
+        user_id: Some(user.user_id),
+        action: actions::API_KEY_UPDATED.to_string(),
+        target_type: target_types::API_KEY.to_string(),
+        target_id: id.to_string(),
+        before: Some(serde_json::json!({
+            "exchange": before_state.exchange,
+            "permissions": before_state.permissions,
+            "is_active": before_state.is_active,
+        })),
+        after: Some(serde_json::json!({
+            "exchange": updated.exchange,
+            "permissions": updated.permissions,
+            "is_active": updated.is_active,
+        })),
+        ip_address: ip,
+        user_agent: ua,
+        request_id: req_id,
+    };
+    audit_log::record(&_db, event).await;
+
     Ok(Json(ApiResponse::success(ApiKeyResponse::from_key(
         &updated,
     ))))
@@ -210,7 +263,14 @@ pub async fn delete_api_key(
     State(_db): State<Arc<DatabaseConnection>>,
     Extension(key_store): Extension<Arc<ApiKeyStore>>,
     Path(id): Path<Uuid>,
+    headers: HeaderMap,
 ) -> Result<Json<ApiResponse<()>>, AppError> {
+    // P3-4: 删除前先取一份"被删的是谁"——deleted 类事件也要记业务字段。
+    let before = key_store
+        .find_by_id_and_user(id, user.user_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("API key not found".into()))?;
+
     key_store.delete_by_id(id, user.user_id).await?;
 
     tracing::info!(
@@ -218,6 +278,25 @@ pub async fn delete_api_key(
         key_id = %id,
         "API key deleted"
     );
+
+    // P3-4: 写审计
+    let (ip, ua, req_id) = audit_log::extract_audit_context(&headers, "0.0.0.0");
+    let event = audit_log::AuditEvent {
+        user_id: Some(user.user_id),
+        action: actions::API_KEY_DELETED.to_string(),
+        target_type: target_types::API_KEY.to_string(),
+        target_id: id.to_string(),
+        before: Some(serde_json::json!({
+            "exchange": before.exchange,
+            "permissions": before.permissions,
+            "is_active": before.is_active,
+        })),
+        after: Some(serde_json::json!({ "deleted_id": id.to_string() })),
+        ip_address: ip,
+        user_agent: ua,
+        request_id: req_id,
+    };
+    audit_log::record(&_db, event).await;
 
     Ok(Json(ApiResponse::success(())))
 }

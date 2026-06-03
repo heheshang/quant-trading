@@ -6,6 +6,7 @@ use axum::body::Bytes;
 use axum::{
     Json, Router,
     extract::{Extension, Query, State},
+    http::HeaderMap,
     routing::{get, post},
 };
 use rust_decimal::Decimal;
@@ -13,7 +14,9 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
 
+use crate::db::audit_log::{actions, target_types};
 use crate::middleware::auth::AuthenticatedUser;
+use crate::services::audit_log;
 use crate::services::exchange::ws_hub::ConnectionStatus;
 use crate::services::risk_manager::{
     EmergencyCloseResult, PauseResponse, RiskCheckResult, RiskManager,
@@ -131,6 +134,7 @@ pub async fn get_risk_rules(
 pub async fn update_risk_rules(
     State(db): State<Arc<DatabaseConnection>>,
     user: AuthenticatedUser,
+    headers: HeaderMap,
     Json(req): Json<RiskRulesUpdate>,
 ) -> Result<Json<ApiResponse<RiskRulesResponse>>, AppError> {
     use crate::db::risk_rules::{ActiveModel, Column, Entity as RiskRulesEntity};
@@ -142,6 +146,21 @@ pub async fn update_risk_rules(
         .filter(Column::UserId.eq(user.user_id))
         .one(db.as_ref())
         .await?;
+
+    // P3-4: 捕获 before 状态用于审计 diff（updated vs created 区分）
+    let before_snapshot = existing.as_ref().map(|e| {
+        serde_json::json!({
+            "daily_loss_limit": e.daily_loss_limit.to_string(),
+            "daily_loss_auto_close": e.daily_loss_auto_close,
+            "single_trade_loss_ratio": e.single_trade_loss_ratio.to_string(),
+            "max_drawdown_ratio": e.max_drawdown_ratio.to_string(),
+            "drawdown_auto_close": e.drawdown_auto_close,
+            "stop_loss_type": e.stop_loss_type,
+            "atr_period": e.atr_period,
+            "atr_multiplier": e.atr_multiplier.map(|d| d.to_string()),
+            "is_active": e.is_active,
+        })
+    });
 
     let mut active: ActiveModel = match existing {
         Some(ref e) => e.clone().into(),
@@ -254,6 +273,37 @@ pub async fn update_risk_rules(
                 .ok_or_else(|| AppError::Internal("Failed to fetch inserted risk rules".into()))?
         }
     };
+
+    // P3-4: 写审计 diff（在构造响应前抓 after snapshot，避免 moved-value 问题）。
+    // `String` 字段 clone 一份用于响应。
+    let (ip, ua, req_id) = audit_log::extract_audit_context(&headers, "0.0.0.0");
+    let after_snapshot = serde_json::json!({
+        "daily_loss_limit": saved.daily_loss_limit.to_string(),
+        "daily_loss_auto_close": saved.daily_loss_auto_close,
+        "single_trade_loss_ratio": saved.single_trade_loss_ratio.to_string(),
+        "max_drawdown_ratio": saved.max_drawdown_ratio.to_string(),
+        "drawdown_auto_close": saved.drawdown_auto_close,
+        "stop_loss_type": saved.stop_loss_type.clone(),
+        "atr_period": saved.atr_period,
+        "atr_multiplier": saved.atr_multiplier.map(|d| d.to_string()),
+        "is_active": saved.is_active,
+    });
+    let event = audit_log::AuditEvent {
+        user_id: Some(user.user_id),
+        action: actions::RISK_RULE_UPDATED.to_string(),
+        target_type: target_types::RISK_RULE.to_string(),
+        target_id: saved.id.to_string(),
+        before: before_snapshot,
+        after: Some(after_snapshot),
+        ip_address: ip,
+        user_agent: ua,
+        request_id: req_id,
+    };
+    // 派发到后台 — 审计失败也不影响响应。
+    let db_for_audit = db.clone();
+    tokio::spawn(async move {
+        audit_log::record(&db_for_audit, event).await;
+    });
 
     Ok(Json(ApiResponse::success(RiskRulesResponse {
         id: saved.id.to_string(),

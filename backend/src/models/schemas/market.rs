@@ -1,11 +1,12 @@
 //! K线与 WebSocket 消息 DTO
 
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 use uuid::Uuid;
 
 // ============ K-line ============
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct KlineResponse {
     pub id: i64,
     pub user_id: Uuid,
@@ -25,7 +26,7 @@ pub struct KlineResponse {
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct KlineListMeta {
     pub total: u64,
     pub page: u64,
@@ -33,13 +34,13 @@ pub struct KlineListMeta {
     pub gap_detected: bool,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct KlineListResponse {
     pub data: Vec<KlineResponse>,
     pub meta: KlineListMeta,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct KlineQueryParams {
     pub symbol: Option<String>,
     pub interval: Option<String>,
@@ -49,7 +50,7 @@ pub struct KlineQueryParams {
     pub size: Option<u64>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct KlineImportRequest {
     pub symbol: String,
     pub interval: String,
@@ -57,7 +58,7 @@ pub struct KlineImportRequest {
     pub data: Vec<KlineImportItem>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, ToSchema)]
 pub struct KlineImportItem {
     pub open_time: i64,
     pub open: f64,
@@ -73,14 +74,14 @@ pub struct KlineImportItem {
     pub trades: Option<i64>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct KlineImportResult {
     pub imported_rows: i64,
     pub duplicate_rows: i64,
     pub failed_rows: i64,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct KlineImportLogResponse {
     pub id: i64,
     pub user_id: Uuid,
@@ -95,7 +96,7 @@ pub struct KlineImportLogResponse {
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct KlineQualityAnomaly {
     pub open_time: i64,
     pub anomaly_type: String,
@@ -105,7 +106,7 @@ pub struct KlineQualityAnomaly {
     pub close: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct KlineQualityReport {
     pub symbol: String,
     pub interval: String,
@@ -118,20 +119,20 @@ pub struct KlineQualityReport {
     pub anomalies: Vec<KlineQualityAnomaly>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct KlineCleanRequest {
     pub symbol: String,
     pub interval: String,
     pub clean_types: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct KlineCleanResult {
     pub removed_count: i64,
     pub backup_count: i64,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct KlineExportParams {
     pub symbol: String,
     pub interval: String,
@@ -142,7 +143,7 @@ pub struct KlineExportParams {
 
 // ============ WS ============
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct WsQueryParams {
     pub token: String,
 }

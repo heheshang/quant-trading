@@ -1,6 +1,7 @@
 //! 各类 Handler 响应体 DTO
 
 use serde::Serialize;
+use utoipa::ToSchema;
 
 // `JwtClaims` and `PaginationParams` are referenced only from the
 // `#[cfg(test)] mod tests` block in handlers (e.g. test fixtures that
@@ -22,7 +23,7 @@ use crate::models::market_schemas::TickerResponse;
 // ============ Handler Response Types ============
 
 // --- Auth ---
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct AuthResponseBody {
     pub user: UserResponse,
     pub access_token: String,
@@ -30,19 +31,24 @@ pub struct AuthResponseBody {
     pub expires_in: u64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct TokenResponseBody {
     pub access_token: String,
     pub refresh_token: String,
     pub expires_in: u64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct LogoutResponse {
     pub message: String,
 }
 
 // --- Strategy ---
+// NB: `StrategyListResponse` wraps the generic `PaginatedResponse<StrategyResponse>`.
+// utoipa's derive on a generic requires `T: ToSchema`, which is intentionally
+// not implemented for `PaginatedResponse<T>` (see schema note in
+// `models/schemas/auth.rs`). The schema for this endpoint is left as `object`
+// in the generated spec; the FE can cast `items` to `StrategyResponse[]`.
 #[derive(Debug, Serialize)]
 pub struct TemplateListResponse(pub Vec<TemplateInfo>);
 
@@ -68,7 +74,7 @@ pub struct StrategyImportResponse {
 }
 
 // --- Kline ---
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct KlineSymbolOverview {
     pub symbol: String,
     pub interval: String,
@@ -80,70 +86,72 @@ pub struct KlineSymbolOverview {
     pub source: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct KlineLatestResponse(pub Option<KlineResponse>);
 
 // NOTE: `KlineSymbolListResponse` wraps a `Vec<crate::services::kline::KlineSymbolOverview>`,
 // an out-of-tree service type. The `KlineSymbolOverview` in `services::kline`
 // also needs `ToSchema` for the OpenAPI spec to fully describe this response.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct KlineSymbolListResponse(pub Vec<crate::services::kline::KlineSymbolOverview>);
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct KlineFetchResponse(pub KlineImportResult);
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct KlineRollbackResponse(pub KlineCleanResult);
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct KlineCsvImportResponse(pub KlineImportResult);
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct KlineQueryResponse(pub KlineListResponse);
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct KlineImportResponse(pub KlineImportResult);
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct KlineImportHistoryResponse(pub Vec<KlineImportLogResponse>);
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct KlineQualityResponse(pub KlineQualityReport);
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct KlineCleanResponse(pub KlineCleanResult);
 
 // --- User ---
+// NB: `UserListResponse` wraps the generic `PaginatedResponse<UserResponse>`
+// (see Strategy note above for why `ToSchema` is omitted here).
 #[derive(Debug, Serialize)]
 pub struct UserListResponse(pub PaginatedResponse<UserResponse>);
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct UserMeResponse(pub UserResponse);
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct UserUpdateResponse(pub UserResponse);
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct ChangePasswordResponse {
     pub message: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct UserDeleteResponse {
     pub message: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct RoleListResponse(pub Vec<RoleResponse>);
 
 // --- Market ---
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct TickerListResponse(pub Vec<TickerResponse>);
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct TickerSingleResponse(pub TickerResponse);
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct TickerHistoryResponse(pub serde_json::Value);
 
 #[cfg(test)]

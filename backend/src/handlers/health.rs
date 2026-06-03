@@ -10,12 +10,46 @@ use axum::Json;
 use crate::state::AppState;
 use sea_orm::ConnectionTrait;
 use serde_json::json;
+use utoipa::ToSchema;
+
+/// Liveness response payload.
+#[derive(Debug, serde::Serialize, ToSchema)]
+pub struct LivenessResponse {
+    pub status: String,
+    pub version: String,
+    pub timestamp: String,
+}
+
+/// Readiness response payload.
+#[derive(Debug, serde::Serialize, ToSchema)]
+pub struct ReadinessResponse {
+    pub status: String,
+    pub version: String,
+    pub timestamp: String,
+    pub checks: ReadinessChecks,
+}
+
+/// Per-dependency check status.
+#[derive(Debug, serde::Serialize, ToSchema)]
+pub struct ReadinessChecks {
+    pub database: String,
+    pub redis: String,
+}
 
 /// Liveness probe: 进程在跑就返回 200。
 ///
 /// 不检查任何外部依赖。即使下游 DB/Redis 全挂，liveness 仍应返回 OK，
 /// 否则 k8s 会重启 Pod，而重启并不能恢复下游。
 #[tracing::instrument]
+#[utoipa::path(
+    get,
+    path = "/health",
+    tag = "system",
+    operation_id = "system_liveness",
+    responses(
+        (status = 200, description = "Process is alive", body = LivenessResponse),
+    )
+)]
 pub async fn liveness() -> impl IntoResponse {
     Json(json!({
         "code": 0,
@@ -33,6 +67,16 @@ pub async fn liveness() -> impl IntoResponse {
 /// 任何一个依赖 ping 失败就把整体标记为 unready。响应体里逐项列出结果，
 /// 方便 dashboard / pagerDuty 看到具体哪个依赖挂了。
 #[tracing::instrument(skip(state))]
+#[utoipa::path(
+    get,
+    path = "/api/v1/health/ready",
+    tag = "system",
+    operation_id = "system_readiness",
+    responses(
+        (status = 200, description = "All dependencies healthy", body = ReadinessResponse),
+        (status = 503, description = "One or more dependencies down"),
+    )
+)]
 pub async fn readiness(State(state): State<AppState>) -> impl IntoResponse {
     let db_ok = sqlx_query_check(&state).await;
     let redis_ok = redis_ping_check(&state).await;

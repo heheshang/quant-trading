@@ -1,11 +1,12 @@
 //! 策略相关的请求/响应 DTO
 
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 use uuid::Uuid;
 
 // ============ Strategy ============
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct StrategyResponse {
     pub id: Uuid,
     pub user_id: Uuid,
@@ -22,7 +23,7 @@ pub struct StrategyResponse {
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateStrategyRequest {
     pub name: String,
     pub description: Option<String>,
@@ -35,32 +36,32 @@ pub struct CreateStrategyRequest {
     pub parameters: serde_json::Value,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct UpdateStrategyRequest {
     pub name: Option<String>,
     pub description: Option<String>,
     pub parameters: Option<serde_json::Value>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct UpdateStatusRequest {
     pub status: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct BulkUpdateStatusRequest {
     pub ids: Vec<uuid::Uuid>,
     pub status: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct ExportParams {
     pub status: Option<String>,
     #[allow(dead_code)]
     pub format: Option<String>, // currently only json is supported
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct ImportStrategyRequest {
     pub name: String,
     pub description: Option<String>,
@@ -75,18 +76,18 @@ pub struct ImportStrategyRequest {
     pub status: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct ImportBatchRequest {
     pub strategies: Vec<ImportStrategyRequest>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct ImportBatchResponse {
     pub imported: usize,
     pub errors: Vec<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct TemplateInfo {
     pub id: String,
     pub template_id: Uuid, // ADR D6: deterministic UUID for this template
@@ -97,7 +98,7 @@ pub struct TemplateInfo {
     pub parameter_schema: Vec<ParameterDef>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct ParameterDef {
     pub name: String,
     #[serde(rename = "type")]
