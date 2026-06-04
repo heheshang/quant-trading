@@ -2,8 +2,38 @@
 
 ### 新增
 
+- **PAMM 资管系统上线 (§6-1 商业化)**
+  - **后端 wiring** (`backend/src/main.rs`): 把 `pamm.rs::router_user` 跟
+    `pamm::router_manager` 接进全局 app。User 路由只挂 `auth_middleware`,
+    manager 路由先 `auth_middleware` 再 `require_admin_middleware` (跟
+    P3-4 audit_log 同款模板)
+  - **后端 router split** (`backend/src/handlers/pamm.rs`): 9 端点拆成
+    `router_user()` (7 端点,任意已登录用户) 跟 `router_manager()`
+    (2 端点,distribute / liquidate),unit test 同步改
+  - **前端 store** (`frontend/src/stores/pamm.ts`): Pinia store,封装
+    list / get / create / subscribe / redeem / distribute / liquidate /
+    my-investments / load-fund-investments,所有 wire 走 typedApi (openapi-fetch)
+  - **前端 4 view** (`frontend/src/views/pamm/`):
+    - `PammFundListView.vue` — 基金列表,manager 可见"开新基金"按钮,
+      弹窗式创建表单 (name / base_currency / mgmt&perf fee / HWM 开关)
+    - `PammFundDetailView.vue` — 基金详情 (4 KPI + 投资人表) + Subscribe
+      / Redeem / Distribute / Liquidate 4 个操作弹窗
+    - `PammMyInvestmentsView.vue` — 我的投资 (含 initial / current /
+      P&L 绝对值 + 百分比)
+    - `PammManagerDashboardView.vue` — 经理面板 (我管理的基金列表 +
+      投资人快速入口)
+  - **路由 + 侧边栏**: 4 路由挂到 MainLayout,`/pamm/manager` 走
+    `roles: ['admin']` 守卫;`AppSidebar.vue` 加 "PAMM 基金" 入口
+  - **auth store 补 `userId`**: `frontend/src/stores/auth.ts` 新增
+    `userId` computed,前端 manager 判定 (fund.manager_id == me) 需要
+  - **文档**: `docs/pamm.md` 新增 (10K+ 字符),含算法推导 + 完整数字
+    例子 (NAV 100万 → 120万,perf_fee 4万,投资人分成 7.99/4.79/3.20 万)
+    + 9 端点 curl 例子 + 投资人/经理流程 + 风险说明
+  - **CLAUDE.md**: 新增 §6-1 PAMM 章节 (算法 + 权限 + wire 注意事项)
+  - **CHANGELOG**: 本条目
+
 - **多周期 K 线联动 (P2-3)**
-  - 新增 `frontend/src/components/charts/MultiTimeframeChart.vue`：
+  - 新增 `frontend/src/components/charts/MultiTimeframeChart.vue`:
     主图（用户选择周期）+ 副图（1h/4h/1d 切换）的上下叠放布局，副图
     X 轴自动跟随主图 pan/zoom
   - X 轴同步通过 `window` 自定义事件 `kline-visible-range-change`

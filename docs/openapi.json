@@ -24,6 +24,116 @@
     }
   ],
   "paths": {
+    "/api/v1/admin/feature-flags": {
+      "get": {
+        "tags": [
+          "feature-flag"
+        ],
+        "summary": "`GET /api/v1/admin/feature-flags`",
+        "description": "Admin list: every flag row (raw, no per-user evaluation). The admin\nUI reads this to populate the toggle table.",
+        "operationId": "feature_flags_admin_list",
+        "responses": {
+          "200": {
+            "description": "All defined feature flag rows"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Admin only"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "feature-flag"
+        ],
+        "summary": "`POST /api/v1/admin/feature-flags`",
+        "description": "Admin upsert: create or update a flag row by `key`. The response is\nthe persisted row. The cache is invalidated automatically by\n`svc::upsert`.",
+        "operationId": "feature_flags_admin_upsert",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpsertFeatureFlagRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Persisted flag row",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeatureFlag"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error (key length, whitelist shape, ...)"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Admin only"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/feature-flags/{key}": {
+      "delete": {
+        "tags": [
+          "feature-flag"
+        ],
+        "summary": "`DELETE /api/v1/admin/feature-flags/{key}`",
+        "description": "Admin delete. Returns 204 if a row was actually removed, 404\notherwise. The cache is invalidated automatically.",
+        "operationId": "feature_flags_admin_delete",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "description": "Flag primary key to delete",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Admin only"
+          },
+          "404": {
+            "description": "Flag with that key not found"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
     "/api/v1/audit-logs": {
       "get": {
         "tags": [
@@ -351,6 +461,36 @@
         }
       }
     },
+    "/api/v1/feature-flags": {
+      "get": {
+        "tags": [
+          "feature-flag"
+        ],
+        "summary": "`GET /api/v1/feature-flags`",
+        "description": "User bootstrap: returns the per-user evaluation of every known flag.\nFrontend caches this map and uses it via `useFeatureFlag(key)`. We\nevaluate against the *current* caller's `user_id` so the response\nnaturally captures whitelist + percentage rollout.",
+        "operationId": "feature_flags_evaluate",
+        "responses": {
+          "200": {
+            "description": "Per-user boolean evaluation of every known flag",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeatureFlagEvaluation"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
     "/api/v1/health/ready": {
       "get": {
         "tags": [
@@ -533,6 +673,406 @@
                   "items": {
                     "$ref": "#/components/schemas/TickerResponse"
                   }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/pamm/funds": {
+      "get": {
+        "tags": [
+          "pamm"
+        ],
+        "summary": "`GET /api/v1/pamm/funds` — list all `Active` funds.",
+        "operationId": "pamm_list_funds",
+        "responses": {
+          "200": {
+            "description": "Page of active funds",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListFundsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "pamm"
+        ],
+        "summary": "`POST /api/v1/pamm/funds` — open a new fund. The caller becomes\nits manager.",
+        "operationId": "pamm_create_fund",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateFundRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Fund created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateFundResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/pamm/funds/{id}": {
+      "get": {
+        "tags": [
+          "pamm"
+        ],
+        "summary": "`GET /api/v1/pamm/funds/{id}` — fund detail + current NAV.",
+        "operationId": "pamm_get_fund",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Fund id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fund detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FundView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "404": {
+            "description": "Fund not found"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/pamm/funds/{id}/distribute": {
+      "post": {
+        "tags": [
+          "pamm"
+        ],
+        "summary": "`POST /api/v1/pamm/funds/{id}/distribute` — manager triggers a\nprofit distribution for the given period.",
+        "operationId": "pamm_distribute",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Fund id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DistributeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Distribution complete",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DistributeResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Not the fund manager"
+          },
+          "409": {
+            "description": "Fund not active"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/pamm/funds/{id}/investments": {
+      "get": {
+        "tags": [
+          "pamm"
+        ],
+        "summary": "`GET /api/v1/pamm/funds/{id}/investments` — manager + self can\nsee the investor list.",
+        "operationId": "pamm_list_fund_investments",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Fund id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Investor list (manager + self)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvestmentsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Not the fund manager"
+          },
+          "404": {
+            "description": "Fund not found"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/pamm/funds/{id}/liquidate": {
+      "post": {
+        "tags": [
+          "pamm"
+        ],
+        "summary": "`POST /api/v1/pamm/funds/{id}/liquidate` — manager liquidates the\nfund. Returns 204 No Content on success.",
+        "operationId": "pamm_liquidate",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Fund id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Fund liquidated"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Not the fund manager"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/pamm/funds/{id}/redeem": {
+      "post": {
+        "tags": [
+          "pamm"
+        ],
+        "summary": "`POST /api/v1/pamm/funds/{id}/redeem` — submit a redemption.",
+        "operationId": "pamm_redeem",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Fund id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RedeemRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Redemption accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RedeemResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "404": {
+            "description": "Fund not found / no investment"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/pamm/funds/{id}/subscribe": {
+      "post": {
+        "tags": [
+          "pamm"
+        ],
+        "summary": "`POST /api/v1/pamm/funds/{id}/subscribe` — submit a subscription.",
+        "operationId": "pamm_subscribe",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Fund id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscribeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Subscription accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubscribeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "404": {
+            "description": "Fund not found"
+          },
+          "409": {
+            "description": "Fund not active"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/pamm/my-investments": {
+      "get": {
+        "tags": [
+          "pamm"
+        ],
+        "summary": "`GET /api/v1/pamm/my-investments` — the caller's investments.",
+        "operationId": "pamm_my_investments",
+        "responses": {
+          "200": {
+            "description": "My investments",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvestmentsResponse"
                 }
               }
             }
@@ -847,6 +1387,59 @@
           }
         }
       },
+      "CreateFundRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "base_currency",
+          "management_fee_pct",
+          "performance_fee_pct",
+          "high_water_mark"
+        ],
+        "properties": {
+          "base_currency": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "high_water_mark": {
+            "type": "boolean"
+          },
+          "management_fee_pct": {
+            "type": "string",
+            "description": "Annualised management fee as a fraction (0.02 = 2%). Stored as\nstring to preserve precision (JSON Decimal round-trip)."
+          },
+          "name": {
+            "type": "string"
+          },
+          "performance_fee_pct": {
+            "type": "string",
+            "description": "Performance fee as a fraction of HWM-increment profit (0.20 = 20%)."
+          },
+          "strategy_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "CreateFundResponse": {
+        "type": "object",
+        "required": [
+          "fund"
+        ],
+        "properties": {
+          "fund": {
+            "$ref": "#/components/schemas/FundView"
+          }
+        }
+      },
       "DepthLevel": {
         "type": "object",
         "required": [
@@ -895,6 +1488,98 @@
           }
         }
       },
+      "DistributeRequest": {
+        "type": "object",
+        "required": [
+          "period_start",
+          "period_end"
+        ],
+        "properties": {
+          "period_end": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "period_start": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "DistributeResponse": {
+        "type": "object",
+        "required": [
+          "distributions",
+          "period_start",
+          "period_end"
+        ],
+        "properties": {
+          "distributions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DistributionView"
+            }
+          },
+          "period_end": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "period_start": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "DistributionView": {
+        "type": "object",
+        "description": "Per-period distribution row exposed in the manager dashboard.",
+        "required": [
+          "id",
+          "fund_id",
+          "user_id",
+          "period_start",
+          "period_end",
+          "profit_amount",
+          "hwm",
+          "perf_fee_charged",
+          "mgmt_fee_charged",
+          "distributed_at"
+        ],
+        "properties": {
+          "distributed_at": {
+            "type": "string"
+          },
+          "fund_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "hwm": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mgmt_fee_charged": {
+            "type": "string"
+          },
+          "perf_fee_charged": {
+            "type": "string"
+          },
+          "period_end": {
+            "type": "string"
+          },
+          "period_start": {
+            "type": "string"
+          },
+          "profit_amount": {
+            "type": "string"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
       "Exchange": {
         "type": "string",
         "description": "Supported exchange enum",
@@ -905,6 +1590,264 @@
           "bybit",
           "huobi"
         ]
+      },
+      "FeatureFlag": {
+        "type": "object",
+        "description": "Wire shape for a feature flag row. The `db::feature_flag::Model` is\nthe SeaORM-internal representation and uses a `Json` value for\n`user_whitelist` / `metadata`; this DTO is what the admin UI sees and\nwhat `openapi-typescript` consumes. All fields are camelCase on the\nwire (`#[serde(rename_all = \"camelCase\")]`).",
+        "required": [
+          "key",
+          "description",
+          "enabled",
+          "userWhitelist",
+          "percentageRollout",
+          "metadata",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "DB-side row insert timestamp."
+          },
+          "description": {
+            "type": "string",
+            "description": "Free-text description shown in the admin UI."
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Global on/off switch. When `false`, no other column matters (other\nthan whitelist overrides — see `services::feature_flag::evaluate_flag`)."
+          },
+          "key": {
+            "type": "string",
+            "description": "Primary key, e.g. `\"iceberg_order\"`. VARCHAR(64) on the DB side."
+          },
+          "metadata": {
+            "description": "Free-form JSON, e.g. `{\"experiment\": \"v2\"}`. Defaults to `{}`."
+          },
+          "percentageRollout": {
+            "type": "integer",
+            "format": "int32",
+            "description": "0..=100 — share of users (excluding whitelist) that see the feature."
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "DB-side row update timestamp."
+          },
+          "updatedBy": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Admin user id (UUID) who last edited the row, if known."
+          },
+          "userWhitelist": {
+            "description": "JSON array of user UUIDs that always see the feature as on,\nregardless of `enabled` or `percentage_rollout`. Stored as JSONB."
+          }
+        }
+      },
+      "FeatureFlagEvaluation": {
+        "type": "object",
+        "description": "Response shape for the user bootstrap endpoint: a flat\n`{flag_key: bool}` map. The frontend renders UI affordances based on\nthis map; unknown keys are absent (i.e. missing → treat as off).",
+        "required": [
+          "flags"
+        ],
+        "properties": {
+          "flags": {
+            "type": "object",
+            "description": "The `key` (string) of the flag. utoipa's `ToSchema` derive on a\n`HashMap<String, bool>` produces an open object with `additionalProperties:\n{ type: boolean }`, which is exactly what the SPA expects.",
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "FundView": {
+        "type": "object",
+        "description": "Subset of `pamm_funds` row surfaced via the API. Decimals are\nserialised as strings to preserve precision.",
+        "required": [
+          "id",
+          "manager_id",
+          "name",
+          "base_currency",
+          "management_fee_pct",
+          "performance_fee_pct",
+          "high_water_mark",
+          "nav",
+          "share_value",
+          "hwm",
+          "total_shares",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "base_currency": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "high_water_mark": {
+            "type": "boolean"
+          },
+          "hwm": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "management_fee_pct": {
+            "type": "string"
+          },
+          "manager_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "manager_username": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "nav": {
+            "type": "string"
+          },
+          "performance_fee_pct": {
+            "type": "string"
+          },
+          "share_value": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "strategy_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "total_shares": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        }
+      },
+      "InvestmentView": {
+        "type": "object",
+        "description": "Per-user view of their investment, enriched with current value.",
+        "required": [
+          "id",
+          "fund_id",
+          "user_id",
+          "share_pct",
+          "shares",
+          "initial_investment",
+          "current_value",
+          "unrealized_pnl",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string"
+          },
+          "current_value": {
+            "type": "string"
+          },
+          "fund_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fund_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "initial_investment": {
+            "type": "string"
+          },
+          "share_pct": {
+            "type": "string"
+          },
+          "shares": {
+            "type": "string"
+          },
+          "unrealized_pnl": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "InvestmentsResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InvestmentView"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "ListFundsResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FundView"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
       },
       "LivenessResponse": {
         "type": "object",
@@ -1000,6 +1943,37 @@
           }
         }
       },
+      "RedeemRequest": {
+        "type": "object",
+        "required": [
+          "amount"
+        ],
+        "properties": {
+          "amount": {
+            "type": "string"
+          }
+        }
+      },
+      "RedeemResponse": {
+        "type": "object",
+        "required": [
+          "redemption_id",
+          "status",
+          "amount_paid"
+        ],
+        "properties": {
+          "amount_paid": {
+            "type": "string"
+          },
+          "redemption_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
       "RefreshTokenRequest": {
         "type": "object",
         "required": [
@@ -1068,6 +2042,42 @@
           },
           "name": {
             "type": "string"
+          }
+        }
+      },
+      "SubscribeRequest": {
+        "type": "object",
+        "required": [
+          "amount"
+        ],
+        "properties": {
+          "amount": {
+            "type": "string",
+            "description": "Amount in `fund.base_currency`. Decimal string."
+          }
+        }
+      },
+      "SubscribeResponse": {
+        "type": "object",
+        "required": [
+          "subscription_id",
+          "status",
+          "shares",
+          "share_value"
+        ],
+        "properties": {
+          "share_value": {
+            "type": "string"
+          },
+          "shares": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "subscription_id": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       },
@@ -1145,6 +2155,46 @@
           },
           "refresh_token": {
             "type": "string"
+          }
+        }
+      },
+      "UpsertFeatureFlagRequest": {
+        "type": "object",
+        "description": "Request body for the admin upsert. Mirrors `entity::Model` but takes\nonly the editable fields — the server fills in timestamps, and\n`updated_by` from the caller.",
+        "required": [
+          "key",
+          "description",
+          "enabled",
+          "percentage_rollout"
+        ],
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "Free-text description shown in the admin UI.",
+            "example": "Iceberg order type (advanced parent/child)"
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Global on/off switch. When `false`, no other column matters (other\nthan whitelist overrides — see `services::feature_flag::evaluate_flag`)."
+          },
+          "key": {
+            "type": "string",
+            "description": "Primary key, e.g. `\"iceberg_order\"`. VARCHAR(64) on the DB side;\nthe handler validates length before forwarding.",
+            "example": "iceberg_order"
+          },
+          "metadata": {
+            "description": "Free-form JSON, e.g. `{\"experiment\": \"v2\"}`. Defaults to `{}`\nwhen the admin doesn't supply one."
+          },
+          "percentage_rollout": {
+            "type": "integer",
+            "format": "int32",
+            "description": "0..=100 — share of users (excluding whitelist) that see the\nfeature. Server-side clamped on read; we also clamp on write to\nkeep the DB clean.",
+            "example": 25,
+            "maximum": 100,
+            "minimum": 0
+          },
+          "user_whitelist": {
+            "description": "JSON array of user UUIDs that always see the feature as on,\nregardless of `enabled` or `percentage_rollout`. Stored as JSONB."
           }
         }
       },
@@ -1305,6 +2355,10 @@
     {
       "name": "telegram",
       "description": "Telegram notification bind/test (P2-1)"
+    },
+    {
+      "name": "feature-flag",
+      "description": "Feature flag evaluation (user bootstrap) + admin CRUD"
     },
     {
       "name": "export",

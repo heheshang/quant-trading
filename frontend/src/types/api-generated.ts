@@ -11,10 +11,19 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** GET /api/v1/admin/feature-flags — list every defined flag row */
+        /**
+         * `GET /api/v1/admin/feature-flags`
+         * @description Admin list: every flag row (raw, no per-user evaluation). The admin
+         *     UI reads this to populate the toggle table.
+         */
         get: operations["feature_flags_admin_list"];
         put?: never;
-        /** POST /api/v1/admin/feature-flags — admin create/update (upsert by key) */
+        /**
+         * `POST /api/v1/admin/feature-flags`
+         * @description Admin upsert: create or update a flag row by `key`. The response is
+         *     the persisted row. The cache is invalidated automatically by
+         *     `svc::upsert`.
+         */
         post: operations["feature_flags_admin_upsert"];
         delete?: never;
         options?: never;
@@ -32,7 +41,11 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** DELETE /api/v1/admin/feature-flags/{key} — admin delete */
+        /**
+         * `DELETE /api/v1/admin/feature-flags/{key}`
+         * @description Admin delete. Returns 204 if a row was actually removed, 404
+         *     otherwise. The cache is invalidated automatically.
+         */
         delete: operations["feature_flags_admin_delete"];
         options?: never;
         head?: never;
@@ -174,7 +187,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** GET /api/v1/feature-flags — per-user evaluation of every known flag */
+        /**
+         * `GET /api/v1/feature-flags`
+         * @description User bootstrap: returns the per-user evaluation of every known flag.
+         *     Frontend caches this map and uses it via `useFeatureFlag(key)`. We
+         *     evaluate against the *current* caller's `user_id` so the response
+         *     naturally captures whitelist + percentage rollout.
+         */
         get: operations["feature_flags_evaluate"];
         put?: never;
         post?: never;
@@ -248,6 +267,155 @@ export interface paths {
         };
         /** GET /api/v1/market/tickers — 获取所有交易对 Ticker */
         get: operations["market_list_tickers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pamm/funds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** `GET /api/v1/pamm/funds` — list all `Active` funds. */
+        get: operations["pamm_list_funds"];
+        put?: never;
+        /**
+         * `POST /api/v1/pamm/funds` — open a new fund. The caller becomes
+         *     its manager.
+         */
+        post: operations["pamm_create_fund"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pamm/funds/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** `GET /api/v1/pamm/funds/{id}` — fund detail + current NAV. */
+        get: operations["pamm_get_fund"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pamm/funds/{id}/distribute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * `POST /api/v1/pamm/funds/{id}/distribute` — manager triggers a
+         *     profit distribution for the given period.
+         */
+        post: operations["pamm_distribute"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pamm/funds/{id}/investments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * `GET /api/v1/pamm/funds/{id}/investments` — manager + self can
+         *     see the investor list.
+         */
+        get: operations["pamm_list_fund_investments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pamm/funds/{id}/liquidate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * `POST /api/v1/pamm/funds/{id}/liquidate` — manager liquidates the
+         *     fund. Returns 204 No Content on success.
+         */
+        post: operations["pamm_liquidate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pamm/funds/{id}/redeem": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** `POST /api/v1/pamm/funds/{id}/redeem` — submit a redemption. */
+        post: operations["pamm_redeem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pamm/funds/{id}/subscribe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** `POST /api/v1/pamm/funds/{id}/subscribe` — submit a subscription. */
+        post: operations["pamm_subscribe"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pamm/my-investments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** `GET /api/v1/pamm/my-investments` — the caller's investments. */
+        get: operations["pamm_my_investments"];
         put?: never;
         post?: never;
         delete?: never;
@@ -369,6 +537,24 @@ export interface components {
         ChangePasswordResponse: {
             message: string;
         };
+        CreateFundRequest: {
+            base_currency: string;
+            description?: string | null;
+            high_water_mark: boolean;
+            /**
+             * @description Annualised management fee as a fraction (0.02 = 2%). Stored as
+             *     string to preserve precision (JSON Decimal round-trip).
+             */
+            management_fee_pct: string;
+            name: string;
+            /** @description Performance fee as a fraction of HWM-increment profit (0.20 = 20%). */
+            performance_fee_pct: string;
+            /** Format: uuid */
+            strategy_id?: string | null;
+        };
+        CreateFundResponse: {
+            fund: components["schemas"]["FundView"];
+        };
         DepthLevel: {
             /** Format: double */
             price: number;
@@ -383,32 +569,152 @@ export interface components {
             /** Format: int64 */
             timestamp: number;
         };
+        DistributeRequest: {
+            /** Format: date-time */
+            period_end: string;
+            /** Format: date-time */
+            period_start: string;
+        };
+        DistributeResponse: {
+            distributions: components["schemas"]["DistributionView"][];
+            /** Format: date-time */
+            period_end: string;
+            /** Format: date-time */
+            period_start: string;
+        };
+        /** @description Per-period distribution row exposed in the manager dashboard. */
+        DistributionView: {
+            distributed_at: string;
+            /** Format: uuid */
+            fund_id: string;
+            hwm: string;
+            /** Format: uuid */
+            id: string;
+            mgmt_fee_charged: string;
+            perf_fee_charged: string;
+            period_end: string;
+            period_start: string;
+            profit_amount: string;
+            /** Format: uuid */
+            user_id: string;
+        };
         /**
          * @description Supported exchange enum
          * @enum {string}
          */
         Exchange: "binance" | "okx" | "gate" | "bybit" | "huobi";
-        /** @description Wire shape for a feature flag row (admin UI + openapi-typescript consumer). camelCase on the wire via serde. */
+        /**
+         * @description Wire shape for a feature flag row. The `db::feature_flag::Model` is
+         *     the SeaORM-internal representation and uses a `Json` value for
+         *     `user_whitelist` / `metadata`; this DTO is what the admin UI sees and
+         *     what `openapi-typescript` consumes. All fields are camelCase on the
+         *     wire (`#[serde(rename_all = "camelCase")]`).
+         */
         FeatureFlag: {
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description DB-side row insert timestamp.
+             */
             createdAt: string;
+            /** @description Free-text description shown in the admin UI. */
             description: string;
+            /**
+             * @description Global on/off switch. When `false`, no other column matters (other
+             *     than whitelist overrides — see `services::feature_flag::evaluate_flag`).
+             */
             enabled: boolean;
+            /** @description Primary key, e.g. `"iceberg_order"`. VARCHAR(64) on the DB side. */
             key: string;
-            metadata: components["schemas"]["Value"];
-            /** Format: int32 */
+            /** @description Free-form JSON, e.g. `{"experiment": "v2"}`. Defaults to `{}`. */
+            metadata: unknown;
+            /**
+             * Format: int32
+             * @description 0..=100 — share of users (excluding whitelist) that see the feature.
+             */
             percentageRollout: number;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description DB-side row update timestamp.
+             */
             updatedAt: string;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description Admin user id (UUID) who last edited the row, if known.
+             */
             updatedBy?: string | null;
-            userWhitelist: components["schemas"]["Value"];
+            /**
+             * @description JSON array of user UUIDs that always see the feature as on,
+             *     regardless of `enabled` or `percentage_rollout`. Stored as JSONB.
+             */
+            userWhitelist: unknown;
         };
-        /** @description Per-user boolean evaluation of every known flag (user bootstrap endpoint). */
+        /**
+         * @description Response shape for the user bootstrap endpoint: a flat
+         *     `{flag_key: bool}` map. The frontend renders UI affordances based on
+         *     this map; unknown keys are absent (i.e. missing → treat as off).
+         */
         FeatureFlagEvaluation: {
+            /**
+             * @description The `key` (string) of the flag. utoipa's `ToSchema` derive on a
+             *     `HashMap<String, bool>` produces an open object with `additionalProperties:
+             *     { type: boolean }`, which is exactly what the SPA expects.
+             */
             flags: {
-                [name: string]: boolean;
+                [key: string]: boolean;
             };
+        };
+        /**
+         * @description Subset of `pamm_funds` row surfaced via the API. Decimals are
+         *     serialised as strings to preserve precision.
+         */
+        FundView: {
+            base_currency: string;
+            created_at: string;
+            description?: string | null;
+            high_water_mark: boolean;
+            hwm: string;
+            /** Format: uuid */
+            id: string;
+            management_fee_pct: string;
+            /** Format: uuid */
+            manager_id: string;
+            manager_username?: string | null;
+            name: string;
+            nav: string;
+            performance_fee_pct: string;
+            share_value: string;
+            status: string;
+            /** Format: uuid */
+            strategy_id?: string | null;
+            total_shares: string;
+            updated_at: string;
+        };
+        /** @description Per-user view of their investment, enriched with current value. */
+        InvestmentView: {
+            created_at: string;
+            current_value: string;
+            /** Format: uuid */
+            fund_id: string;
+            fund_name?: string | null;
+            /** Format: uuid */
+            id: string;
+            initial_investment: string;
+            share_pct: string;
+            shares: string;
+            unrealized_pnl: string;
+            updated_at: string;
+            /** Format: uuid */
+            user_id: string;
+        };
+        InvestmentsResponse: {
+            items: components["schemas"]["InvestmentView"][];
+            /** Format: int64 */
+            total: number;
+        };
+        ListFundsResponse: {
+            items: components["schemas"]["FundView"][];
+            /** Format: int64 */
+            total: number;
         };
         /** @description Liveness response payload. */
         LivenessResponse: {
@@ -436,6 +742,15 @@ export interface components {
             timestamp: string;
             version: string;
         };
+        RedeemRequest: {
+            amount: string;
+        };
+        RedeemResponse: {
+            amount_paid: string;
+            /** Format: uuid */
+            redemption_id: string;
+            status: string;
+        };
         RefreshTokenRequest: {
             refresh_token: string;
         };
@@ -454,6 +769,17 @@ export interface components {
             id: string;
             is_system: boolean;
             name: string;
+        };
+        SubscribeRequest: {
+            /** @description Amount in `fund.base_currency`. Decimal string. */
+            amount: string;
+        };
+        SubscribeResponse: {
+            share_value: string;
+            shares: string;
+            status: string;
+            /** Format: uuid */
+            subscription_id: string;
         };
         TickerResponse: {
             /** Format: double */
@@ -482,15 +808,46 @@ export interface components {
             expires_in: number;
             refresh_token: string;
         };
-        /** @description Request body for the admin upsert endpoint. Mirrors the DB model minus timestamps/updatedBy. */
+        /**
+         * @description Request body for the admin upsert. Mirrors `entity::Model` but takes
+         *     only the editable fields — the server fills in timestamps, and
+         *     `updated_by` from the caller.
+         */
         UpsertFeatureFlagRequest: {
+            /**
+             * @description Free-text description shown in the admin UI.
+             * @example Iceberg order type (advanced parent/child)
+             */
             description: string;
+            /**
+             * @description Global on/off switch. When `false`, no other column matters (other
+             *     than whitelist overrides — see `services::feature_flag::evaluate_flag`).
+             */
             enabled: boolean;
+            /**
+             * @description Primary key, e.g. `"iceberg_order"`. VARCHAR(64) on the DB side;
+             *     the handler validates length before forwarding.
+             * @example iceberg_order
+             */
             key: string;
-            metadata?: components["schemas"]["Value"];
-            /** Format: int32 */
-            percentageRollout: number;
-            userWhitelist?: components["schemas"]["Value"];
+            /**
+             * @description Free-form JSON, e.g. `{"experiment": "v2"}`. Defaults to `{}`
+             *     when the admin doesn't supply one.
+             */
+            metadata?: unknown;
+            /**
+             * Format: int32
+             * @description 0..=100 — share of users (excluding whitelist) that see the
+             *     feature. Server-side clamped on read; we also clamp on write to
+             *     keep the DB clean.
+             * @example 25
+             */
+            percentage_rollout: number;
+            /**
+             * @description JSON array of user UUIDs that always see the feature as on,
+             *     regardless of `enabled` or `percentage_rollout`. Stored as JSONB.
+             */
+            user_whitelist?: unknown;
         };
         UserMeResponse: components["schemas"]["UserResponse"];
         UserResponse: {
@@ -517,6 +874,125 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    feature_flags_admin_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description All defined feature flag rows */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Admin only */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    feature_flags_admin_upsert: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertFeatureFlagRequest"];
+            };
+        };
+        responses: {
+            /** @description Persisted flag row */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeatureFlag"];
+                };
+            };
+            /** @description Validation error (key length, whitelist shape, ...) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Admin only */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    feature_flags_admin_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Flag primary key to delete */
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Admin only */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Flag with that key not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     audit_logs_list: {
         parameters: {
             query?: {
@@ -766,127 +1242,6 @@ export interface operations {
             };
         };
     };
-    feature_flags_admin_delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Flag primary key to delete */
-                key: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Deleted */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Admin only */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Flag with that key not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    feature_flags_admin_list: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description All defined feature flag rows */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["FeatureFlag"][];
-                };
-            };
-            /** @description Unauthenticated */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Admin only */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    feature_flags_admin_upsert: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpsertFeatureFlagRequest"];
-            };
-        };
-        responses: {
-            /** @description Persisted flag row */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["FeatureFlag"];
-                };
-            };
-            /** @description Validation error (key length, whitelist shape, ...) */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Admin only */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
     feature_flags_evaluate: {
         parameters: {
             query?: never;
@@ -1056,6 +1411,365 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TickerResponse"][];
+                };
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    pamm_list_funds: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Page of active funds */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListFundsResponse"];
+                };
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    pamm_create_fund: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateFundRequest"];
+            };
+        };
+        responses: {
+            /** @description Fund created */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateFundResponse"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    pamm_get_fund: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Fund id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Fund detail */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FundView"];
+                };
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Fund not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    pamm_distribute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Fund id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DistributeRequest"];
+            };
+        };
+        responses: {
+            /** @description Distribution complete */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DistributeResponse"];
+                };
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not the fund manager */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Fund not active */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    pamm_list_fund_investments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Fund id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Investor list (manager + self) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvestmentsResponse"];
+                };
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not the fund manager */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Fund not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    pamm_liquidate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Fund id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Fund liquidated */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not the fund manager */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    pamm_redeem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Fund id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RedeemRequest"];
+            };
+        };
+        responses: {
+            /** @description Redemption accepted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RedeemResponse"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Fund not found / no investment */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    pamm_subscribe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Fund id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubscribeRequest"];
+            };
+        };
+        responses: {
+            /** @description Subscription accepted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscribeResponse"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Fund not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Fund not active */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    pamm_my_investments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description My investments */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvestmentsResponse"];
                 };
             };
             /** @description Unauthenticated */

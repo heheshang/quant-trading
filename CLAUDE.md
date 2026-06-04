@@ -234,3 +234,43 @@ feature-flag 端点),但下次跑 `gen:api` 会被覆盖,记得在 commit messag
 灰度 (percentage rollout / whitelist) 在后端 `services/feature_flag::evaluate_flag`
 里实现,前端只拿到布尔结果。Cache 失效由 `svc::upsert` / `svc::delete_flag`
 自动处理,无需前端配合。
+
+### PAMM (Percent Allocation Management Module) — §6-1 商业化
+
+PAMM 是 "基金经理 + 多投资人" 的资金归集 / 收益分配模式。后端在
+`backend/src/services/pamm.rs` (8 个核心函数 + HWM 高水位线算法),
+9 个 REST 端点在 `backend/src/handlers/pamm.rs`,5 张表的 migration
+在 `backend/migrations/20260603150000_create_pamm_tables.sql`。
+
+详细文档见 `docs/pamm.md` (含算法推导 + 完整数字例子 + 9 端点
+curl 例子 + 投资人 / 经理流程 + 风险说明)。本文只列关键点。
+
+**核心算法** — 三步:
+
+1. `gross_pnl` = NAV₁ − NAV₀
+2. `mgmt_fee` = NAV₁ × mgmt_fee_pct × period_days / 365 (无论盈亏都收)
+3. `perf_fee` = (NAV₁ > HWM₋) ? (NAV₁ − HWM₋) × perf_fee_pct : 0
+   (高水位线之上的盈利才抽成)
+4. `net_to_split` = gross_pnl − mgmt_fee − perf_fee
+5. 按 `share_pct` 分给每个投资人,新 NAV₁ 推高 HWM = max(HWM₋, NAV₁)
+
+**前端** — `frontend/src/views/pamm/` 下 4 个 view + `stores/pamm.ts`
++ 4 个路由 (`/pamm`, `/pamm/funds/:id`, `/pamm/my`, `/pamm/manager`),
+侧边栏 "PAMM 基金" 入口。
+
+**权限** — 两层防御:
+- 路由层: `pamm_manager_routes` 包了 `require_admin_middleware` (admin 角色)
+- 服务层: `distribute_profits` / `liquidate` 内部再校验 `fund.manager_id == user.user_id`,
+  即使 admin token 不拥有这个 fund 也会被 403 拒掉
+
+**Wire 注意事项** — 所有 decimal 字段在 JSON 上是**字符串**(`rust_decimal::Decimal`
+用 `to_string()` 序列化保留精度),不是 JS number。`api-generated.ts`
+没有这个模块的类型(本任务没跑 `npm run gen:api`),`stores/pamm.ts`
+里的 `Fund` / `Investment` interface 手工对齐后端 DTO,后端形状变化时
+需要同时改 store + 跑 gen:api。
+
+**禁止清单**:
+- 不要加实时交易所路由 (PAMM 走 paper account,跟单实盘是另一个工作流)
+- 不要把 `share_pct` 改成 `float` (精度会丢)
+- 不要把 manager dashboard 改成后端聚合端点 (现有 list + detail 端点
+  已够,前端在 manager dashboard 里本地聚合即可)
