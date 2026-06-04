@@ -157,3 +157,19 @@ tradingStore.$subscribe(() => {
 
 - 迁移文件在 `backend/migrations/`
 - 使用 SeaORM 的 `Entity` 模式定义表结构
+
+### TimescaleDB 时序表 (P3-6)
+
+K线 / 订单 / 风控事件走 TimescaleDB hypertable (基于 PostgreSQL 16):
+
+- **主写入路径**: `klines_phase4` (KlineWriter 写入),自动按 7 天分 chunk
+- **历史路径**: `klines` (旧表,仍保留给 admin 导入/导出),7d chunk
+- **订单执行**: `trades` / `orders`,1d chunk
+- **连续聚合**: `klines_1m` / `klines_5m` / `klines_1h` — 后台 worker 增量维护
+  OHLCV,`/api/v1/kline/aggregate` 端点直接读视图
+- **压缩**: 7 天前 chunk 自动列存 (segment by symbol,interval)
+- **保留**: 1 年后自动 drop
+
+启动用 `timescale/timescaledb:latest-pg16` 镜像 (替代 `postgres:16-alpine`),
+DATABASE_URL 完全不变。运行时入口在 `src/db/mod.rs::install_timescaledb_extensions`,
+vanilla Postgres 上整段静默跳过,不影响 dev。详细文档见 `docs/timescaledb.md`。

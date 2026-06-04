@@ -130,7 +130,7 @@ prometheus = "0.13"
 # serves the Swagger UI page from the generated `ApiDoc`.
 utoipa = { version = "5", features = ["axum_extras", "chrono", "uuid", "macros"] }
 utoipa-axum = "0.2"
-utoipa-swagger-ui = { version = "9", features = ["axum"] }
+utoipa-swagger-ui = { version = "9", features = ["axum", "vendored"] }
 
 # Message Queue — RabbitMQ (lapin)
 # P3-2: 引入 MQ 解耦 AI 预测 / 通知 / 风控日志三条高频调用链
@@ -175,6 +175,14 @@ pprof = { version = "0.15", features = [
 [[bin]]
 name = "stress-test"
 path = "src/bin/stress_test/main.rs"
+
+[features]
+# P3-6: TimescaleDB integration tests (gated feature)
+# When enabled, `cargo test --features tsdb-integration` will compile
+# `services::kline_test::integration::*` — these tests require a running
+# TimescaleDB instance (DATABASE_URL must point at timescale/timescaledb).
+# Default `cargo test` skips them, keeping dev-machine runs fast.
+tsdb-integration = []
 
 [dev-dependencies]
 mockall = "0.13"
