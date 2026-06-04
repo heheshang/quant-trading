@@ -152,7 +152,7 @@ pub static CONFIG: LazyLock<Config> = LazyLock::new(Config::from_env);
         crate::services::audit_log::AuditLogView,
         // ── pamm ───────────────────────────────────────────────────
         handlers::pamm::CreateFundRequest,
-        handlers::pamm::SubscribeRequest,
+        handlers::pamm::PammSubscribeRequest,
         handlers::pamm::RedeemRequest,
         handlers::pamm::DistributeRequest,
         handlers::pamm::CreateFundResponse,

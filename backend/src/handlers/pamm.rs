@@ -53,8 +53,13 @@ pub struct CreateFundRequest {
     pub strategy_id: Option<Uuid>,
 }
 
+/// (Renamed from `PammSubscribeRequest` to avoid clashing with
+/// `handlers::copy_trading::PammSubscribeRequest` after openapi-typescript
+/// 7.x deduped the two. The wire format / JSON shape is unchanged —
+/// the tag `pamm` on the path operation identifies which schema the
+/// frontend should send.)
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
-pub struct SubscribeRequest {
+pub struct PammSubscribeRequest {
     /// Amount in `fund.base_currency`. Decimal string.
     pub amount: String,
 }
@@ -249,7 +254,7 @@ pub async fn list_fund_investments(
     operation_id = "pamm_subscribe",
     security(("bearer_auth" = [])),
     params(("id" = Uuid, Path, description = "Fund id")),
-    request_body = SubscribeRequest,
+    request_body = PammSubscribeRequest,
     responses(
         (status = 200, description = "Subscription accepted", body = SubscribeResponse),
         (status = 400, description = "Validation failed"),
@@ -262,7 +267,7 @@ pub async fn subscribe(
     user: AuthenticatedUser,
     State(db): State<Arc<DatabaseConnection>>,
     Path(id): Path<Uuid>,
-    Json(req): Json<SubscribeRequest>,
+    Json(req): Json<PammSubscribeRequest>,
 ) -> Result<Json<ApiResponse<SubscribeResponse>>, AppError> {
     let amount: Decimal = req
         .amount
@@ -459,11 +464,11 @@ mod tests {
         assert_eq!(json["high_water_mark"], true);
     }
 
-    /// `SubscribeRequest` accepts a string amount (no Decimal in JSON).
+    /// `PammSubscribeRequest` accepts a string amount (no Decimal in JSON).
     #[test]
     fn subscribe_request_parses() {
         let json = r#"{"amount":"100.50"}"#;
-        let req: SubscribeRequest = serde_json::from_str(json).expect("parse");
+        let req: PammSubscribeRequest = serde_json::from_str(json).expect("parse");
         assert_eq!(req.amount, "100.50");
     }
 
