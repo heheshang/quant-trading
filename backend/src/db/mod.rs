@@ -1,6 +1,7 @@
 pub mod ab_experiment_logs;
 pub mod admin_ip_whitelist;
 pub mod audit_log;
+pub mod copy_trading;
 pub mod ai_signals;
 pub mod arbitrage_entities;
 pub mod atr_stop_loss;
@@ -741,6 +742,28 @@ pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), sea_orm::DbEr
         .filter(|s| !s.is_empty() && !s.starts_with("--"))
     {
         // Skip empty / pure-comment chunks that survive the split.
+        if ddl.is_empty() {
+            continue;
+        }
+        db.execute(sea_orm::Statement::from_string(
+            sea_orm::DatabaseBackend::Postgres,
+            ddl.to_string(),
+        ))
+        .await?;
+    }
+
+    // §6-2: Copy Trading — four tables (traders / subscriptions / trades /
+    // profit_shares). DDL lives in
+    // `migrations/20260604130000_create_copy_trading_tables.sql` and is
+    // re-executed here via split-statement execution so dev / test runs
+    // without a migration tool still get the tables. The split-on-`;`
+    // approach is identical to the PAMM block above; both files use
+    // `CREATE TABLE IF NOT EXISTS` so the operation is idempotent.
+    for ddl in include_str!("../../migrations/20260604130000_create_copy_trading_tables.sql")
+        .split(';')
+        .map(str::trim)
+        .filter(|s| !s.is_empty() && !s.starts_with("--"))
+    {
         if ddl.is_empty() {
             continue;
         }
