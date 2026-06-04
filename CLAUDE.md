@@ -274,3 +274,62 @@ curl 例子 + 投资人 / 经理流程 + 风险说明)。本文只列关键点�
 - 不要把 `share_pct` 改成 `float` (精度会丢)
 - 不要把 manager dashboard 改成后端聚合端点 (现有 list + detail 端点
   已够,前端在 manager dashboard 里本地聚合即可)
+
+### Copy Trading — §6-2 商业化
+
+Copy Trading 是 "交易员 + 多跟单人" 的按比例跟单模式 (区别于 PAMM 的
+"经理 + 投资人 NAV 模式")。后端在
+`backend/src/services/copy_trading.rs` (fan-out 任务 + 结算) +
+`backend/src/services/copy_trading/risk.rs` (per-subscription 风险上限),
+10 个 REST 端点在 `backend/src/handlers/copy_trading.rs`,4 张表的
+migration 在 `backend/migrations/20260604130000_create_copy_trading_tables.sql`。
+
+详细文档见 `docs/copy-trading.md` (含 fan-out 算法 + 结算算法 + 10
+端点 curl 例子 + 跟单人 / 交易员流程 + 风险说明)。本文只列关键点。
+
+**核心算法 — 两段**:
+1. **Fan-out** — `handlers/order.rs` 提交订单时
+   `spawn_on_trader_order` 异步触发;对每个 active subscription:
+   1) 检查 `max_position_size` per-trade (0 = 无上限) →
+   2) 检查 `max_loss_per_day` 滚动已实现亏损 (0 = 无上限) →
+   3) 算 `mirror_qty = trader_qty × subscription.ratio` (rust_decimal) →
+   4) 走同一个 matching-engine 提交 (`user_id = follower_id`) →
+   5) 写 `copy_trades` 审计行
+2. **Settle** — `POST /calculate-shares` 按
+   `(subscription_id, period_start, period_end)` 聚合 `copy_trades`:
+   `gross_pnl = Σ closed_trade_pnl` →
+   `trader_share = gross_pnl × trader_fee_pct` (默认 0.20) →
+   `follower_share = gross_pnl − trader_share` →
+   写 `copy_profit_shares` 行,UNIQUE(subscription_id, period_start, period_end)
+   保证 idempotent,re-run 返 409。
+
+**前端** — `frontend/src/views/copy/` 下 4 个 view + `stores/copyTrading.ts`
++ 4 个路由 (`/copy`, `/copy/traders/:id`, `/copy/my`, `/copy/dashboard`),
+侧边栏 "跟单交易" 入口。`stores/copyTrading.ts` 用
+`openapi-fetch` typed client (`typedApi`),请求/响应形状在编译时
+由 `api-generated.ts` 校验。
+
+**OpenAPI 闭环** — `backend/src/lib.rs` 的 `ApiDoc.paths()` + `components(schemas)`
+都注册了 10 个 copy-trading path + 16 个 schema
+(`RegisterRequest`/`SubscribeRequest`/`UnsubscribeRequest`/`CalculateSharesRequest`
+请求体 + 6 个响应 wrapper + 5 个 service view)。重新生成:
+```
+cd backend && cargo run --bin export_openapi > ../docs/openapi.json
+cd ../frontend && npx openapi-typescript ../docs/openapi.json -o ./src/types/api-generated.ts
+```
+
+**权限** — 两层防御:
+- 路由层: 4 个 copy-trading 路由都 `requiresAuth: true`,`/copy/dashboard`
+  不限角色 (注册过的 trader 即可),具体权限由后端 handler 校验
+- 服务层: `subscribe` 校验 `trader.status == 'Active'`,`unsubscribe`
+  校验 `subscription.follower_id == user.user_id`,`calculate-shares`
+  校验 `trader.user_id == user.user_id`
+
+**禁止清单**:
+- 不要把 `trader_fee_pct` 默认值改成 0 (跟单交易员会失去激励)
+- 不要在 fan-out 里用 `f64` (精度会丢,所有计算必须 `rust_decimal`)
+- 不要把 fan-out 改成同步阻塞 (trader 下单延迟会随 follower 数量线性
+  退化,fail/timeout 还会影响 trader 自己)
+- 不要把 `(subscription_id, period_start, period_end)` 唯一约束去掉
+  (它是结算 idempotency 的唯一保障)
+

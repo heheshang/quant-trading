@@ -461,6 +461,378 @@
         }
       }
     },
+    "/api/v1/copy-trading/calculate-shares": {
+      "post": {
+        "tags": [
+          "copy-trading"
+        ],
+        "summary": "`POST /api/v1/copy-trading/calculate-shares` — manager/trader\ntriggers a profit-share settlement for one subscription across the\ngiven period. Idempotent on (subscription, period_start, period_end).",
+        "operationId": "copy_trading_calculate_shares",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalculateSharesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Profit share calculated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalculateSharesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed / no trades in period"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "409": {
+            "description": "Already distributed for this period"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/copy-trading/my-subscriptions": {
+      "get": {
+        "tags": [
+          "copy-trading"
+        ],
+        "summary": "`GET /api/v1/copy-trading/my-subscriptions` — subscriptions the\ncaller has as a follower.",
+        "operationId": "copy_trading_my_subscriptions",
+        "responses": {
+          "200": {
+            "description": "Caller's subscriptions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MySubscriptionsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/copy-trading/my-trader": {
+      "get": {
+        "tags": [
+          "copy-trading"
+        ],
+        "summary": "`GET /api/v1/copy-trading/my-trader` — caller's trader profile +\nsubscribers.",
+        "operationId": "copy_trading_my_trader",
+        "responses": {
+          "200": {
+            "description": "Caller's trader profile and subscribers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyTraderResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/copy-trading/profit-shares": {
+      "get": {
+        "tags": [
+          "copy-trading"
+        ],
+        "summary": "`GET /api/v1/copy-trading/profit-shares` — the caller's profit-share\nhistory (as either follower or trader).",
+        "operationId": "copy_trading_profit_shares",
+        "responses": {
+          "200": {
+            "description": "Caller's profit-share history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfitSharesResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/copy-trading/register": {
+      "post": {
+        "tags": [
+          "copy-trading"
+        ],
+        "summary": "`POST /api/v1/copy-trading/register` — register the caller as a\ncopy trader.",
+        "operationId": "copy_trading_register",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Registered as a copy trader",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisterResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "409": {
+            "description": "Already a copy trader"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/copy-trading/subscribe": {
+      "post": {
+        "tags": [
+          "copy-trading"
+        ],
+        "summary": "`POST /api/v1/copy-trading/subscribe` — subscribe to a trader.",
+        "operationId": "copy_trading_subscribe",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscribeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Subscription created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubscribeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "404": {
+            "description": "Trader not found"
+          },
+          "409": {
+            "description": "Already subscribed / trader not active"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/copy-trading/traders": {
+      "get": {
+        "tags": [
+          "copy-trading"
+        ],
+        "summary": "`GET /api/v1/copy-trading/traders` — list active traders, sorted by\nmonthly_pnl DESC.",
+        "operationId": "copy_trading_list_traders",
+        "responses": {
+          "200": {
+            "description": "List of active copy traders",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListTradersResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/copy-trading/traders/{id}": {
+      "get": {
+        "tags": [
+          "copy-trading"
+        ],
+        "summary": "`GET /api/v1/copy-trading/traders/{id}` — trader detail.",
+        "operationId": "copy_trading_get_trader",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Trader id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trader detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraderView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "404": {
+            "description": "Trader not found"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/copy-trading/trades": {
+      "get": {
+        "tags": [
+          "copy-trading"
+        ],
+        "summary": "`GET /api/v1/copy-trading/trades` — the caller's audit trail of\ncopied trades.",
+        "operationId": "copy_trading_trades",
+        "responses": {
+          "200": {
+            "description": "Caller's copied-trade audit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TradesResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/copy-trading/unsubscribe": {
+      "post": {
+        "tags": [
+          "copy-trading"
+        ],
+        "summary": "`POST /api/v1/copy-trading/unsubscribe` — cancel a subscription.",
+        "operationId": "copy_trading_unsubscribe",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnsubscribeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Subscription cancelled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnsubscribeResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Not the subscription owner"
+          },
+          "404": {
+            "description": "Subscription not found"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
     "/api/v1/feature-flags": {
       "get": {
         "tags": [
@@ -1022,7 +1394,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SubscribeRequest"
+                "$ref": "#/components/schemas/PammSubscribeRequest"
               }
             }
           },
@@ -1361,6 +1733,45 @@
           }
         }
       },
+      "CalculateSharesRequest": {
+        "type": "object",
+        "required": [
+          "subscription_id",
+          "period_start",
+          "period_end"
+        ],
+        "properties": {
+          "period_end": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "period_start": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "subscription_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "trader_fee_pct": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "CalculateSharesResponse": {
+        "type": "object",
+        "required": [
+          "share"
+        ],
+        "properties": {
+          "share": {
+            "$ref": "#/components/schemas/ProfitShareView"
+          }
+        }
+      },
       "ChangePasswordRequest": {
         "type": "object",
         "required": [
@@ -1383,6 +1794,60 @@
         ],
         "properties": {
           "message": {
+            "type": "string"
+          }
+        }
+      },
+      "CopyTradeView": {
+        "type": "object",
+        "description": "Subset of `copy_trades` row.",
+        "required": [
+          "id",
+          "subscription_id",
+          "copied_order_id",
+          "symbol",
+          "side",
+          "qty",
+          "price",
+          "status",
+          "created_at"
+        ],
+        "properties": {
+          "copied_order_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "original_order_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "price": {
+            "type": "string"
+          },
+          "qty": {
+            "type": "string"
+          },
+          "side": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "subscription_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "symbol": {
             "type": "string"
           }
         }
@@ -1590,6 +2055,38 @@
           "bybit",
           "huobi"
         ]
+      },
+      "FanOutSummary": {
+        "type": "object",
+        "description": "Counts returned by `on_trader_order` — useful for tests and the\nfuture metrics counter.",
+        "required": [
+          "copied",
+          "skipped_risk",
+          "skipped_below_min",
+          "failed"
+        ],
+        "properties": {
+          "copied": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "failed": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "skipped_below_min": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "skipped_risk": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
       },
       "FeatureFlag": {
         "type": "object",
@@ -1849,6 +2346,26 @@
           }
         }
       },
+      "ListTradersResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TraderView"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
       "LivenessResponse": {
         "type": "object",
         "description": "Liveness response payload.",
@@ -1900,6 +2417,131 @@
         "properties": {
           "message": {
             "type": "string"
+          }
+        }
+      },
+      "MySubscriptionsResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubscriptionView"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "MyTraderResponse": {
+        "type": "object",
+        "required": [
+          "subscribers",
+          "total_subscribers"
+        ],
+        "properties": {
+          "subscribers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubscriptionView"
+            }
+          },
+          "total_subscribers": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "trader": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TraderView"
+              }
+            ]
+          }
+        }
+      },
+      "PammSubscribeRequest": {
+        "type": "object",
+        "description": "(Renamed from `PammSubscribeRequest` to avoid clashing with\n`handlers::copy_trading::PammSubscribeRequest` after openapi-typescript\n7.x deduped the two. The wire format / JSON shape is unchanged —\nthe tag `pamm` on the path operation identifies which schema the\nfrontend should send.)",
+        "required": [
+          "amount"
+        ],
+        "properties": {
+          "amount": {
+            "type": "string",
+            "description": "Amount in `fund.base_currency`. Decimal string."
+          }
+        }
+      },
+      "ProfitShareView": {
+        "type": "object",
+        "description": "Subset of `copy_profit_shares` row.",
+        "required": [
+          "id",
+          "subscription_id",
+          "period_start",
+          "period_end",
+          "follower_profit",
+          "trader_profit",
+          "trader_fee_pct",
+          "distributed_at"
+        ],
+        "properties": {
+          "distributed_at": {
+            "type": "string"
+          },
+          "follower_profit": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "period_end": {
+            "type": "string"
+          },
+          "period_start": {
+            "type": "string"
+          },
+          "subscription_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "trader_fee_pct": {
+            "type": "string"
+          },
+          "trader_profit": {
+            "type": "string"
+          }
+        }
+      },
+      "ProfitSharesResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProfitShareView"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
           }
         }
       },
@@ -1988,25 +2630,28 @@
       "RegisterRequest": {
         "type": "object",
         "required": [
-          "username",
-          "email",
-          "password"
+          "display_name"
         ],
         "properties": {
-          "display_name": {
+          "bio": {
             "type": [
               "string",
               "null"
             ]
           },
-          "email": {
+          "display_name": {
             "type": "string"
-          },
-          "password": {
-            "type": "string"
-          },
-          "username": {
-            "type": "string"
+          }
+        }
+      },
+      "RegisterResponse": {
+        "type": "object",
+        "required": [
+          "trader"
+        ],
+        "properties": {
+          "trader": {
+            "$ref": "#/components/schemas/TraderView"
           }
         }
       },
@@ -2048,12 +2693,27 @@
       "SubscribeRequest": {
         "type": "object",
         "required": [
-          "amount"
+          "trader_id",
+          "ratio",
+          "max_position_size",
+          "max_loss_per_day"
         ],
         "properties": {
-          "amount": {
+          "max_loss_per_day": {
             "type": "string",
-            "description": "Amount in `fund.base_currency`. Decimal string."
+            "description": "Daily loss cap. 0 = no cap."
+          },
+          "max_position_size": {
+            "type": "string",
+            "description": "Per-trade cap. 0 = no cap."
+          },
+          "ratio": {
+            "type": "string",
+            "description": "Copy ratio in (0, 1]. String to preserve precision."
+          },
+          "trader_id": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       },
@@ -2062,14 +2722,18 @@
         "required": [
           "subscription_id",
           "status",
-          "shares",
-          "share_value"
+          "ratio",
+          "max_position_size",
+          "max_loss_per_day"
         ],
         "properties": {
-          "share_value": {
+          "max_loss_per_day": {
             "type": "string"
           },
-          "shares": {
+          "max_position_size": {
+            "type": "string"
+          },
+          "ratio": {
             "type": "string"
           },
           "status": {
@@ -2078,6 +2742,61 @@
           "subscription_id": {
             "type": "string",
             "format": "uuid"
+          }
+        }
+      },
+      "SubscriptionView": {
+        "type": "object",
+        "description": "Subset of `copy_subscriptions` row.",
+        "required": [
+          "id",
+          "trader_id",
+          "follower_id",
+          "ratio",
+          "max_position_size",
+          "max_loss_per_day",
+          "status",
+          "started_at"
+        ],
+        "properties": {
+          "ended_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "follower_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "max_loss_per_day": {
+            "type": "string"
+          },
+          "max_position_size": {
+            "type": "string"
+          },
+          "ratio": {
+            "type": "string"
+          },
+          "started_at": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "trader_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "trader_name": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -2155,6 +2874,117 @@
           },
           "refresh_token": {
             "type": "string"
+          }
+        }
+      },
+      "TraderView": {
+        "type": "object",
+        "description": "Subset of `copy_traders` row surfaced via the API.",
+        "required": [
+          "id",
+          "user_id",
+          "display_name",
+          "total_pnl",
+          "monthly_pnl",
+          "win_rate",
+          "follower_count",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "bio": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "follower_count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "monthly_pnl": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "total_pnl": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "username": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "win_rate": {
+            "type": "string"
+          }
+        }
+      },
+      "TradesResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CopyTradeView"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "UnsubscribeRequest": {
+        "type": "object",
+        "required": [
+          "subscription_id"
+        ],
+        "properties": {
+          "subscription_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "UnsubscribeResponse": {
+        "type": "object",
+        "required": [
+          "subscription_id",
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "subscription_id": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       },
@@ -2363,6 +3193,14 @@
     {
       "name": "export",
       "description": "CSV export for orders/trades/positions/account"
+    },
+    {
+      "name": "pamm",
+      "description": "PAMM (Percent Allocation Management Module) funds (P3-1)"
+    },
+    {
+      "name": "copy-trading",
+      "description": "Copy trading: trader list, subscribe, on-order fan-out, profit shares (P6-2)"
     }
   ]
 }

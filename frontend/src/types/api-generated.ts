@@ -180,6 +180,198 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/copy-trading/calculate-shares": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * `POST /api/v1/copy-trading/calculate-shares` — manager/trader
+         *     triggers a profit-share settlement for one subscription across the
+         *     given period. Idempotent on (subscription, period_start, period_end).
+         */
+        post: operations["copy_trading_calculate_shares"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/copy-trading/my-subscriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * `GET /api/v1/copy-trading/my-subscriptions` — subscriptions the
+         *     caller has as a follower.
+         */
+        get: operations["copy_trading_my_subscriptions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/copy-trading/my-trader": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * `GET /api/v1/copy-trading/my-trader` — caller's trader profile +
+         *     subscribers.
+         */
+        get: operations["copy_trading_my_trader"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/copy-trading/profit-shares": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * `GET /api/v1/copy-trading/profit-shares` — the caller's profit-share
+         *     history (as either follower or trader).
+         */
+        get: operations["copy_trading_profit_shares"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/copy-trading/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * `POST /api/v1/copy-trading/register` — register the caller as a
+         *     copy trader.
+         */
+        post: operations["copy_trading_register"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/copy-trading/subscribe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** `POST /api/v1/copy-trading/subscribe` — subscribe to a trader. */
+        post: operations["copy_trading_subscribe"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/copy-trading/traders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * `GET /api/v1/copy-trading/traders` — list active traders, sorted by
+         *     monthly_pnl DESC.
+         */
+        get: operations["copy_trading_list_traders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/copy-trading/traders/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** `GET /api/v1/copy-trading/traders/{id}` — trader detail. */
+        get: operations["copy_trading_get_trader"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/copy-trading/trades": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * `GET /api/v1/copy-trading/trades` — the caller's audit trail of
+         *     copied trades.
+         */
+        get: operations["copy_trading_trades"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/copy-trading/unsubscribe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** `POST /api/v1/copy-trading/unsubscribe` — cancel a subscription. */
+        post: operations["copy_trading_unsubscribe"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/feature-flags": {
         parameters: {
             query?: never;
@@ -530,12 +722,41 @@ export interface components {
             refresh_token: string;
             user: components["schemas"]["UserResponse"];
         };
+        CalculateSharesRequest: {
+            /** Format: date-time */
+            period_end: string;
+            /** Format: date-time */
+            period_start: string;
+            /** Format: uuid */
+            subscription_id: string;
+            trader_fee_pct?: string | null;
+        };
+        CalculateSharesResponse: {
+            share: components["schemas"]["ProfitShareView"];
+        };
         ChangePasswordRequest: {
             new_password: string;
             old_password: string;
         };
         ChangePasswordResponse: {
             message: string;
+        };
+        /** @description Subset of `copy_trades` row. */
+        CopyTradeView: {
+            /** Format: uuid */
+            copied_order_id: string;
+            created_at: string;
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            original_order_id?: string | null;
+            price: string;
+            qty: string;
+            side: string;
+            status: string;
+            /** Format: uuid */
+            subscription_id: string;
+            symbol: string;
         };
         CreateFundRequest: {
             base_currency: string;
@@ -603,6 +824,20 @@ export interface components {
          * @enum {string}
          */
         Exchange: "binance" | "okx" | "gate" | "bybit" | "huobi";
+        /**
+         * @description Counts returned by `on_trader_order` — useful for tests and the
+         *     future metrics counter.
+         */
+        FanOutSummary: {
+            /** Format: int32 */
+            copied: number;
+            /** Format: int32 */
+            failed: number;
+            /** Format: int32 */
+            skipped_below_min: number;
+            /** Format: int32 */
+            skipped_risk: number;
+        };
         /**
          * @description Wire shape for a feature flag row. The `db::feature_flag::Model` is
          *     the SeaORM-internal representation and uses a `Json` value for
@@ -716,6 +951,11 @@ export interface components {
             /** Format: int64 */
             total: number;
         };
+        ListTradersResponse: {
+            items: components["schemas"]["TraderView"][];
+            /** Format: int64 */
+            total: number;
+        };
         /** @description Liveness response payload. */
         LivenessResponse: {
             status: string;
@@ -729,6 +969,46 @@ export interface components {
         };
         LogoutResponse: {
             message: string;
+        };
+        MySubscriptionsResponse: {
+            items: components["schemas"]["SubscriptionView"][];
+            /** Format: int64 */
+            total: number;
+        };
+        MyTraderResponse: {
+            subscribers: components["schemas"]["SubscriptionView"][];
+            /** Format: int64 */
+            total_subscribers: number;
+            trader?: null | components["schemas"]["TraderView"];
+        };
+        /**
+         * @description (Renamed from `PammSubscribeRequest` to avoid clashing with
+         *     `handlers::copy_trading::PammSubscribeRequest` after openapi-typescript
+         *     7.x deduped the two. The wire format / JSON shape is unchanged —
+         *     the tag `pamm` on the path operation identifies which schema the
+         *     frontend should send.)
+         */
+        PammSubscribeRequest: {
+            /** @description Amount in `fund.base_currency`. Decimal string. */
+            amount: string;
+        };
+        /** @description Subset of `copy_profit_shares` row. */
+        ProfitShareView: {
+            distributed_at: string;
+            follower_profit: string;
+            /** Format: uuid */
+            id: string;
+            period_end: string;
+            period_start: string;
+            /** Format: uuid */
+            subscription_id: string;
+            trader_fee_pct: string;
+            trader_profit: string;
+        };
+        ProfitSharesResponse: {
+            items: components["schemas"]["ProfitShareView"][];
+            /** Format: int64 */
+            total: number;
         };
         /** @description Per-dependency check status. */
         ReadinessChecks: {
@@ -755,10 +1035,11 @@ export interface components {
             refresh_token: string;
         };
         RegisterRequest: {
-            display_name?: string | null;
-            email: string;
-            password: string;
-            username: string;
+            bio?: string | null;
+            display_name: string;
+        };
+        RegisterResponse: {
+            trader: components["schemas"]["TraderView"];
         };
         RoleResponse: {
             /** Format: date-time */
@@ -771,15 +1052,38 @@ export interface components {
             name: string;
         };
         SubscribeRequest: {
-            /** @description Amount in `fund.base_currency`. Decimal string. */
-            amount: string;
+            /** @description Daily loss cap. 0 = no cap. */
+            max_loss_per_day: string;
+            /** @description Per-trade cap. 0 = no cap. */
+            max_position_size: string;
+            /** @description Copy ratio in (0, 1]. String to preserve precision. */
+            ratio: string;
+            /** Format: uuid */
+            trader_id: string;
         };
         SubscribeResponse: {
-            share_value: string;
-            shares: string;
+            max_loss_per_day: string;
+            max_position_size: string;
+            ratio: string;
             status: string;
             /** Format: uuid */
             subscription_id: string;
+        };
+        /** @description Subset of `copy_subscriptions` row. */
+        SubscriptionView: {
+            ended_at?: string | null;
+            /** Format: uuid */
+            follower_id: string;
+            /** Format: uuid */
+            id: string;
+            max_loss_per_day: string;
+            max_position_size: string;
+            ratio: string;
+            started_at: string;
+            status: string;
+            /** Format: uuid */
+            trader_id: string;
+            trader_name?: string | null;
         };
         TickerResponse: {
             /** Format: double */
@@ -807,6 +1111,38 @@ export interface components {
             /** Format: int64 */
             expires_in: number;
             refresh_token: string;
+        };
+        /** @description Subset of `copy_traders` row surfaced via the API. */
+        TraderView: {
+            bio?: string | null;
+            created_at: string;
+            display_name: string;
+            /** Format: int64 */
+            follower_count: number;
+            /** Format: uuid */
+            id: string;
+            monthly_pnl: string;
+            status: string;
+            total_pnl: string;
+            updated_at: string;
+            /** Format: uuid */
+            user_id: string;
+            username?: string | null;
+            win_rate: string;
+        };
+        TradesResponse: {
+            items: components["schemas"]["CopyTradeView"][];
+            /** Format: int64 */
+            total: number;
+        };
+        UnsubscribeRequest: {
+            /** Format: uuid */
+            subscription_id: string;
+        };
+        UnsubscribeResponse: {
+            status: string;
+            /** Format: uuid */
+            subscription_id: string;
         };
         /**
          * @description Request body for the admin upsert. Mirrors `entity::Model` but takes
@@ -1235,6 +1571,365 @@ export interface operations {
             };
             /** @description Username or email already exists */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    copy_trading_calculate_shares: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CalculateSharesRequest"];
+            };
+        };
+        responses: {
+            /** @description Profit share calculated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalculateSharesResponse"];
+                };
+            };
+            /** @description Validation failed / no trades in period */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Already distributed for this period */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    copy_trading_my_subscriptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Caller's subscriptions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MySubscriptionsResponse"];
+                };
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    copy_trading_my_trader: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Caller's trader profile and subscribers */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyTraderResponse"];
+                };
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    copy_trading_profit_shares: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Caller's profit-share history */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfitSharesResponse"];
+                };
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    copy_trading_register: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterRequest"];
+            };
+        };
+        responses: {
+            /** @description Registered as a copy trader */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegisterResponse"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Already a copy trader */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    copy_trading_subscribe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubscribeRequest"];
+            };
+        };
+        responses: {
+            /** @description Subscription created */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscribeResponse"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Trader not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Already subscribed / trader not active */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    copy_trading_list_traders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of active copy traders */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListTradersResponse"];
+                };
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    copy_trading_get_trader: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Trader id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Trader detail */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TraderView"];
+                };
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Trader not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    copy_trading_trades: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Caller's copied-trade audit */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TradesResponse"];
+                };
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    copy_trading_unsubscribe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnsubscribeRequest"];
+            };
+        };
+        responses: {
+            /** @description Subscription cancelled */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnsubscribeResponse"];
+                };
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not the subscription owner */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Subscription not found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1711,7 +2406,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["SubscribeRequest"];
+                "application/json": components["schemas"]["PammSubscribeRequest"];
             };
         };
         responses: {

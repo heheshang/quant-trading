@@ -2,6 +2,49 @@
 
 ### 新增
 
+- **Copy Trading 跟单系统上线 (§6-2 商业化)**
+  - **后端 9 端点** (`backend/src/handlers/copy_trading.rs`):
+    `GET /traders`, `GET /traders/{id}`, `POST /register`,
+    `POST /subscribe`, `POST /unsubscribe`, `GET /my-subscriptions`,
+    `GET /my-trader`, `GET /trades`, `GET /profit-shares`,
+    `POST /calculate-shares`,全部带 `utoipa::path` + `ToSchema` 注解
+  - **后端 OpenAPI 闭环**: `backend/src/lib.rs` 的 `ApiDoc.paths()`
+    跟 `components(schemas())` 都注册了 10 copy-trading path + 16 schema
+    (4 个请求体 + 6 个响应 wrapper + 6 个 service view);重生
+    `docs/openapi.json` 后含 10 个 `/api/v1/copy-trading/...` path
+  - **后端 fan-out 触发**: `backend/src/handlers/order.rs` 在订单
+    提交路径调 `services::copy_trading::spawn_on_trader_order` 异步
+    任务 (tokio spawn,trader 下单延迟不受影响)
+  - **前端 store** (`frontend/src/stores/copyTrading.ts`): Pinia store,
+    封装 list / get / register / subscribe / unsubscribe /
+    my-subscriptions / my-trades / my-profit-shares / my-trader /
+    calculate-shares,所有 wire 走 typedApi (openapi-fetch)
+  - **前端 4 view** (`frontend/src/views/copy/`):
+    - `CopyTraderListView.vue` — 交易员列表 (display_name / monthly_pnl /
+      win_rate / follower_count / status) + "Register as Trader" 弹窗
+    - `CopyTraderDetailView.vue` — 交易员详情 (4 KPI + bio) + 3 tab
+      (Overview / Subscribers / Performance) + Subscribe 弹窗
+      (ratio / max_position_size / max_loss_per_day)
+    - `MySubscriptionsView.vue` — 我的跟单 (订阅卡 + 取消按钮) +
+      "Recent copied trades" 表格
+    - `CopyTraderDashboardView.vue` — 交易员面板 (我的 profile 卡 +
+      Subscribers 表 + "Calculate shares" 弹窗)
+  - **路由 + 侧边栏**: 4 路由挂到 MainLayout (`/copy`, `/copy/traders/:id`,
+    `/copy/my`, `/copy/dashboard`),`AppSidebar.vue` 加 "跟单交易" 入口
+  - **单元测试** (`frontend/src/__tests__/stores/copyTrading.test.ts`):
+    2 case (listTraders 调 API + 状态; subscribe 调 API + 自动刷新
+    mySubscriptions),用 `vi.hoisted` mock typedApi
+  - **类型生成**: `frontend/src/types/api-generated.ts` 重生,含
+    42 处 copy-trading 类型引用 (paths + operations + components)
+  - **文档**: `docs/copy-trading.md` 新增 (491 行, 8 章节),含
+    fan-out 算法 + 数字例子 (3 个 follower 不同 ratio) +
+    结算算法 + 数字例子 (Carol 月度 P&L +250 / trader_share 50 /
+    follower_share 200) + 10 端点 curl 例子 + 跟单人 / 交易员
+    流程 + 风险说明 (fan-out / 结算 / 费用 / 性能 / 审计)
+  - **CLAUDE.md**: 新增 §6-2 Copy Trading 章节 (两段算法 + 权限 +
+    OpenAPI 闭环 + 禁止清单)
+  - **CHANGELOG**: 本条目
+
 - **PAMM 资管系统上线 (§6-1 商业化)**
   - **后端 wiring** (`backend/src/main.rs`): 把 `pamm.rs::router_user` 跟
     `pamm::router_manager` 接进全局 app。User 路由只挂 `auth_middleware`,
