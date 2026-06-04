@@ -245,6 +245,15 @@ async fn main() {
     );
 
     // Start server
+    // P3-5: Spawn the feature flag cache refresh task. The first
+    // refresh is eager (see `spawn_refresh_task`), so the first
+    // post-boot `is_enabled` call is a cache hit. Failure to refresh
+    // is logged but does not stop the loop — a transient DB hiccup
+    // shouldn't disable the whole feature flag system.
+    quant_trading_backend::services::feature_flag::spawn_refresh_task(
+        app_state.db.as_ref().clone(),
+    );
+
     let addr = CONFIG.server_addr();
     tracing::info!("Server listening on {}", addr);
 
@@ -370,6 +379,8 @@ fn create_router(
             delete(handlers::kline::rollback_clean),
         )
         .route("/kline/import/csv", post(handlers::kline::import_csv))
+        // P3-6: TimescaleDB continuous aggregate (1m/5m/1h) — 走 klines_1m/5m/1h 视图
+        .route("/kline/aggregate", get(handlers::kline::get_aggregate_klines))
         .route("/kline/kdj", get(handlers::indicator::get_kdj))
         .route("/kline/ma", get(handlers::indicator::get_ma))
         .route("/kline/macd", get(handlers::indicator::get_macd))
@@ -718,6 +729,25 @@ fn create_router(
         .nest("/api/v1/admin", admin_api_key_routes)
         .nest("/api/v1/admin", admin_ip_routes)
         .nest("/api/v1", review_routes);
+
+    let feature_flag_routes = handlers::feature_flag::router()
+        .layer(middleware::from_fn(
+            quant_trading_backend::middleware::auth::auth_middleware,
+        ));
+
+    let feature_flag_admin_routes = handlers::feature_flag::router()
+        .layer(middleware::from_fn(
+            quant_trading_backend::middleware::admin_only::require_admin_middleware,
+        ))
+        .layer(middleware::from_fn(
+            quant_trading_backend::middleware::auth::auth_middleware,
+        ));
+
+    app = app
+        // P3-5: user bootstrap endpoint (any authenticated user).
+        .merge(feature_flag_routes)
+        // P3-5: admin CRUD endpoints (admin role required).
+        .merge(feature_flag_admin_routes);
 
     // P2-1: Telegram notification routes (authenticated).
     // 中文：bind/test 都需要 `DbPool` 状态 + `TelegramChatIdCache` 与

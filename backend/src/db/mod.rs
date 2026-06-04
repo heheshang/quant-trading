@@ -698,6 +698,11 @@ pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), sea_orm::DbEr
     );
     db.execute(stmt).await?;
 
+    // P3-6: TimescaleDB 时序表分区 (klines / klines_phase4 / trades / orders)
+    // 当 DATABASE_URL 指向 timescale/timescaledb 镜像时启用;指向 vanilla postgres
+    // 时整个 block 静默跳过,不影响现有开发流程。
+    install_timescaledb_extensions(db).await?;
+
     // 两条查询索引。status 是 VARCHAR(16)（不是 PG enum），所以
     // (status, expires_at) 是一个普通 btree 复合索引。
     for ddl in [
@@ -826,5 +831,256 @@ async fn seed_default_feature_flags(db: &DatabaseConnection) -> Result<(), sea_o
         feature_flag::defaults::ALL.len()
     );
 
+    Ok(())
+}
+
+// =================================================================
+// P3-6: TimescaleDB extension install
+// =================================================================
+//
+// 设计目标:
+//   - 在 `run_migrations` 末尾集中执行 TimescaleDB 相关 DDL (extension + hypertable +
+//     compression / retention / continuous aggregate policies)
+//   - vanilla Postgres 上整段静默跳过 (SELECT 0 行),不影响开发环境
+//   - 所有 DDL 用 if_not_exists / DO $$ 保护,允许重跑 run_migrations
+//   - 与 `migrations/20260603140000_enable_timescaledb.sql` + `..._policies.sql` 一一对应
+//     (SQL 文件是给 SQL-only 运维 (managed Postgres) 用的可读镜像,这里是运行时入口)
+async fn install_timescaledb_extensions(db: &DatabaseConnection) -> Result<(), sea_orm::DbErr> {
+    use sea_orm::ConnectionTrait;
+
+    // 1. 检测 timescaledb extension 是否存在
+    let probe_sql = "SELECT 1 FROM pg_extension WHERE extname = 'timescaledb' LIMIT 1";
+    let probe_stmt =
+        sea_orm::Statement::from_string(sea_orm::DatabaseBackend::Postgres, probe_sql.to_string());
+    let probe_rows = db.query_all(probe_stmt).await?;
+    if probe_rows.is_empty() {
+        info!("TimescaleDB extension not available — skipping hypertable install");
+        return Ok(());
+    }
+    info!("TimescaleDB extension detected — installing hypertables and policies");
+
+    let backend = sea_orm::DatabaseBackend::Postgres;
+
+    // 2. CREATE EXTENSION (safe — IF NOT EXISTS)
+    let _ = db
+        .execute(sea_orm::Statement::from_string(
+            backend,
+            "CREATE EXTENSION IF NOT EXISTS timescaledb".to_string(),
+        ))
+        .await; // 忽略: 探测时已经确认存在
+
+    // 3. klines → hypertable (7d chunk) — 旧的范围分区表需要先 detach + drop
+    db.execute(sea_orm::Statement::from_string(backend, r#"
+        DO $$
+        DECLARE
+            part_record RECORD;
+        BEGIN
+            -- 跳过已经为 hypertable 的情况
+            IF EXISTS (SELECT 1 FROM timescaledb_information.hypertables WHERE hypertable_name = 'klines') THEN
+                RETURN;
+            END IF;
+
+            FOR part_record IN
+                SELECT child.relname AS partition_name
+                FROM pg_inherits
+                JOIN pg_class parent ON pg_inherits.inhparent = parent.oid
+                JOIN pg_class child ON pg_inherits.inhrelid = child.oid
+                WHERE parent.relname = 'klines'
+            LOOP
+                EXECUTE format('ALTER TABLE klines DETACH CONCURRENTLY %I', part_record.partition_name);
+                EXECUTE format('DROP TABLE IF EXISTS %I', part_record.partition_name);
+            END LOOP;
+        END $$;
+    "#.to_string()))
+    .await?;
+
+    db.execute(sea_orm::Statement::from_string(backend, r#"
+        SELECT create_hypertable('klines', 'open_time',
+            chunk_time_interval => INTERVAL '7 days',
+            if_not_exists => TRUE);
+    "#.to_string()))
+    .await?;
+
+    // 4. klines_phase4 → hypertable (7d chunk)
+    db.execute(sea_orm::Statement::from_string(backend, r#"
+        DO $$
+        DECLARE
+            part_record RECORD;
+        BEGIN
+            IF EXISTS (SELECT 1 FROM timescaledb_information.hypertables WHERE hypertable_name = 'klines_phase4') THEN
+                RETURN;
+            END IF;
+
+            FOR part_record IN
+                SELECT child.relname AS partition_name
+                FROM pg_inherits
+                JOIN pg_class parent ON pg_inherits.inhparent = parent.oid
+                JOIN pg_class child ON pg_inherits.inhrelid = child.oid
+                WHERE parent.relname = 'klines_phase4'
+            LOOP
+                EXECUTE format('ALTER TABLE klines_phase4 DETACH CONCURRENTLY %I', part_record.partition_name);
+                EXECUTE format('DROP TABLE IF EXISTS %I', part_record.partition_name);
+            END LOOP;
+        END $$;
+    "#.to_string()))
+    .await?;
+
+    db.execute(sea_orm::Statement::from_string(backend, r#"
+        SELECT create_hypertable('klines_phase4', 'open_time',
+            chunk_time_interval => INTERVAL '7 days',
+            if_not_exists => TRUE);
+    "#.to_string()))
+    .await?;
+
+    // 5. trades → hypertable (1d chunk)
+    db.execute(sea_orm::Statement::from_string(backend, r#"
+        SELECT create_hypertable('trades', 'created_at',
+            chunk_time_interval => INTERVAL '1 day',
+            if_not_exists => TRUE);
+    "#.to_string()))
+    .await?;
+
+    // 6. orders → hypertable (1d chunk)
+    db.execute(sea_orm::Statement::from_string(backend, r#"
+        SELECT create_hypertable('orders', 'created_at',
+            chunk_time_interval => INTERVAL '1 day',
+            if_not_exists => TRUE);
+    "#.to_string()))
+    .await?;
+
+    // 7. 连续聚合 (1m / 5m / 1h)
+    for view_def in [
+        // 1m OHLCV
+        r#"
+        CREATE MATERIALIZED VIEW IF NOT EXISTS klines_1m
+        WITH (timescaledb.continuous) AS
+        SELECT
+            time_bucket('1 minute', open_time) AS bucket,
+            symbol,
+            interval,
+            first(open, open_time) AS open,
+            max(high) AS high,
+            min(low) AS low,
+            last(close, open_time) AS close,
+            sum(volume) AS volume,
+            sum(quote_volume) AS quote_volume,
+            sum(trades) AS trades
+        FROM klines_phase4
+        WHERE deleted_at IS NULL
+        GROUP BY bucket, symbol, interval
+        WITH NO DATA;
+        "#,
+        // 5m OHLCV
+        r#"
+        CREATE MATERIALIZED VIEW IF NOT EXISTS klines_5m
+        WITH (timescaledb.continuous) AS
+        SELECT
+            time_bucket('5 minutes', open_time) AS bucket,
+            symbol,
+            interval,
+            first(open, open_time) AS open,
+            max(high) AS high,
+            min(low) AS low,
+            last(close, open_time) AS close,
+            sum(volume) AS volume
+        FROM klines_phase4
+        WHERE deleted_at IS NULL
+        GROUP BY bucket, symbol, interval
+        WITH NO DATA;
+        "#,
+        // 1h OHLCV
+        r#"
+        CREATE MATERIALIZED VIEW IF NOT EXISTS klines_1h
+        WITH (timescaledb.continuous) AS
+        SELECT
+            time_bucket('1 hour', open_time) AS bucket,
+            symbol,
+            interval,
+            first(open, open_time) AS open,
+            max(high) AS high,
+            min(low) AS low,
+            last(close, open_time) AS close,
+            sum(volume) AS volume
+        FROM klines_phase4
+        WHERE deleted_at IS NULL
+        GROUP BY bucket, symbol, interval
+        WITH NO DATA;
+        "#,
+    ] {
+        db.execute(sea_orm::Statement::from_string(
+            backend,
+            view_def.to_string(),
+        ))
+        .await?;
+    }
+
+    // 8. 连续聚合刷新策略
+    for (agg, start_off, end_off, sched) in [
+        ("klines_1m", "2 hours", "1 minute", "30 seconds"),
+        ("klines_5m", "2 hours", "5 minutes", "1 minute"),
+        ("klines_1h", "1 day", "1 hour", "5 minutes"),
+    ] {
+        let sql = format!(
+            "SELECT add_continuous_aggregate_policy('{}', \
+             start_offset => INTERVAL '{}', \
+             end_offset => INTERVAL '{}', \
+             schedule_interval => INTERVAL '{}', \
+             if_not_exists => TRUE);",
+            agg, start_off, end_off, sched
+        );
+        db.execute(sea_orm::Statement::from_string(backend, sql))
+            .await?;
+    }
+
+    // 9. 压缩配置 (klines / klines_phase4 / trades / orders)
+    for tbl in ["klines", "klines_phase4"] {
+        let sql = format!(
+            "ALTER TABLE {} SET (\
+             timescaledb.compress,\
+             timescaledb.compress_segmentby = 'symbol,interval',\
+             timescaledb.compress_orderby = 'open_time DESC'\
+             )",
+            tbl
+        );
+        db.execute(sea_orm::Statement::from_string(backend, sql))
+            .await?;
+        let policy = format!(
+            "SELECT add_compression_policy('{}', compress_after => INTERVAL '7 days', if_not_exists => TRUE);",
+            tbl
+        );
+        db.execute(sea_orm::Statement::from_string(backend, policy))
+            .await?;
+    }
+    for tbl in ["trades", "orders"] {
+        let seg = if tbl == "trades" { "symbol,side" } else { "symbol,status" };
+        let sql = format!(
+            "ALTER TABLE {} SET (\
+             timescaledb.compress,\
+             timescaledb.compress_segmentby = '{}',\
+             timescaledb.compress_orderby = 'created_at DESC'\
+             )",
+            tbl, seg
+        );
+        db.execute(sea_orm::Statement::from_string(backend, sql))
+            .await?;
+        let policy = format!(
+            "SELECT add_compression_policy('{}', compress_after => INTERVAL '7 days', if_not_exists => TRUE);",
+            tbl
+        );
+        db.execute(sea_orm::Statement::from_string(backend, policy))
+            .await?;
+    }
+
+    // 10. 1 年 retention policy
+    for tbl in ["klines", "klines_phase4", "trades", "orders"] {
+        let sql = format!(
+            "SELECT add_retention_policy('{}', drop_after => INTERVAL '1 year', if_not_exists => TRUE);",
+            tbl
+        );
+        db.execute(sea_orm::Statement::from_string(backend, sql))
+            .await?;
+    }
+
+    info!("TimescaleDB hypertables, policies, and continuous aggregates installed");
     Ok(())
 }

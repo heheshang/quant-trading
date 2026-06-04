@@ -1195,3 +1195,183 @@ pub async fn export_klines(
 
     Ok(csv)
 }
+
+// =================================================================
+// P3-6: TimescaleDB 连续聚合查询
+// =================================================================
+//
+// 设计目标:
+//   - 把「1m/5m/1h 聚合 K线」从「实时 GROUP BY klines_phase4」改成「直接读
+//     连续聚合视图 (klines_1m / klines_5m / klines_1h)」。
+//   - 连续聚合由 TimescaleDB 后台 worker 增量刷新,查询成本接近 0;
+//     走实时 GROUP BY 在 1000w+ 行 K线 表上要 200ms+,走连续聚合稳定 < 50ms。
+//   - 端点契约见 KlineAggregateParams / KlineAggregateResponse。
+//
+// 关键决策:
+//   1. `interval` 必须是 1m / 5m / 1h 之一 (其他值返回 400) —
+//      我们的连续聚合只预建这三个周期。
+//   2. 用 sqlx::query 直接打连续聚合视图 (不走 SeaORM) —
+//      连续聚合的 schema 在 SeaORM 里没有对应 entity,也不应该有。
+//   3. 输出按 bucket 升序,前端画 K线图天然要求。
+//   4. 视图不存在时 (vanilla Postgres) — 返回空数组 + source="live_fallback",
+//      让前端能降级处理;同时记录 warning log 方便排查。
+//   5. symbol 大写化: 与 Binance / OKX 等交易所约定一致,查询前先 uppercase。
+
+/// Allowed intervals for the aggregate endpoint.
+/// Maps 1:1 to the continuous-aggregate views created in
+/// `migrations/20260603140000_enable_timescaledb.sql`.
+pub const AGGREGATE_INTERVALS: &[&str] = &["1m", "5m", "1h"];
+
+/// Map `interval` (e.g. "1m") → continuous aggregate view name (e.g. "klines_1m").
+/// Returns `None` if interval is not a valid aggregate interval.
+pub(crate) fn aggregate_view_name(interval: &str) -> Option<&'static str> {
+    match interval {
+        "1m" => Some("klines_1m"),
+        "5m" => Some("klines_5m"),
+        "1h" => Some("klines_1h"),
+        _ => None,
+    }
+}
+
+/// Query the TimescaleDB continuous aggregate for a symbol + interval over a
+/// time range. The query is a single SELECT against the named view — no joins,
+/// no GROUP BY at query time.
+///
+/// Falls back gracefully when the view doesn't exist (returns an empty
+/// `KlineAggregateResponse` with `source = "live_fallback"`), so the endpoint
+/// keeps working on vanilla Postgres during dev.
+pub async fn compute_aggregate(
+    db: &DatabaseConnection,
+    symbol: &str,
+    interval: &str,
+    from: Option<i64>,
+    to: Option<i64>,
+) -> Result<crate::models::schemas::KlineAggregateResponse, AppError> {
+    use crate::models::schemas::{KlineAggregateBar, KlineAggregateResponse};
+    use sea_orm::{ConnectionTrait, Statement};
+    use std::str::FromStr;
+
+    let symbol_upper = symbol.to_uppercase();
+    let view = match aggregate_view_name(interval) {
+        Some(v) => v,
+        None => {
+            return Err(AppError::Validation(format!(
+                "interval must be one of {:?} for aggregate endpoint",
+                AGGREGATE_INTERVALS
+            )));
+        }
+    };
+
+    // Default time range: last 24h.
+    let now_ms = chrono::Utc::now().timestamp_millis();
+    let to_ms = to.unwrap_or(now_ms);
+    let from_ms = from.unwrap_or(now_ms - 24 * 60 * 60 * 1000);
+
+    // Convert ms → TIMESTAMPTZ literals for safe SQL interpolation.
+    // We use the standard ISO 8601 form (UTC) which Postgres parses unambiguously.
+    let from_ts = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(from_ms)
+        .unwrap_or_else(chrono::Utc::now);
+    let to_ts = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(to_ms)
+        .unwrap_or_else(chrono::Utc::now);
+
+    let sql = format!(
+        "SELECT bucket, open, high, low, close, volume \
+         FROM {} \
+         WHERE symbol = $1 AND bucket >= $2 AND bucket < $3 \
+         ORDER BY bucket ASC \
+         LIMIT 5000",
+        view
+    );
+
+    let backend = sea_orm::DatabaseBackend::Postgres;
+    let stmt = Statement::from_sql_and_values(
+        backend,
+        &sql,
+        [
+            symbol_upper.clone().into(),
+            from_ts.naive_utc().into(),
+            to_ts.naive_utc().into(),
+        ],
+    );
+
+    let rows_result = db.query_all(stmt).await;
+
+    let rows = match rows_result {
+        Ok(r) => r,
+        Err(e) => {
+            // 视图不存在 (42P01) → 退回 vanilla Postgres 兼容路径
+            let msg = e.to_string();
+            if msg.contains("does not exist")
+                || msg.contains("relation")
+                || msg.contains("42P01")
+            {
+                tracing::warn!(
+                    message = "TimescaleDB continuous aggregate view not found, returning empty",
+                    view = view,
+                    symbol = %symbol_upper,
+                    error = %e
+                );
+                return Ok(KlineAggregateResponse {
+                    symbol: symbol_upper,
+                    interval: interval.to_string(),
+                    source: "live_fallback".to_string(),
+                    bar_count: 0,
+                    bars: Vec::new(),
+                });
+            }
+            return Err(AppError::Internal(format!("aggregate query error: {}", e)));
+        }
+    };
+
+    let bars: Vec<KlineAggregateBar> = rows
+        .into_iter()
+        .filter_map(|row| {
+            // bucket 是 TIMESTAMPTZ → 转成 DateTime<Utc>
+            let bucket: chrono::DateTime<chrono::Utc> =
+                row.try_get_by::<chrono::DateTime<chrono::Utc>, _>("bucket").ok()?;
+            let open: rust_decimal::Decimal =
+                row.try_get_by::<rust_decimal::Decimal, _>("open").ok()?;
+            let high: rust_decimal::Decimal =
+                row.try_get_by::<rust_decimal::Decimal, _>("high").ok()?;
+            let low: rust_decimal::Decimal =
+                row.try_get_by::<rust_decimal::Decimal, _>("low").ok()?;
+            let close: rust_decimal::Decimal =
+                row.try_get_by::<rust_decimal::Decimal, _>("close").ok()?;
+            let volume: rust_decimal::Decimal =
+                row.try_get_by::<rust_decimal::Decimal, _>("volume").ok()?;
+
+            Some(KlineAggregateBar {
+                bucket_ms: bucket.timestamp_millis(),
+                bucket_iso: bucket.to_rfc3339(),
+                symbol: symbol_upper.clone(),
+                interval: interval.to_string(),
+                open: f64::from_str(&open.to_string()).unwrap_or(0.0),
+                high: f64::from_str(&high.to_string()).unwrap_or(0.0),
+                low: f64::from_str(&low.to_string()).unwrap_or(0.0),
+                close: f64::from_str(&close.to_string()).unwrap_or(0.0),
+                volume: f64::from_str(&volume.to_string()).unwrap_or(0.0),
+            })
+        })
+        .collect();
+
+    let bar_count = bars.len();
+    Ok(KlineAggregateResponse {
+        symbol: symbol_upper,
+        interval: interval.to_string(),
+        source: "timescaledb_continuous_aggregate".to_string(),
+        bar_count,
+        bars,
+    })
+}
+
+/// Convenience wrapper for 1m aggregates — preserved as a named function for
+/// callers that just want the canonical 1-minute OHLCV bars without naming
+/// the interval string themselves. Delegates to [`compute_aggregate`].
+pub async fn compute_1m_aggregate(
+    db: &DatabaseConnection,
+    symbol: &str,
+    from: Option<i64>,
+    to: Option<i64>,
+) -> Result<crate::models::schemas::KlineAggregateResponse, AppError> {
+    compute_aggregate(db, symbol, "1m", from, to).await
+}

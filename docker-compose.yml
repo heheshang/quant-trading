@@ -87,9 +87,13 @@ services:
       retries: 3
       start_period: 10s
 
-  # ─── PostgreSQL ────
+  # ─── TimescaleDB (PostgreSQL + time-series extension) ────
+  # P3-6: 时序表分区 — K线 / 订单 / 风控事件 走 TimescaleDB hypertable，
+  # 启用自动按时间分块 + 压缩老 chunk + 1 年 retention + 1m/5m/1h 连续聚合。
+  # 镜像基于 postgres:16，drop-in 替换 (DATABASE_URL 完全不变)。
+  # healthcheck 改用 psql 验证 timescaledb extension 加载 (DO $$ ... $$)。
   postgres:
-    image: postgres:16-alpine
+    image: timescale/timescaledb:latest-pg16
     container_name: quant-postgres
     restart: unless-stopped
     ports:
@@ -101,15 +105,21 @@ services:
       POSTGRES_USER: quant
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: quant_trading
-    # ports removed for security (internal network only)
+      # TimescaleDB tuning — 让 hypertable 后台 worker / bgw 有资源跑
+      # 压缩 / 保留 / 连续聚合刷新任务
+      TS_TUNE_MEMORY: "4GB"
+      TS_TUNE_NUM_CPUS: "2"
     networks:
       - quant-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U quant -d quant_trading"]
+      # pg_isready + 一次 SELECT 确认 timescaledb extension 可用
+      test:
+        - "CMD-SHELL"
+        - "pg_isready -U quant -d quant_trading && psql -U quant -d quant_trading -c \"SELECT extname FROM pg_extension WHERE extname='timescaledb'\" | grep -q timescaledb"
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 10s
+      start_period: 15s
 
   # ─── RabbitMQ (Message Queue, P3-2) ────
   rabbitmq:

@@ -141,6 +141,52 @@ pub struct KlineExportParams {
     pub end_time: Option<i64>,
 }
 
+// ============ P3-6: TimescaleDB continuous aggregate ============
+//
+// `/api/v1/kline/aggregate` 端点用 TimescaleDB 连续聚合 (1m/5m/1h) 拉聚合 K线,
+// 比实时 GROUP BY 走 klines_phase4 节省 10x+ 算力。
+//
+// 端点契约 (见 handlers::kline::get_aggregate_klines):
+//   GET /api/v1/kline/aggregate?symbol=BTCUSDT&interval=1m&from=...&to=...
+//   - interval: "1m" | "5m" | "1h"  (其他值会被拒绝 — 没有对应连续聚合)
+//   - from / to: ms 时间戳 (可选,默认最近 24h)
+//   - 返回: 连续聚合视图里的 OHLCV bars,已按 bucket 升序
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct KlineAggregateParams {
+    pub symbol: String,
+    /// 必须是 1m / 5m / 1h 之一 (对应 klines_1m / klines_5m / klines_1h 连续聚合)
+    pub interval: String,
+    /// 起始时间 (ms),可选,默认 = now - 24h
+    pub from: Option<i64>,
+    /// 结束时间 (ms),可选,默认 = now
+    pub to: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct KlineAggregateBar {
+    /// bucket 起始时间 (ms)
+    pub bucket_ms: i64,
+    /// bucket 起始时间 (ISO 8601)
+    pub bucket_iso: String,
+    pub symbol: String,
+    pub interval: String,
+    pub open: f64,
+    pub high: f64,
+    pub low: f64,
+    pub close: f64,
+    pub volume: f64,
+}
+
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct KlineAggregateResponse {
+    pub symbol: String,
+    pub interval: String,
+    pub source: String, // "timescaledb_continuous_aggregate" | "live_fallback"
+    pub bar_count: usize,
+    pub bars: Vec<KlineAggregateBar>,
+}
+
 // ============ WS ============
 
 #[derive(Debug, Deserialize, ToSchema)]

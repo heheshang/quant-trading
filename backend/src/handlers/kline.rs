@@ -1,9 +1,9 @@
 use crate::middleware::auth::AuthenticatedUser;
 use crate::models::schemas::{
-    KlineCleanRequest, KlineCleanResponse, KlineCsvImportResponse, KlineExportParams,
-    KlineFetchResponse, KlineImportHistoryResponse, KlineImportRequest, KlineImportResponse,
-    KlineLatestResponse, KlineQualityResponse, KlineQueryParams, KlineQueryResponse,
-    KlineRollbackResponse, KlineSymbolListResponse,
+    KlineAggregateParams, KlineAggregateResponse, KlineCleanRequest, KlineCleanResponse,
+    KlineCsvImportResponse, KlineExportParams, KlineFetchResponse, KlineImportHistoryResponse,
+    KlineImportRequest, KlineImportResponse, KlineLatestResponse, KlineQualityResponse,
+    KlineQueryParams, KlineQueryResponse, KlineRollbackResponse, KlineSymbolListResponse,
 };
 use crate::services::kline;
 use crate::utils::error::AppError;
@@ -200,6 +200,56 @@ pub async fn clean_klines(
 ) -> Result<Json<ApiResponse<KlineCleanResponse>>, AppError> {
     let result = kline::clean_klines(&db, user.user_id, body).await?;
     Ok(Json(ApiResponse::success(KlineCleanResponse(result))))
+}
+
+/// GET /api/v1/kline/aggregate
+///
+/// P3-6: TimescaleDB continuous aggregate endpoint.
+///
+/// Returns OHLCV bars from the klines_1m / klines_5m / klines_1h continuous
+/// aggregate view. The continuous aggregate is maintained by TimescaleDB's
+/// background worker (configured in `install_timescaledb_extensions`), so this
+/// query is cheap regardless of underlying klines_phase4 size.
+///
+/// When running on vanilla Postgres (no TimescaleDB extension) the endpoint
+/// returns an empty `bars` list with `source = "live_fallback"` so the
+/// frontend can degrade gracefully.
+///
+/// Auth: required (any logged-in user).
+pub async fn get_aggregate_klines(
+    user: AuthenticatedUser,
+    State(db): State<Arc<DatabaseConnection>>,
+    Query(params): Query<KlineAggregateParams>,
+) -> Result<Json<ApiResponse<KlineAggregateResponse>>, AppError> {
+    if params.symbol.trim().is_empty() {
+        return Err(AppError::Validation("symbol is required".into()));
+    }
+    if !kline::AGGREGATE_INTERVALS.contains(&params.interval.as_str()) {
+        return Err(AppError::Validation(format!(
+            "interval must be one of {:?}, got '{}'",
+            kline::AGGREGATE_INTERVALS,
+            params.interval
+        )));
+    }
+
+    tracing::info!(
+        message = "kline::get_aggregate_klines called",
+        user_id = %user.user_id,
+        symbol = %params.symbol,
+        interval = %params.interval,
+        from = ?params.from,
+        to = ?params.to
+    );
+
+    let result = kline::compute_aggregate(
+        &db,
+        &params.symbol,
+        &params.interval,
+        params.from,
+        params.to,
+    )
+    .await?;
+    Ok(Json(ApiResponse::success(result)))
 }
 
 /// GET /api/v1/kline/export

@@ -20,6 +20,9 @@ pub mod ip_cidr;
 pub mod trailing_stop;
 pub mod indicator;
 pub mod kline;
+#[cfg(test)]
+#[cfg(feature = "tsdb-integration")]
+pub mod kline_test;
 pub mod kline_partition_manager;
 pub mod kline_writer;
 pub mod market_data;
