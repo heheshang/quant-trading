@@ -1,0 +1,1314 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Quant Trading API",
+    "description": "Full quantitative trading platform API — auth, market data, strategies, backtests, orders, positions, risk, AI predictions.",
+    "contact": {
+      "name": "Quant Trading",
+      "email": "dev@quant-trading.local"
+    },
+    "license": {
+      "name": "MIT OR Apache-2.0",
+      "identifier": "MIT OR Apache-2.0"
+    },
+    "version": "0.1.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080",
+      "description": "Local dev"
+    },
+    {
+      "url": "/",
+      "description": "Same-origin (nginx)"
+    }
+  ],
+  "paths": {
+    "/api/v1/audit-logs": {
+      "get": {
+        "tags": [
+          "audit"
+        ],
+        "summary": "`GET /api/v1/audit-logs`",
+        "description": "List audit log entries. All filters are optional and combine as AND.\nPagination: `page` (1-indexed, default 1) / `size` (default 20, max 200).\n\nResponse shape: `ApiResponse<AuditLogPage>` where `AuditLogPage = { items, total, page, size }`.",
+        "operationId": "audit_logs_list",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "description": "Filter by actor user_id",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "action",
+            "in": "query",
+            "description": "Filter by dotted action name (e.g. \"user.role.changed\")",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "target_type",
+            "in": "query",
+            "description": "Filter by target_type",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "target_id",
+            "in": "query",
+            "description": "Filter by target_id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "request_id",
+            "in": "query",
+            "description": "Filter by originating X-Request-Id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "created_at >= from",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "created_at <= to",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "1-indexed page number",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "Page size (1..=200)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page of audit log entries"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Admin only"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/audit-logs/{id}": {
+      "get": {
+        "tags": [
+          "audit"
+        ],
+        "summary": "`GET /api/v1/audit-logs/{id}`",
+        "description": "Single audit entry by primary key. Returns 404 if not found.",
+        "operationId": "audit_logs_get",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Audit log row id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Single audit log entry",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditLogView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Admin only"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "POST /api/v1/auth/login",
+        "operationId": "auth_login",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "POST /api/v1/auth/logout",
+        "operationId": "auth_logout",
+        "responses": {
+          "200": {
+            "description": "Logged out successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogoutResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "GET /api/v1/auth/me - alias for /users/me",
+        "operationId": "auth_me",
+        "responses": {
+          "200": {
+            "description": "Current authenticated user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserMeResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "POST /api/v1/auth/refresh",
+        "operationId": "auth_refresh",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Tokens refreshed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponseBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired refresh token"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/register": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "POST /api/v1/auth/register",
+        "operationId": "auth_register",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "User registered successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseBody"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "409": {
+            "description": "Username or email already exists"
+          }
+        }
+      }
+    },
+    "/api/v1/health/ready": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Readiness probe: DB 与 Redis 都可达时返回 200，否则 503。",
+        "description": "任何一个依赖 ping 失败就把整体标记为 unready。响应体里逐项列出结果，\n方便 dashboard / pagerDuty 看到具体哪个依赖挂了。",
+        "operationId": "system_readiness",
+        "responses": {
+          "200": {
+            "description": "All dependencies healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "One or more dependencies down"
+          }
+        }
+      }
+    },
+    "/api/v1/market/depth": {
+      "get": {
+        "tags": [
+          "market"
+        ],
+        "summary": "GET /api/v1/market/depth — 获取深度数据",
+        "operationId": "market_get_depth",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "query",
+            "description": "Trading symbol (e.g. BTCUSDT)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "levels",
+            "in": "query",
+            "description": "Depth levels (5, 10, 20, 50) — default 10; 50 requires pro-trader/admin",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "exchange",
+            "in": "query",
+            "description": "Exchange to query (default: binance)",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/Exchange"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Order book depth",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid `levels` value"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Role not permitted for the requested depth"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/market/ticker": {
+      "get": {
+        "tags": [
+          "market"
+        ],
+        "summary": "GET /api/v1/market/ticker — 获取单个交易对 Ticker",
+        "operationId": "market_get_ticker",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "query",
+            "description": "Trading symbol (e.g. BTCUSDT)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "exchange",
+            "in": "query",
+            "description": "Exchange to query (default: binance)",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/Exchange"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ticker for the requested symbol",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TickerResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid symbol format"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "404": {
+            "description": "Symbol not found"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/market/tickers": {
+      "get": {
+        "tags": [
+          "market"
+        ],
+        "summary": "GET /api/v1/market/tickers — 获取所有交易对 Ticker",
+        "operationId": "market_list_tickers",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "query",
+            "description": "Optional symbol filter (e.g. BTCUSDT)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "exchange",
+            "in": "query",
+            "description": "Exchange to query (default: binance)",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/Exchange"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of tickers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TickerResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/users/me": {
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Get current user profile",
+        "operationId": "users_get_me",
+        "responses": {
+          "200": {
+            "description": "Current user profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserMeResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "404": {
+            "description": "User not found"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/users/me/password": {
+      "post": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Change current user password",
+        "operationId": "users_change_password",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Password changed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangePasswordResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (e.g. old password wrong, new password too short)"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/users/{id}": {
+      "post": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Admin: update user (including role)",
+        "operationId": "users_admin_update",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Target user id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUpdateUserRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Updated user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Admin only"
+          },
+          "404": {
+            "description": "User not found"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Liveness probe: 进程在跑就返回 200。",
+        "description": "不检查任何外部依赖。即使下游 DB/Redis 全挂，liveness 仍应返回 OK，\n否则 k8s 会重启 Pod，而重启并不能恢复下游。",
+        "operationId": "system_liveness",
+        "responses": {
+          "200": {
+            "description": "Process is alive",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LivenessResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AdminUpdateUserRequest": {
+        "type": "object",
+        "properties": {
+          "avatar_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "is_active": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "role_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "AuditLogView": {
+        "type": "object",
+        "required": [
+          "id",
+          "action",
+          "target_type",
+          "target_id",
+          "diff",
+          "ip_address",
+          "created_at"
+        ],
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "diff": {
+            "$ref": "#/components/schemas/Value"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ip_address": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "target_id": {
+            "type": "string"
+          },
+          "target_type": {
+            "type": "string"
+          },
+          "user_agent": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "user_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "AuthResponseBody": {
+        "type": "object",
+        "required": [
+          "user",
+          "access_token",
+          "refresh_token",
+          "expires_in"
+        ],
+        "properties": {
+          "access_token": {
+            "type": "string"
+          },
+          "expires_in": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "refresh_token": {
+            "type": "string"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserResponse"
+          }
+        }
+      },
+      "ChangePasswordRequest": {
+        "type": "object",
+        "required": [
+          "old_password",
+          "new_password"
+        ],
+        "properties": {
+          "new_password": {
+            "type": "string"
+          },
+          "old_password": {
+            "type": "string"
+          }
+        }
+      },
+      "ChangePasswordResponse": {
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "DepthLevel": {
+        "type": "object",
+        "required": [
+          "price",
+          "quantity",
+          "total"
+        ],
+        "properties": {
+          "price": {
+            "type": "number",
+            "format": "double"
+          },
+          "quantity": {
+            "type": "number",
+            "format": "double"
+          },
+          "total": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "DepthResponse": {
+        "type": "object",
+        "required": [
+          "bids",
+          "asks",
+          "timestamp"
+        ],
+        "properties": {
+          "asks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DepthLevel"
+            }
+          },
+          "bids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DepthLevel"
+            }
+          },
+          "timestamp": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "Exchange": {
+        "type": "string",
+        "description": "Supported exchange enum",
+        "enum": [
+          "binance",
+          "okx",
+          "gate",
+          "bybit",
+          "huobi"
+        ]
+      },
+      "LivenessResponse": {
+        "type": "object",
+        "description": "Liveness response payload.",
+        "required": [
+          "status",
+          "version",
+          "timestamp"
+        ],
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": [
+          "password"
+        ],
+        "properties": {
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "password": {
+            "type": "string"
+          },
+          "username": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "LogoutResponse": {
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "ReadinessChecks": {
+        "type": "object",
+        "description": "Per-dependency check status.",
+        "required": [
+          "database",
+          "redis"
+        ],
+        "properties": {
+          "database": {
+            "type": "string"
+          },
+          "redis": {
+            "type": "string"
+          }
+        }
+      },
+      "ReadinessResponse": {
+        "type": "object",
+        "description": "Readiness response payload.",
+        "required": [
+          "status",
+          "version",
+          "timestamp",
+          "checks"
+        ],
+        "properties": {
+          "checks": {
+            "$ref": "#/components/schemas/ReadinessChecks"
+          },
+          "status": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        }
+      },
+      "RefreshTokenRequest": {
+        "type": "object",
+        "required": [
+          "refresh_token"
+        ],
+        "properties": {
+          "refresh_token": {
+            "type": "string"
+          }
+        }
+      },
+      "RegisterRequest": {
+        "type": "object",
+        "required": [
+          "username",
+          "email",
+          "password"
+        ],
+        "properties": {
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "email": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        }
+      },
+      "RoleResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "display_name",
+          "is_system",
+          "created_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "is_system": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "TickerResponse": {
+        "type": "object",
+        "required": [
+          "symbol",
+          "price",
+          "change",
+          "change_percent",
+          "volume",
+          "high",
+          "low",
+          "bid",
+          "ask",
+          "timestamp"
+        ],
+        "properties": {
+          "ask": {
+            "type": "number",
+            "format": "double"
+          },
+          "bid": {
+            "type": "number",
+            "format": "double"
+          },
+          "change": {
+            "type": "number",
+            "format": "double"
+          },
+          "change_percent": {
+            "type": "number",
+            "format": "double"
+          },
+          "high": {
+            "type": "number",
+            "format": "double"
+          },
+          "low": {
+            "type": "number",
+            "format": "double"
+          },
+          "price": {
+            "type": "number",
+            "format": "double"
+          },
+          "symbol": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "volume": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "TokenResponseBody": {
+        "type": "object",
+        "required": [
+          "access_token",
+          "refresh_token",
+          "expires_in"
+        ],
+        "properties": {
+          "access_token": {
+            "type": "string"
+          },
+          "expires_in": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "refresh_token": {
+            "type": "string"
+          }
+        }
+      },
+      "UserMeResponse": {
+        "$ref": "#/components/schemas/UserResponse"
+      },
+      "UserResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "email",
+          "is_active",
+          "role",
+          "created_at"
+        ],
+        "properties": {
+          "avatar_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "email": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "is_active": {
+            "type": "boolean"
+          },
+          "last_login_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "role": {
+            "$ref": "#/components/schemas/RoleResponse"
+          },
+          "username": {
+            "type": "string"
+          }
+        }
+      },
+      "Value": {}
+    },
+    "securitySchemes": {
+      "bearer_auth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "auth",
+      "description": "Authentication: register, login, refresh, me"
+    },
+    {
+      "name": "users",
+      "description": "User management, roles, permissions (admin)"
+    },
+    {
+      "name": "strategy",
+      "description": "Strategy CRUD, templates, code upload, import/export"
+    },
+    {
+      "name": "kline",
+      "description": "Kline import, query, quality, clean, export"
+    },
+    {
+      "name": "indicator",
+      "description": "Technical indicators (KDJ, MA, MACD, RSI, Bollinger, ...)"
+    },
+    {
+      "name": "market",
+      "description": "Public market data (tickers, depth, kline)"
+    },
+    {
+      "name": "order",
+      "description": "Order placement, cancellation, queries, account"
+    },
+    {
+      "name": "risk",
+      "description": "Risk rules, logs, emergency close, pause/resume"
+    },
+    {
+      "name": "dashboard",
+      "description": "Dashboard aggregates (stats, PnL)"
+    },
+    {
+      "name": "portfolio",
+      "description": "Portfolio summary, positions, performance, equity"
+    },
+    {
+      "name": "backtest",
+      "description": "Backtest run/inspect/cancel + history"
+    },
+    {
+      "name": "review",
+      "description": "Strategy review workflow (submit/approve/reject)"
+    },
+    {
+      "name": "audit",
+      "description": "Admin audit log query"
+    },
+    {
+      "name": "system",
+      "description": "Liveness, readiness, metrics"
+    },
+    {
+      "name": "exchange",
+      "description": "Live exchange (Binance / OKX) signed endpoints"
+    },
+    {
+      "name": "api-key",
+      "description": "User API-key management"
+    },
+    {
+      "name": "admin-ip",
+      "description": "Admin IP allow-list (P3-A)"
+    },
+    {
+      "name": "position-alert",
+      "description": "Position price/equity alert rules"
+    },
+    {
+      "name": "trigger-order",
+      "description": "Stop-loss / take-profit / OCO / TWAP"
+    },
+    {
+      "name": "bracket",
+      "description": "Bracket order linking"
+    },
+    {
+      "name": "arbitrage",
+      "description": "Cross-exchange pair/spread/position/signal"
+    },
+    {
+      "name": "ai",
+      "description": "AI prediction endpoints (P3-F3)"
+    },
+    {
+      "name": "telegram",
+      "description": "Telegram notification bind/test (P2-1)"
+    },
+    {
+      "name": "export",
+      "description": "CSV export for orders/trades/positions/account"
+    }
+  ]
+}

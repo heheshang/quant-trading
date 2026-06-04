@@ -72,6 +72,7 @@ pub static CONFIG: LazyLock<Config> = LazyLock::new(Config::from_env);
         (name = "arbitrage",   description = "Cross-exchange pair/spread/position/signal"),
         (name = "ai",          description = "AI prediction endpoints (P3-F3)"),
         (name = "telegram",    description = "Telegram notification bind/test (P2-1)"),
+        (name = "feature-flag", description = "Feature flag evaluation (user bootstrap) + admin CRUD"),
         (name = "export",      description = "CSV export for orders/trades/positions/account"),
     ),
     paths(
@@ -92,6 +93,11 @@ pub static CONFIG: LazyLock<Config> = LazyLock::new(Config::from_env);
         handlers::market::get_tickers,
         handlers::market::get_ticker,
         handlers::market::get_depth,
+        // ── feature-flag ────────────────────────────────────────────
+        handlers::feature_flag::evaluate_for_user,
+        handlers::feature_flag::admin_list,
+        handlers::feature_flag::admin_upsert,
+        handlers::feature_flag::admin_delete,
         // ── audit ───────────────────────────────────────────────────
         handlers::audit_log::list_audit_logs,
         handlers::audit_log::get_audit_log,
@@ -112,8 +118,13 @@ pub static CONFIG: LazyLock<Config> = LazyLock::new(Config::from_env);
         crate::models::schemas::TokenResponseBody,
         crate::models::schemas::LogoutResponse,
         // ── market ──────────────────────────────────────────────────
+        crate::models::market_schemas::Exchange,
         crate::models::market_schemas::TickerResponse,
         crate::models::market_schemas::DepthResponse,
+        // ── feature-flag ────────────────────────────────────────────
+        handlers::feature_flag::FeatureFlag,
+        handlers::feature_flag::FeatureFlagEvaluation,
+        handlers::feature_flag::UpsertFeatureFlagRequest,
         // ── audit ───────────────────────────────────────────────────
         crate::services::audit_log::AuditLogView,
     )),
