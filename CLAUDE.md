@@ -173,3 +173,64 @@ K线 / 订单 / 风控事件走 TimescaleDB hypertable (基于 PostgreSQL 16):
 启动用 `timescale/timescaledb:latest-pg16` 镜像 (替代 `postgres:16-alpine`),
 DATABASE_URL 完全不变。运行时入口在 `src/db/mod.rs::install_timescaledb_extensions`,
 vanilla Postgres 上整段静默跳过,不影响 dev。详细文档见 `docs/timescaledb.md`。
+
+### OpenAPI workflow (P3-3 闭环)
+
+后端的 `utoipa::path` 注解是契约来源。前端通过 `openapi-typescript` 把
+`/api/v1/openapi.json` 转成 `frontend/src/types/api-generated.ts`,用
+`openapi-fetch` 拿到全类型化的 client。
+
+```bash
+# 重新生成类型 (前端 cd 进去)
+npm run gen:api   # 走 scripts/gen-types.sh
+```
+
+脚本优先用 `docs/openapi.json` 的提交版;若不存在则 `cargo run --bin
+export_openapi` 实时导出。CI 也在同一个脚本上跑,所以本地生成的 `api-generated.ts`
+直接 commit 即可。
+
+新增 endpoint 的步骤:
+
+1. 后端在 handler 上加 `#[utoipa::path(...)]`,在 `src/lib.rs` 的
+   `ApiDoc` 里 `paths(...)` + `components(schemas(...))` 注册
+2. 跑 `npm run gen:api` 重生成 types
+3. 前端用 `typedApi.GET/POST/...` 调用,IDE 自动补全 request/response
+
+临时打补丁也可以手工编辑 `api-generated.ts`(本仓库曾用此法加
+feature-flag 端点),但下次跑 `gen:api` 会被覆盖,记得在 commit message
+里说明。
+
+### Feature flag workflow (P3-5)
+
+后端提供 3 个端点 (实现见 `backend/src/handlers/feature_flag.rs`):
+
+| 端点 | 角色 | 说明 |
+| --- | --- | --- |
+| `GET    /api/v1/feature-flags`           | 任意已登录用户 | 当前用户的逐 flag 布尔评估 (`{flags: Record<string, boolean>}`) |
+| `GET    /api/v1/admin/feature-flags`     | admin | 所有 flag 行的原始定义 (含 description, percentageRollout) |
+| `POST   /api/v1/admin/feature-flags`     | admin | upsert (按 `key` 写入) |
+| `DELETE /api/v1/admin/feature-flags/{key}`| admin | 删除 |
+
+前端使用:
+
+- `frontend/src/stores/featureFlag.ts` — Pinia store,`load()` 启动时拉
+  用户 bootstrap 评估,`isEnabled(key)` 查单个 flag
+- `frontend/src/composables/useFeatureFlag.ts` — `useFeatureFlag(key)` 包
+  装 store,返回 `ComputedRef<boolean>`,在 template 里直接 `v-if`
+- `frontend/src/views/admin/FeatureFlagView.vue` — admin UI,`/admin/feature-flags`
+  路由 (`roles: ['admin']`)
+
+新增一个 flag 的标准流程:
+
+1. 后端 migration: `backend/migrations/<ts>_add_<flag_key>.sql`,在
+   `feature_flags` 表里 `INSERT` 一行 (或后端服务里通过
+   `services::feature_flag::upsert` 写)
+2. 跑 `npm run gen:api` 让 openapi 同步 (若改了响应结构)
+3. 前端组件: `import { useFeatureFlag } from '@/composables/useFeatureFlag'`
+   + `const enabled = useFeatureFlag('<flag_key>')` + `v-if="enabled"`
+4. 默认关闭 (closed-by-default) — `useFeatureFlag` 在未知 key 上返回
+   `false`,所以未 seed 的 flag 不会"误开"
+
+灰度 (percentage rollout / whitelist) 在后端 `services/feature_flag::evaluate_flag`
+里实现,前端只拿到布尔结果。Cache 失效由 `svc::upsert` / `svc::delete_flag`
+自动处理,无需前端配合。

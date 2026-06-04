@@ -4,6 +4,41 @@
  */
 
 export interface paths {
+    "/api/v1/admin/feature-flags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /api/v1/admin/feature-flags — list every defined flag row */
+        get: operations["feature_flags_admin_list"];
+        put?: never;
+        /** POST /api/v1/admin/feature-flags — admin create/update (upsert by key) */
+        post: operations["feature_flags_admin_upsert"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/feature-flags/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** DELETE /api/v1/admin/feature-flags/{key} — admin delete */
+        delete: operations["feature_flags_admin_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/audit-logs": {
         parameters: {
             query?: never;
@@ -126,6 +161,23 @@ export interface paths {
         put?: never;
         /** POST /api/v1/auth/register */
         post: operations["auth_register"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/feature-flags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /api/v1/feature-flags — per-user evaluation of every known flag */
+        get: operations["feature_flags_evaluate"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -336,6 +388,28 @@ export interface components {
          * @enum {string}
          */
         Exchange: "binance" | "okx" | "gate" | "bybit" | "huobi";
+        /** @description Wire shape for a feature flag row (admin UI + openapi-typescript consumer). camelCase on the wire via serde. */
+        FeatureFlag: {
+            /** Format: date-time */
+            createdAt: string;
+            description: string;
+            enabled: boolean;
+            key: string;
+            metadata: components["schemas"]["Value"];
+            /** Format: int32 */
+            percentageRollout: number;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: uuid */
+            updatedBy?: string | null;
+            userWhitelist: components["schemas"]["Value"];
+        };
+        /** @description Per-user boolean evaluation of every known flag (user bootstrap endpoint). */
+        FeatureFlagEvaluation: {
+            flags: {
+                [name: string]: boolean;
+            };
+        };
         /** @description Liveness response payload. */
         LivenessResponse: {
             status: string;
@@ -407,6 +481,16 @@ export interface components {
             /** Format: int64 */
             expires_in: number;
             refresh_token: string;
+        };
+        /** @description Request body for the admin upsert endpoint. Mirrors the DB model minus timestamps/updatedBy. */
+        UpsertFeatureFlagRequest: {
+            description: string;
+            enabled: boolean;
+            key: string;
+            metadata?: components["schemas"]["Value"];
+            /** Format: int32 */
+            percentageRollout: number;
+            userWhitelist?: components["schemas"]["Value"];
         };
         UserMeResponse: components["schemas"]["UserResponse"];
         UserResponse: {
@@ -675,6 +759,154 @@ export interface operations {
             };
             /** @description Username or email already exists */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    feature_flags_admin_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Flag primary key to delete */
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Admin only */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Flag with that key not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    feature_flags_admin_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description All defined feature flag rows */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeatureFlag"][];
+                };
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Admin only */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    feature_flags_admin_upsert: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertFeatureFlagRequest"];
+            };
+        };
+        responses: {
+            /** @description Persisted flag row */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeatureFlag"];
+                };
+            };
+            /** @description Validation error (key length, whitelist shape, ...) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Admin only */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    feature_flags_evaluate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Per-user boolean evaluation of every known flag */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeatureFlagEvaluation"];
+                };
+            };
+            /** @description Unauthenticated */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
