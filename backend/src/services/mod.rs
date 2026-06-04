@@ -31,6 +31,9 @@ pub mod notification;
 pub mod okx_rest;
 pub mod okx_signed_client;
 pub mod order_rate_limiter;
+pub mod pamm;
+#[cfg(test)]
+mod pamm_test;
 pub mod portfolio;
 pub mod position_alert_monitor;
 pub mod position_alert_service;

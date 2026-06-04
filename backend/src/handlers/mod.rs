@@ -17,6 +17,7 @@ pub mod market;
 pub mod metrics_handler;
 pub mod openapi;
 pub mod order;
+pub mod pamm;
 pub mod portfolio;
 pub mod position_alert;
 pub mod review;
