@@ -74,6 +74,8 @@ pub static CONFIG: LazyLock<Config> = LazyLock::new(Config::from_env);
         (name = "telegram",    description = "Telegram notification bind/test (P2-1)"),
         (name = "feature-flag", description = "Feature flag evaluation (user bootstrap) + admin CRUD"),
         (name = "export",      description = "CSV export for orders/trades/positions/account"),
+        (name = "pamm",        description = "PAMM (Percent Allocation Management Module) funds (P3-1)"),
+        (name = "copy-trading", description = "Copy trading: trader list, subscribe, on-order fan-out, profit shares (P6-2)"),
     ),
     paths(
         // ── system ──────────────────────────────────────────────────
@@ -111,6 +113,17 @@ pub static CONFIG: LazyLock<Config> = LazyLock::new(Config::from_env);
         handlers::pamm::distribute,
         handlers::pamm::liquidate,
         handlers::pamm::my_investments,
+        // ── copy-trading ──────────────────────────────────────────
+        handlers::copy_trading::list_traders,
+        handlers::copy_trading::get_trader,
+        handlers::copy_trading::register,
+        handlers::copy_trading::subscribe,
+        handlers::copy_trading::unsubscribe,
+        handlers::copy_trading::my_subscriptions,
+        handlers::copy_trading::my_trader,
+        handlers::copy_trading::trades,
+        handlers::copy_trading::profit_shares,
+        handlers::copy_trading::calculate_shares,
     ),
     components(schemas(
         // ── system (health) ────────────────────────────────────────
@@ -148,6 +161,26 @@ pub static CONFIG: LazyLock<Config> = LazyLock::new(Config::from_env);
         handlers::pamm::RedeemResponse,
         handlers::pamm::DistributeResponse,
         handlers::pamm::InvestmentsResponse,
+        // ── copy-trading ──────────────────────────────────────────
+        handlers::copy_trading::RegisterRequest,
+        handlers::copy_trading::SubscribeRequest,
+        handlers::copy_trading::UnsubscribeRequest,
+        handlers::copy_trading::CalculateSharesRequest,
+        handlers::copy_trading::ListTradersResponse,
+        handlers::copy_trading::RegisterResponse,
+        handlers::copy_trading::SubscribeResponse,
+        handlers::copy_trading::UnsubscribeResponse,
+        handlers::copy_trading::MySubscriptionsResponse,
+        handlers::copy_trading::MyTraderResponse,
+        handlers::copy_trading::TradesResponse,
+        handlers::copy_trading::ProfitSharesResponse,
+        handlers::copy_trading::CalculateSharesResponse,
+        // ── copy-trading (view DTOs from the service layer) ───────
+        crate::services::copy_trading::TraderView,
+        crate::services::copy_trading::SubscriptionView,
+        crate::services::copy_trading::CopyTradeView,
+        crate::services::copy_trading::ProfitShareView,
+        crate::services::copy_trading::FanOutSummary,
     )),
     modifiers(&SecurityAddon),
 )]

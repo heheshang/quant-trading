@@ -6,6 +6,7 @@ pub mod audit_log;
 pub mod auth;
 pub mod backtest;
 pub mod bracket;
+pub mod copy_trading;
 pub mod dashboard;
 pub mod exchange;
 pub mod export;

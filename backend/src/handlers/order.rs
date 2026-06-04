@@ -746,6 +746,27 @@ pub async fn create_order(
         .map_err(|e| AppError::Database(e.to_string()))?
         .ok_or_else(|| AppError::Internal("Order created but not found".to_string()))?;
 
+    // §6-2 Copy Trading: 下单后异步触发跟单 (fire-and-forget). The async
+    // task fans out to all active subscribers of this trader; the
+    // trader's own HTTP response is not blocked. Errors inside the
+    // task are logged but never propagated.
+    {
+        use crate::services::copy_trading::{spawn_on_trader_order, TraderOrderContext};
+        use rust_decimal::Decimal;
+        let ctx = TraderOrderContext {
+            order_id: order.id,
+            user_id: order.user_id,
+            symbol: order.symbol.clone(),
+            side: match order.side {
+                crate::db::order::OrderSide::Buy => "buy".to_string(),
+                crate::db::order::OrderSide::Sell => "sell".to_string(),
+            },
+            qty: Decimal::try_from(order.filled_quantity.max(order.quantity)).unwrap_or(Decimal::from(0)),
+            price: Decimal::try_from(order.avg_fill_price.unwrap_or(0.0)).unwrap_or(Decimal::from(0)),
+        };
+        spawn_on_trader_order(db.clone(), ctx);
+    }
+
     // P0-3: count limit-order creation
     crate::metrics::ORDERS_CREATED_TOTAL
         .with_label_values(&[order_side_str(&side), "limit", "local"])

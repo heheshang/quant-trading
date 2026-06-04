@@ -792,6 +792,18 @@ fn create_router(
         .merge(pamm_user_routes)
         .merge(pamm_manager_routes);
 
+    // §6-2 Copy Trading — user-facing sub-router. Auth required for all
+    // endpoints; manager-only actions (none in v0.1) would go in a
+    // separate sub-router with `require_admin_middleware` if/when
+    // added. Mirrors the PAMM user-router wiring pattern.
+    let copy_trading_routes = handlers::copy_trading::router()
+        .layer(middleware::from_fn(
+            quant_trading_backend::middleware::auth::auth_middleware,
+        ))
+        .with_state(app_state.db.clone());
+
+    app = app.merge(copy_trading_routes);
+
     // P2-1: Telegram notification routes (authenticated).
     // 中文：bind/test 都需要 `DbPool` 状态 + `TelegramChatIdCache` 与
     //   `AlertNotificationService` Extension；auth_middleware 在 router 之前套上。

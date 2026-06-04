@@ -10,6 +10,7 @@ pub mod backtest_metrics;
 pub mod binance_rest;
 pub mod binance_signer;
 pub mod bybit_rest;
+pub mod copy_trading;
 pub mod dashboard;
 pub mod exchange;
 pub mod feature_flag;
