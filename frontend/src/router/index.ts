@@ -177,6 +177,35 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/pamm/PammManagerDashboardView.vue'),
         meta: { requiresAuth: true, title: 'PAMM 经理面板', roles: ['admin'] },
       },
+      // §6-2 Copy Trading.
+      //   - /copy                : public list of active traders (any auth user)
+      //   - /copy/traders/:id    : trader detail + subscribe dialog
+      //   - /copy/my             : caller's active subscriptions + copied trades
+      //   - /copy/dashboard      : trader's own dashboard (any registered trader)
+      {
+        path: 'copy',
+        name: 'CopyTraderList',
+        component: () => import('@/views/copy/CopyTraderListView.vue'),
+        meta: { requiresAuth: true, title: '跟单交易' },
+      },
+      {
+        path: 'copy/traders/:id',
+        name: 'CopyTraderDetail',
+        component: () => import('@/views/copy/CopyTraderDetailView.vue'),
+        meta: { requiresAuth: true, title: '跟单交易员详情' },
+      },
+      {
+        path: 'copy/my',
+        name: 'MySubscriptions',
+        component: () => import('@/views/copy/MySubscriptionsView.vue'),
+        meta: { requiresAuth: true, title: '我的跟单' },
+      },
+      {
+        path: 'copy/dashboard',
+        name: 'CopyTraderDashboard',
+        component: () => import('@/views/copy/CopyTraderDashboardView.vue'),
+        meta: { requiresAuth: true, title: '跟单交易员面板' },
+      },
     ],
   },
   {

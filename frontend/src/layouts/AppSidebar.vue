@@ -22,6 +22,8 @@ const navItems: NavItem[] = [
   { icon: 'briefcase', label: '持仓', route: '/portfolio' },
   // §6-1: PAMM (Percent Allocation Management Module).
   { icon: 'coin', label: 'PAMM 基金', route: '/pamm' },
+  // §6-2: Copy Trading (trader list, subscribe, fan-out, profit share).
+  { icon: 'copy-document', label: '跟单交易', route: '/copy' },
   { icon: 'setting', label: '系统管理', route: '/admin' },
   { icon: 'operation', label: '策略审核', route: '/strategy-review' },
 ]
