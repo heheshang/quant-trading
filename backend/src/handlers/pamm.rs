@@ -392,12 +392,15 @@ pub async fn my_investments(
 
 // ─── Router factory ──────────────────────────────────────────────────
 
-/// Build the PAMM sub-router. The caller in `main.rs` layers
-/// `auth_middleware` so every route below is authenticated.
+/// Build the **user-facing** PAMM sub-router. The caller in `main.rs`
+/// layers `auth_middleware` (any authenticated user) on top.
 ///
-/// Manager-only checks (distribute / liquidate) are enforced inside
-/// the service layer; non-manager tokens get 403 there.
-pub fn router() -> Router<Arc<DatabaseConnection>> {
+/// Manager-only checks (distribute / liquidate) live in the manager
+/// sub-router; non-manager tokens get 403 there. `create_fund` is
+/// intentionally exposed here because any authenticated user can open a
+/// fund (they become its manager on creation); the service layer
+/// enforces that the caller == new manager.
+pub fn router_user() -> Router<Arc<DatabaseConnection>> {
     Router::new()
         .route("/pamm/funds", get(list_funds))
         .route("/pamm/funds", post(create_fund))
@@ -405,9 +408,20 @@ pub fn router() -> Router<Arc<DatabaseConnection>> {
         .route("/pamm/funds/{id}/investments", get(list_fund_investments))
         .route("/pamm/funds/{id}/subscribe", post(subscribe))
         .route("/pamm/funds/{id}/redeem", post(redeem))
+        .route("/pamm/my-investments", get(my_investments))
+}
+
+/// Build the **manager-only** PAMM sub-router. The caller in `main.rs`
+/// layers BOTH `auth_middleware` AND `require_admin_middleware` on top
+/// (admin role required to distribute / liquidate).
+///
+/// Defence in depth: the service layer also checks `f.manager_id ==
+/// user.user_id` and returns `PammError::NotManager` → 403, so even an
+/// admin token that doesn't own the fund is rejected by the handler.
+pub fn router_manager() -> Router<Arc<DatabaseConnection>> {
+    Router::new()
         .route("/pamm/funds/{id}/distribute", post(distribute))
         .route("/pamm/funds/{id}/liquidate", post(liquidate))
-        .route("/pamm/my-investments", get(my_investments))
 }
 
 // ─── Tests ──────────────────────────────────────────────────────────
@@ -417,10 +431,13 @@ mod tests {
     use super::*;
 
     /// `Router` builds without panicking; the surface is registered.
+    /// Both the user-facing and manager-only sub-routers should build.
     #[test]
     fn router_builds() {
-        let r = router();
+        let r = router_user();
         let _ = r.into_make_service();
+        let m = router_manager();
+        let _ = m.into_make_service();
     }
 
     /// The DTOs round-trip the expected fields. We test via JSON to

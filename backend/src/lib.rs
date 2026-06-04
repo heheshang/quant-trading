@@ -101,6 +101,16 @@ pub static CONFIG: LazyLock<Config> = LazyLock::new(Config::from_env);
         // ── audit ───────────────────────────────────────────────────
         handlers::audit_log::list_audit_logs,
         handlers::audit_log::get_audit_log,
+        // ── pamm ───────────────────────────────────────────────────
+        handlers::pamm::list_funds,
+        handlers::pamm::create_fund,
+        handlers::pamm::get_fund,
+        handlers::pamm::list_fund_investments,
+        handlers::pamm::subscribe,
+        handlers::pamm::redeem,
+        handlers::pamm::distribute,
+        handlers::pamm::liquidate,
+        handlers::pamm::my_investments,
     ),
     components(schemas(
         // ── system (health) ────────────────────────────────────────
@@ -127,6 +137,17 @@ pub static CONFIG: LazyLock<Config> = LazyLock::new(Config::from_env);
         handlers::feature_flag::UpsertFeatureFlagRequest,
         // ── audit ───────────────────────────────────────────────────
         crate::services::audit_log::AuditLogView,
+        // ── pamm ───────────────────────────────────────────────────
+        handlers::pamm::CreateFundRequest,
+        handlers::pamm::SubscribeRequest,
+        handlers::pamm::RedeemRequest,
+        handlers::pamm::DistributeRequest,
+        handlers::pamm::CreateFundResponse,
+        handlers::pamm::ListFundsResponse,
+        handlers::pamm::SubscribeResponse,
+        handlers::pamm::RedeemResponse,
+        handlers::pamm::DistributeResponse,
+        handlers::pamm::InvestmentsResponse,
     )),
     modifiers(&SecurityAddon),
 )]

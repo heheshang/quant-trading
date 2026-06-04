@@ -730,6 +730,41 @@ fn create_router(
         .nest("/api/v1/admin", admin_ip_routes)
         .nest("/api/v1", review_routes);
 
+    // §6-1 PAMM (Percent Allocation Management Module) closing.
+    //   - `pamm_user_routes`  : any authenticated user (list / detail /
+    //     subscribe / redeem / my-investments / create-fund). The
+    //     service layer enforces that only the fund's manager can
+    //     trigger distribute / liquidate; here we only gate auth.
+    //   - `pamm_manager_routes`: admin role required (the admin_only
+    //     middleware is layered AFTER auth so the role check sees the
+    //     same `AuthenticatedUser` shape). Even an admin token that
+    //     doesn't own the fund is rejected by the service layer
+    //     (PammError::NotManager → 403) — defence in depth.
+    let pamm_user_routes = handlers::pamm::router_user()
+        .layer(middleware::from_fn(
+            quant_trading_backend::middleware::auth::auth_middleware,
+        ))
+        .with_state(app_state.db.clone());
+
+    let pamm_manager_routes = handlers::pamm::router_manager()
+        .layer(middleware::from_fn(
+            quant_trading_backend::middleware::admin_only::require_admin_middleware,
+        ))
+        .layer(middleware::from_fn(
+            quant_trading_backend::middleware::auth::auth_middleware,
+        ))
+        .with_state(app_state.db.clone());
+
+    // P3-4: 审计日志查询端点（admin only）。restore
+    let audit_log_routes = handlers::audit_log::router()
+        .layer(middleware::from_fn(
+            quant_trading_backend::middleware::admin_only::require_admin_middleware,
+        ))
+        .layer(middleware::from_fn(
+            quant_trading_backend::middleware::auth::auth_middleware,
+        ))
+        .with_state(app_state.db.clone());
+
     let feature_flag_routes = handlers::feature_flag::router()
         .layer(middleware::from_fn(
             quant_trading_backend::middleware::auth::auth_middleware,
@@ -748,6 +783,14 @@ fn create_router(
         .merge(feature_flag_routes)
         // P3-5: admin CRUD endpoints (admin role required).
         .merge(feature_flag_admin_routes);
+
+    // §6-1 PAMM: merge the user-facing + manager-only sub-routers into
+    // the global `app`. Both have already been layered with their own
+    // auth middleware (manager router also has require_admin), so
+    // `merge` is enough — no extra layer needed here.
+    app = app
+        .merge(pamm_user_routes)
+        .merge(pamm_manager_routes);
 
     // P2-1: Telegram notification routes (authenticated).
     // 中文：bind/test 都需要 `DbPool` 状态 + `TelegramChatIdCache` 与
