@@ -42,6 +42,21 @@ export const useAuthStore = defineStore('auth', () => {
   const userRole = computed(() => user.value?.role || '')
   const userInitial = computed(() => user.value?.username?.charAt(0)?.toUpperCase() || 'U')
 
+  /**
+   * Current user's id (UUID, server-side). The `User` type in
+   * `types/index.ts` declares `id: number` (a pre-existing type bug
+   * — the backend's `UserResponse.id` is a `Uuid`), so we coerce to
+   * string here to keep the call sites safe regardless of the
+   * declared type.
+   */
+  const userId = computed<string | null>(() => {
+    const u = user.value as unknown as { id?: unknown } | null
+    if (!u) return null
+    if (typeof u.id === 'string') return u.id
+    if (u.id != null) return String(u.id)
+    return null
+  })
+
   function saveTokens(accessToken: string, refreshTokenStr: string) {
     token.value = accessToken
     refreshTokenVal.value = refreshTokenStr
@@ -122,6 +137,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     isAdmin,
     userRole,
+    userId,
     userInitial,
     login,
     register,

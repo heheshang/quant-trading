@@ -20,6 +20,8 @@ const navItems: NavItem[] = [
   { icon: 'odometer', label: '回测', route: '/backtest' },
   { icon: 'switch', label: '交易', route: '/trading' },
   { icon: 'briefcase', label: '持仓', route: '/portfolio' },
+  // §6-1: PAMM (Percent Allocation Management Module).
+  { icon: 'coin', label: 'PAMM 基金', route: '/pamm' },
   { icon: 'setting', label: '系统管理', route: '/admin' },
   { icon: 'operation', label: '策略审核', route: '/strategy-review' },
 ]

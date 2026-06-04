@@ -141,8 +141,8 @@ async function saveFlag(row: FlagRow, val: boolean): Promise<void> {
       key: row.key,
       description: row.description,
       enabled: val,
-      userWhitelist: row.userWhitelist ?? [],
-      percentageRollout: row.percentageRollout ?? 0,
+      user_whitelist: row.userWhitelist ?? [],
+      percentage_rollout: row.percentageRollout ?? 0,
       metadata: row.metadata ?? {},
     }
     const { data, error } = await typedApi.POST('/api/v1/admin/feature-flags', {

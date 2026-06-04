@@ -147,6 +147,36 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/strategy/StrategyReviewView.vue'),
         meta: { requiresAuth: true, title: '策略审核' },
       },
+      // §6-1 PAMM (Percent Allocation Management Module).
+      //   - /pamm                  : public list of active funds (any auth user)
+      //   - /pamm/funds/:id        : fund detail + subscribe / redeem / distribute
+      //   - /pamm/my               : caller's investments
+      //   - /pamm/manager          : manager dashboard (admin only — route
+      //                              guard re-checks role from auth store)
+      {
+        path: 'pamm',
+        name: 'PammFundList',
+        component: () => import('@/views/pamm/PammFundListView.vue'),
+        meta: { requiresAuth: true, title: 'PAMM 基金' },
+      },
+      {
+        path: 'pamm/funds/:id',
+        name: 'PammFundDetail',
+        component: () => import('@/views/pamm/PammFundDetailView.vue'),
+        meta: { requiresAuth: true, title: 'PAMM 基金详情' },
+      },
+      {
+        path: 'pamm/my',
+        name: 'PammMyInvestments',
+        component: () => import('@/views/pamm/PammMyInvestmentsView.vue'),
+        meta: { requiresAuth: true, title: '我的 PAMM 投资' },
+      },
+      {
+        path: 'pamm/manager',
+        name: 'PammManagerDashboard',
+        component: () => import('@/views/pamm/PammManagerDashboardView.vue'),
+        meta: { requiresAuth: true, title: 'PAMM 经理面板', roles: ['admin'] },
+      },
     ],
   },
   {
