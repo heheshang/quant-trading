@@ -13,6 +13,7 @@ pub mod kline;
 pub mod kline_backup;
 pub mod model_versions;
 pub mod order;
+pub mod pamm;
 pub mod permission;
 pub mod portfolio;
 pub mod position_alerts;
@@ -716,6 +717,35 @@ pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), sea_orm::DbEr
     ] {
         db.execute(sea_orm::Statement::from_string(
             backend,
+            ddl.to_string(),
+        ))
+        .await?;
+    }
+
+    // P6-1: PAMM (Percent Allocation Management Module) — five tables
+    // (funds / investments / profit_distributions / subscriptions /
+    // redemptions). The DDL lives in
+    // `migrations/20260603150000_create_pamm_tables.sql` for SQL-only
+    // migration tools; here we re-execute the same DDL via the
+    // `create_table_from_entity` builder so dev / test runs without
+    // a migration tool still get the tables. Both paths are
+    // idempotent (CREATE TABLE IF NOT EXISTS) and produce the same
+    // schema — including the CHECK constraints, which SeaORM's
+    // `create_table_from_entity` does not currently emit, so the
+    // pure-SeaORM DDL would lose the fee/status bounds. Therefore
+    // we rely on the migration SQL: detect & skip if the table
+    // already exists.
+    for ddl in include_str!("../../migrations/20260603150000_create_pamm_tables.sql")
+        .split(';')
+        .map(str::trim)
+        .filter(|s| !s.is_empty() && !s.starts_with("--"))
+    {
+        // Skip empty / pure-comment chunks that survive the split.
+        if ddl.is_empty() {
+            continue;
+        }
+        db.execute(sea_orm::Statement::from_string(
+            sea_orm::DatabaseBackend::Postgres,
             ddl.to_string(),
         ))
         .await?;
