@@ -36,6 +36,18 @@
       </div>
     </div>
 
+    <!-- Feature-flag-driven banners. Live in their own block so the
+         header layout stays untouched. v-if keeps the DOM empty when the
+         flag is off (or not yet loaded). -->
+    <div v-if="icebergEnabled" class="ff-banner ff-banner--info">
+      <span class="ff-banner__icon">🧊</span>
+      <span>Iceberg orders are <strong>enabled</strong> for your account.</span>
+    </div>
+    <div v-if="advancedOrdersEnabled" class="ff-banner ff-banner--success">
+      <span class="ff-banner__icon">✨</span>
+      <span>Advanced order types (bracket, trailing stop) are <strong>enabled</strong> for you.</span>
+    </div>
+
     <!-- Three-column layout -->
     <div class="trading-body">
       <!-- Left: Chart Area -->
@@ -172,6 +184,7 @@ import { queryKlines } from '@/api/kline'
 import { getMa, getMacd, getKdj, getRsi, getBollinger, getEma, getAtr, getStochastic } from '@/api/indicator'
 import { KLINE_INTERVALS } from '@/types/kline'
 import { useTradingStore } from '@/stores/trading'
+import { useFeatureFlag } from '@/composables/useFeatureFlag'
 
 const selectedSymbol = ref('BTC/USDT')
 const symbolConfigs = ref<SymbolConfig[]>([])
@@ -224,6 +237,12 @@ const tradesLoading = ref(false)
 
 // WebSocket status
 const tradingStore = useTradingStore()
+
+// Feature flags (per-user evaluation, hydrated by the store on app start).
+// These re-evaluate reactively when the admin toggles a flag and the user
+// reloads — see stores/featureFlag.ts.
+const icebergEnabled = useFeatureFlag('iceberg_order')
+const advancedOrdersEnabled = useFeatureFlag('advanced_orders')
 
 // Computed
 const symbolList = computed(() =>
@@ -682,6 +701,33 @@ body {
   animation: fadeIn var(--transition-base);
   font-family: 'Work Sans', sans-serif;
   overflow: hidden;
+}
+
+// Feature-flag banners. Sits between the header and the trading body
+// without affecting either layout. Two color variants so we can hint at
+// different flag categories.
+.ff-banner {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 20px;
+  font-size: 13px;
+  border-bottom: 1px solid $color-border;
+}
+
+.ff-banner--info {
+  background: rgba(64, 158, 255, 0.08);
+  color: #9ecbff;
+}
+
+.ff-banner--success {
+  background: rgba(103, 194, 58, 0.08);
+  color: #95d475;
+}
+
+.ff-banner__icon {
+  font-size: 16px;
 }
 
 .trading-header {

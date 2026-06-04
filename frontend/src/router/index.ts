@@ -130,6 +130,12 @@ const routes: RouteRecordRaw[] = [
         meta: { requiresAuth: true, title: '系统管理' },
       },
       {
+        path: 'admin/feature-flags',
+        name: 'AdminFeatureFlags',
+        component: () => import('@/views/admin/FeatureFlagView.vue'),
+        meta: { requiresAuth: true, title: 'Feature Flags', roles: ['admin'] },
+      },
+      {
         path: 'api-keys',
         name: 'ApiKeyManagement',
         component: () => import('@/views/ApiKeyManagementView.vue'),
